@@ -21,3 +21,5 @@ target
 *.zip
 *.tar.gz
 *.rar
+
+/打包目录/

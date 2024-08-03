@@ -44,6 +44,12 @@ WebSSH 是一个轻量级的开源ssh工具，只需安装在服务端，就可�
 ## 使用
 开启后在浏览器中打开 http://localhost:9092/webssh/page/index.html，即可使用 WebSSH。
 
+## 发行版使用
+- linux使用client.sh，windows使用run.bat，mac使用client-mac.sh
+- webssh.zip 需要安装jdk
+- webssh_win64.zip 内置Windows JDK，解压即用，运行run.bat
+- webssh_mac64.zip 内置MAC jdk，解压即用，运行run.bat
+
 ## 后续迭代方向
 
 - Go版本

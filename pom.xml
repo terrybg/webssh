@@ -12,6 +12,8 @@
         <java.version>1.8</java.version>
         <hutool.version>5.8.18</hutool.version>
         <lombok.version>1.18.26</lombok.version>
+        <target.path>./打包目录/webssh</target.path>
+        <target.libpath>./打包目录/webssh/lib</target.libpath>
     </properties>
     <modelVersion>4.0.0</modelVersion>
 
@@ -60,4 +62,107 @@
             <version>1.1.1</version>
         </dependency>
     </dependencies>
+    <profiles>
+        <!-- 发行版本打包 -->
+        <profile>
+            <id>pro package</id>
+            <build>
+                <finalName>${project.name}</finalName>
+                <plugins>
+                    <!--设置启动主函数和源代码-->
+                    <plugin>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-maven-plugin</artifactId>
+                        <configuration>
+                            <includeSystemScope>true</includeSystemScope>
+                            <outputDirectory>${target.path}</outputDirectory>
+                            <layout>ZIP</layout>
+                            <includes>
+                                <include>
+                                    <groupId>nothing</groupId>
+                                    <artifactId>nothing</artifactId>
+                                </include>
+                            </includes>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>repackage</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!--拷贝外部jar到lib-->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-dependency-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>copy-dependencies</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>copy-dependencies</goal>
+                                </goals>
+                                <configuration>
+                                    <outputDirectory>${target.libpath}</outputDirectory>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!--拷贝脚本-->
+                    <plugin>
+                        <artifactId>maven-resources-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>copy-resources</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <configuration>
+                                    <!--资源文件输出目录 -->
+                                    <outputDirectory>${target.path}</outputDirectory>
+                                    <resources>
+                                        <resource>
+                                            <directory>${project.basedir}/bin/</directory>
+                                            <filtering>true</filtering>
+                                            <includes>
+                                                <include>**/*.bat</include>
+                                                <include>**/*.sh</include>
+                                                <include>**/Dockerfile*</include>
+                                            </includes>
+                                        </resource>
+                                    </resources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!-- 拷贝资源文件 外面的resource目录-->
+                    <plugin>
+                        <artifactId>maven-resources-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>copy-dependencies</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>copy-resources</goal>
+                                </goals>
+                                <configuration>
+                                    <!-- 资源文件输出目录 -->
+                                    <outputDirectory>${target.path}</outputDirectory>
+                                    <resources>
+                                        <!-- 业务配置 -->
+                                        <resource>
+                                            <directory>src/main/resources</directory>
+                                        </resource>
+                                    </resources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
 </project>
