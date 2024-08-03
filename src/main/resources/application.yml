@@ -1,0 +1,20 @@
+spring:
+  servlet:
+    multipart:
+      max-file-size: 10GB
+      max-request-size: 10GB
+#  resources:
+#    static-locations: file:D:\code\my\lowcode\server\uploads
+  mvc:
+    view:
+      prefix: /webssh/
+      suffix: .html
+  devtools:
+    restart:
+      exclude: classpath:/static/**
+server:
+  servlet:
+    context-path: /
+  port: 9092
+  tomcat:
+    max-http-form-post-size: 10GB

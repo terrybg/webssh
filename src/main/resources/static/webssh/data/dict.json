@@ -1,0 +1,116 @@
+{
+  "status": 200,
+  "message": "成功！",
+  "result": [
+    {
+      "id": 19,
+      "name": "后台启动jar命令",
+      "value": "nohup java -jar xxx.jar &",
+      "type": null,
+      "grade": null,
+      "sort": null,
+      "pid": 18,
+      "imgUrl": null,
+      "createTime": "2022-10-19 13:12:59"
+    },
+    {
+      "id": 20,
+      "name": "查看文件（显示行）",
+      "value": "cat -n nohup.out",
+      "type": null,
+      "grade": null,
+      "sort": null,
+      "pid": 18,
+      "imgUrl": null,
+      "createTime": "2022-10-19 13:15:24"
+    },
+    {
+      "id": 21,
+      "name": "实时查看文件",
+      "value": "tail -20f xxx.log",
+      "type": null,
+      "grade": null,
+      "sort": null,
+      "pid": 18,
+      "imgUrl": null,
+      "createTime": "2022-10-19 13:17:32"
+    },
+    {
+      "id": 22,
+      "name": "查看进程的运行命令",
+      "value": "ps -ef | grep frp",
+      "type": null,
+      "grade": null,
+      "sort": null,
+      "pid": 18,
+      "imgUrl": null,
+      "createTime": "2022-10-19 13:18:15"
+    },
+    {
+      "id": 23,
+      "name": "查看全部端口占用",
+      "value": "netstat -tulpn",
+      "type": null,
+      "grade": null,
+      "sort": null,
+      "pid": 18,
+      "imgUrl": null,
+      "createTime": "2022-10-19 13:18:47"
+    },
+    {
+      "id": 24,
+      "name": "查询指定端口的占用情况",
+      "value": "netstat -tulpn |grep 9200",
+      "type": null,
+      "grade": null,
+      "sort": null,
+      "pid": 18,
+      "imgUrl": null,
+      "createTime": "2022-10-19 13:19:13"
+    },
+    {
+      "id": 25,
+      "name": "查看进程运行目录",
+      "value": "ll /proc/PID",
+      "type": null,
+      "grade": null,
+      "sort": null,
+      "pid": 18,
+      "imgUrl": null,
+      "createTime": "2022-10-19 13:19:32"
+    },
+    {
+      "id": 26,
+      "name": "top命令（CPU排名排序）",
+      "value": "top -P",
+      "type": null,
+      "grade": null,
+      "sort": null,
+      "pid": 18,
+      "imgUrl": null,
+      "createTime": "2022-10-19 13:20:38"
+    },
+    {
+      "id": 27,
+      "name": "top命令（内存排名排序）",
+      "value": "top -M",
+      "type": null,
+      "grade": null,
+      "sort": null,
+      "pid": 18,
+      "imgUrl": null,
+      "createTime": "2022-10-19 13:21:25"
+    },
+    {
+      "id": 28,
+      "name": "查看文件占用大小",
+      "value": "du -sh /*",
+      "type": null,
+      "grade": null,
+      "sort": null,
+      "pid": 18,
+      "imgUrl": null,
+      "createTime": "2022-10-19 13:22:04"
+    }
+  ]
+}

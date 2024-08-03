@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Resizable iframes</title>
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  <style>
+      #container {
+          display: flex;
+          height: 100vh;
+      }
+      #left, #right {
+          width: 50%;
+          float: left;
+          overflow: hidden;
+      }
+      .ui-resizable-e{
+          width: 40px;
+          background: red;
+      }
+  </style>
+</head>
+<body>
+
+<div id="container">
+  <div id="left">
+    <iframe src="sftp.html" style="width: calc(100% - 40px)"></iframe>
+  </div>
+  <div id="right">
+    <iframe src="ssh.html"></iframe>
+  </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+<script>
+  $(function() {
+    $("#left").resizable({
+      handles: "e",
+      resize: function(event, ui) {
+        var leftWidth = ui.size.width;
+        $("#right").width($("#container").width() - leftWidth);
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

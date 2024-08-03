@@ -1,37 +1,50 @@
 # webssh
 
-#### 介绍
-开源的web ssh
+## 介绍
+WebSSH 是一个轻量级的开源ssh工具，只需安装在服务端，就可以通过浏览器访问SSH和FTP。它支持文件和日志高亮显示，Vim 和 Top 命令，实时查看日志，并且操作体验与标准的 Shell 基本相同。WebSSH 支持多会话、文件上传下载、编码切换（GBK、UTF-8），以及自定义快捷键。您可以通过 Starter 方式将其集成到 Spring Boot 项目中，或通过内部的 Iframe 集成到您的项目中。
 
-#### 软件架构
-软件架构说明
+## 技术
+- Java
+- Spring Boot
+- WebSocket
+- HTML
+- xterm.js
+
+## 特性
+
+- 浏览器内 SSH 和 FTP 访问
+- 支持文件和日志高亮显示
+- 支持 Vim 和 Top 命令
+- 实时查看日志
+- 支持多会话
+- 文件上传下载功能
+- 支持编码切换（GBK、UTF-8）
+- 自定义快捷键
+
+## 项目功能
+
+登录webssh
+
+![image-20240803153618165](img/image-20240803153618165.png)
+
+查看文件 以及命令行
+
+![image-20240803154706137](img/image-20240803154706137.png)
+
+上传服务器文件，下载文件
+
+![image-20240803154738778](img/image-20240803154738778.png)
+
+快捷键
+
+![image-20240803154929156](img/image-20240803154929156.png)
 
 
-#### 安装教程
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+## 使用
+开启后在浏览器中打开 http://localhost:9092/webssh/page/index.html，即可使用 WebSSH。
 
-#### 使用说明
+## 后续迭代方向
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
-
-#### 参与贡献
-
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
-
-
-#### 特技
-
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+- Go版本
+- 前端改造成Vue3 + Vite

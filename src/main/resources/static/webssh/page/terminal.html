@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>控制台</title>
+    <link rel="stylesheet" href="../css/xterm2.css" />
+    <link rel="stylesheet" href="../js/bootstrap/bootstrap.min.css"/>
+    <link rel="stylesheet" href="../iconfont/iconfont.css">
+    <style>
+        /*body{position: relative;background-color: #000}*/
+        html{height: 100%;}
+        body{height: 100%;background: #000;overflow: hidden;}
+        .bg-dark{color: #FFF}
+        #load .modal-content{background: #000;color: #FFF}
+        .tools{
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            z-index:100;
+            width: 300px;
+            padding: 20px;
+            /*backdrop-filter: blur(5px);*/
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .tools{font-size: 12px;color: rgb(197,197,197)}
+        .tool-list > div:hover{color:rgb(60,126,255)}
+        .tool-title{font-size: 16px;color: rgba(255,255,255,0.9);}
+        .iconfont{    font-size: 16px;}
+        .tool-item{cursor: pointer;
+            display: inline-block;
+            width: 42px;
+            height: 42px;
+            margin-bottom: 4px;
+            line-height: 42px;
+            border-radius: 4px;
+            background-color: #000;}
+        #shortcut{overflow-y: scroll;height: 300px}
+        ::-webkit-scrollbar {width : 7px;}
+        /*!* 滚动条里面滑块 *!*/
+        ::-webkit-scrollbar-thumb {border-radius: 7px;background: #3f3f3f;}
+        /*!*滚动条里面轨道*!*/
+        ::-webkit-scrollbar-track {border-radius: 7px;box-shadow: inset 0 0 1px rgba(0, 0, 0, 0.2);background: #000;}
+    </style>
+</head>
+<body>
+<div id="terminal" style="width: 100%;height: 100%;"></div>
+<script src="../js/common.js"></script>
+<script src="../js/jquery-3.4.1.min.js"></script>
+<script src="../js/xterm2.js" charset="utf-8"></script>
+<script src="../js/xterm-addon-fit.js" charset="utf-8"></script>
+<script src="../js/bootstrap/popper.min.js" charset="utf-8"></script>
+<script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
+<script src="../js/websocket.js" charset="utf-8"></script>
+<script src="../js/terminal.js" charset="utf-8"></script>
+</body>
+</html>

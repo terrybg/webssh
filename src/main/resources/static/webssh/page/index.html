@@ -1,0 +1,262 @@
+<!doctype html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Terry WebSSH</title>
+    <!-- Bootstrap 的 CSS 文件 -->
+    <link rel="stylesheet" href="../js/bootstrap/bootstrap.min.css"/>
+    <link rel="stylesheet" href="../css/index.css"/>
+    <link rel="shortcut icon" href="../image/logo.png" />
+    <link rel="stylesheet" href="../iconfont/iconfont.css">
+    <!-- 图标库： https://icons.bootcss.com/ -->
+    <link rel="stylesheet" href="../font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <style>
+        .shell-tab-pane>div{
+            float: left;
+            height: 100%;
+        }
+        .move-bar {
+            background: #000;
+            width: 10px;
+            height: 100%;
+            cursor: e-resize;
+        }
+        .leftDiv{
+            min-width: 300px;
+            max-width: calc(100% - 500px);
+        }
+        .resizable-iframe{
+            width: 100%;
+            height: 100%;
+        }
+        .shell-tab-pane iframe {
+            border: 0px solid #ccc;
+        }
+        body{
+            min-width: 800px;
+        }
+    </style>
+</head>
+<body>
+<!-- 导航 -->
+<div class="row bg-dark nav-top">
+    <div class="col-sm">
+        <ul class="nav mr-auto"><!--
+                <li class="nav-item">
+                    <img src="../image/logo.png" width="40" height="40" class="d-inline-block logo mx-1" alt="">
+                    <span class="navbar-brand mb-0 h1 station-name">远程调试</span>
+                </li>-->
+        </ul>
+    </div>
+    <div class="col-sm">
+    </div>
+</div>
+<div  class="tab-content" style="height: calc(100% - 0px);">
+    <div class="tab-pane fade active show top-tab-pane" route="remote-shell">
+        <ul class="nav nav-tabs remote-tabs">
+            <li class="nav-item">
+                <a class="nav-link shell-menu active" route="1">
+                    <span class="iconfont icon-cloudshellyunminglinghang"></span>
+                    <span class="remote-tab-title">会话</span>
+                    <span class="iconfont icon-shanchu2 m-lg-2 shell-remove"></span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link shell-add">
+                    <span class="iconfont icon-tianjia"></span>新建会话
+                </a>
+            </li>
+        </ul>
+        <div class="tab-pane fade active show shell-tab-pane" route="1" style="height: calc(100% - 40px)" style="">
+            <div class="leftDiv" style="width: 30%">
+                <iframe class="resizable-iframe leftFrame" src=""></iframe>
+            </div>
+            <div class="move-bar"></div>
+            <div class="rightDiv" style="width: calc(70% - 10px)">
+                <iframe class="resizable-iframe rightFrame" src=""></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 登录 -->
+<!-- 弹出框内容 -->
+<div class="modal fade" id="myModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">登录信息</h5>
+            </div>
+            <!-- 加载指示器 -->
+            <div id="loadingIndicator" style="display: none; text-align: center;">
+                <p>登录中...</p>
+            </div>
+            <div class="modal-body">
+                <form id="loginForm">
+                    <div class="mb-3">
+                        <label for="ip" class="form-label">IP 地址:</label>
+                        <input type="text" class="form-control" id="ip" name="ip" value="127.0.0.1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="userName" class="form-label">用户名:</label>
+                        <input type="text" class="form-control" id="userName" name="userName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">密码:</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="port" class="form-label">端口:</label>
+                        <input type="text" class="form-control" id="port" name="port" value="22" required>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="rememberMe" checked>
+                        <label class="form-check-label" for="rememberMe">记住密码</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="submitBtn">提交</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="../js/common.js"></script>
+<script src="../js/jquery-3.4.1.min.js"></script>
+<script src="../js/jquery-ui.js"></script>
+<script src="../js/bootstrap/popper.min.js" charset="utf-8"></script>
+<script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
+<script src="../js/index.js" charset="utf-8"></script>
+<script>
+    function loadSsh(){
+        var leftDeferred = $.Deferred();
+        var rightDeferred = $.Deferred();
+        $('.tab-pane.show .leftFrame').attr('src', 'sftp.html').on('load', function() {
+            leftDeferred.resolve();
+        });
+        $('.tab-pane.show .rightFrame').attr('src', 'ssh.html').on('load', function() {
+            rightDeferred.resolve();
+        });
+        // 等待两个iframe都加载完成
+        $.when(leftDeferred, rightDeferred).done(function() {
+            var moveFlag = false; //是否拖动标志
+            //监听鼠标拖拽拖动条事件
+            $(document).on('mousedown', function(e) {
+                //当鼠标点击到拖动条上时,移动鼠标即可拖拽
+                let left = $(e.target).offset().left - $(".tab-pane.show .move-bar").offset().left;
+                if (left == 0) {
+                    moveFlag = true;
+                }
+            });
+            $(".tab-pane.show .leftFrame,.tab-pane.show .rightFrame").contents().add(document).on('mouseup', function(event) {
+                moveFlag = false;
+            });
+            $(document).on('mousemove', function(e) {
+                if (moveFlag) {
+                    reloadIframeWidth(e.pageX)
+                }
+                /*if (e.clientX < 0 || e.clientY < 0 || e.clientX > window.innerWidth || e.clientY > window.innerHeight) {
+                    console.log('鼠标已经移出屏幕！');
+                    moveFlag = false;
+                }*/
+                return false;
+            });
+        });
+    }
+    reloadIframeWidth($(window).width() / 100 * 30);
+    window.onresize = function(){
+        reloadIframeWidth($(".tab-pane.show .leftDiv").width());
+    }
+    function reloadIframeWidth(leftWidth){
+        var clientWidth = $(window).width();
+        var minWidth = 300, maxMathWidth = 500, moveWidth = 10;
+        // 最小宽
+        if(leftWidth < minWidth){
+            leftWidth = minWidth;//按钮+标题栏+分页栏高度
+        }
+        // 最大宽
+        var maxWidth = $(window).width() - maxMathWidth;
+        if(leftWidth > maxWidth){
+            leftWidth = maxWidth;
+        }
+        // var leftDivPercent = ((leftWidth) / clientWidth) * 100;
+        // var rightDivPercent = ((totalWidth - leftWidth) / clientWidth) * 100;
+        $(".tab-pane.show .leftDiv").width(leftWidth);
+        var rightWidth = "calc(100% - " + leftWidth + "px - " + moveWidth + "px)";
+        $(".tab-pane.show .rightDiv").width(rightWidth);
+    }
+    $(function () {
+        // 校验是否登录
+        $("#port").val(port);
+        if (tagId) {
+            $.ajax({
+                url: `${baseUrl}/checkLogin?tagId=` + tagId,
+                type: 'GET',
+                dataType: 'JSON',
+                success: function (res) {
+                    if (res.status === 500) {
+                        $('#myModal').modal('show');
+                    } else {
+                        loadSsh();
+                    }
+                },
+                error: function (res) {
+                    $('#myModal').modal('show');
+                }
+            });
+        } else {
+            // 登录
+            $('#myModal').modal('show');
+        }
+        // 回车触发提交
+        $('input').on('keyup', function(event) {
+            if (event.keyCode === 13 || event.key === "Enter") {
+                submit();
+            }
+        });
+        function submit() {
+            var formData = $('#loginForm').serialize();
+            // 验证表单字段是否填写
+            if ($('#loginForm')[0].checkValidity()) {
+                // 禁用提交按钮
+                $('#submitBtn').prop('disabled', true);
+                // 显示加载指示器
+                $('#loadingIndicator').show();
+                $.ajax({
+                    url: `${baseUrl}/loginSsh`,
+                    type: 'POST',
+                    dataType: 'JSON',
+                    data: formData,
+                    // contentType: 'application/json',
+                    success: function (res) {
+                        if (res.status === 500) {
+                            alert(res.message);
+                        } else {
+                            window.localStorage.setItem("tagId" + port, res.result);
+                            $('#myModal').modal('hide');
+                            loadSsh();
+                        }
+                    },
+                    error: function (res) {
+                        $('#myModal').modal('show');
+                        alert('登录失败！');
+                    },
+                    complete: function() {
+                        // 恢复提交按钮状态
+                        $('#submitBtn').prop('disabled', false);
+                        // 隐藏加载指示器
+                        $('#loadingIndicator').hide();
+                    }
+                });
+            } else {
+                // 如果有未填写的字段，显示验证错误提示
+                $('#loginForm')[0].classList.add('was-validated');
+            }
+        }
+        $('#submitBtn').on('click', function() {
+            submit();
+        });
+    });
+</script>
+</body>
+</html>

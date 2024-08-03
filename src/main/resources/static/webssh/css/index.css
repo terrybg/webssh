@@ -1,0 +1,47 @@
+html{height: 100%;}
+body{height: 100%;background: #000;overflow: hidden;}
+.nav-top .nav{padding: 0px 10px;}
+.nav-top .nav li{line-height: 55px}
+.nav-top .nav li image{ margin-top: 13px;}
+.nav-top .nav li button{ margin-top: 13px;}
+.logo{border-radius: 7px;}
+.bg-dark{color: #FFF}
+a {color: #FFF;}
+.nav-tabs {border-bottom: 0px solid #dee2e6;}
+.nav-tabs .nav-item{position: relative;cursor: pointer;}
+.nav-tabs .nav-link{border-width: 0px;}
+.nav-tabs .nav-link:focus, .nav-tabs .nav-link:hover{color: rgb(60,126,255);}
+.nav-tabs .nav-item.show .nav-link, .nav-tabs .nav-link.active {color: rgb(60,126,255);background-color: #2e2e30;border: 0px solid #dee2e6;}
+.nav-tabs .nav-item.show .nav-link, .nav-tabs .nav-link.active:after {
+    position: absolute;
+    right: 0px;
+    bottom: 0px;
+    left: 0px;
+    width: 100%;
+    height: 3px;
+    background-color: rgb(60,126,255);
+    content:" ";
+}
+.iconfont{font-size: 18px;margin-right: 5px;}
+.remote-tabs{border: 1px solid}
+.tab-pane{height: 100%;}
+.icon-shanchu2:hover{background: #000;border-radius: 10px;}
+
+
+.shell-tab-pane {
+    /*display: grid;
+    grid-template-columns: 30% 70%;*/
+}
+/*.shell-tab-pane .leftFrame {
+    min-width: 300px;
+    max-width: calc(100% - 500px);
+    resize: horizontal;
+}*/
+/*
+.shell-tab-pane iframe {
+    float: left;
+    !*flex: 1;*!
+    border: 0px solid #ccc;
+    width: 100%; !* 初始宽度为100% *!
+    height: 100%; !* 初始高度为100% *!
+}*/
