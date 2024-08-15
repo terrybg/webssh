@@ -38,6 +38,8 @@ public class TerminalService extends RemoteWebSocketHandler {
     // 最大 100个回话，会话共用，key(IP:端口号)
     public static FIFOCache<String, SSHConnectInfo> webSshMap = CacheUtil.newFIFOCache(100);
 
+    private static String charsetName = StandardCharsets.UTF_8.name();
+
     /**
      * 初始化连接
      * @param session
@@ -64,16 +66,27 @@ public class TerminalService extends RemoteWebSocketHandler {
     public void recvHandle(String buffer, WebSocketSession session) {
         WebSSHData webSSHData = JSONUtil.toBean(buffer, WebSSHData.class);
         if (ConstantPool.WEBSSH_OPERATE_COMMAND.equals(webSSHData.getOperate())) {
-            String command = webSSHData.getCommand();
+            //String command = webSSHData.getCommand();
             BufferedReader stdInput = null;
             BufferedReader stdError = null;
             try {
-                // 以Runtime执行命令
-                Process process = Runtime.getRuntime().exec(command);
-                String charsetName = StandardCharsets.UTF_8.name();
+                String commandPrefix = "";
+                String type = "";
                 if (SystemUtil.getOsInfo().isWindows()) {
-                    charsetName = "GBK";
+                    commandPrefix = "cmd.exe";
+                    type = "/c";
                 }
+                if (SystemUtil.getOsInfo().isLinux()) {
+                    commandPrefix = "/bin/sh";
+                    type = "-c";
+                }
+                // 以Runtime执行命令
+                String[] command = {
+                        commandPrefix,
+                        type,
+                        webSSHData.getCommand()
+                };
+                Process process = Runtime.getRuntime().exec(command);
 
                 // 用于读取标准输出流
                 stdInput = new BufferedReader(new InputStreamReader(process.getInputStream(), charsetName));
@@ -110,6 +123,8 @@ public class TerminalService extends RemoteWebSocketHandler {
                     e.printStackTrace();
                 }
             }
+        } else if (ConstantPool.WEBSSH_OPERATE_ENCODED.equals(webSSHData.getOperate())) {
+            charsetName = webSSHData.getCommand();
         }
         return;
     }
