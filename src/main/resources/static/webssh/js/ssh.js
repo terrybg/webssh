@@ -1,4 +1,5 @@
 let client = new WSSHClient();
+let xtermTheme = localStorage.getItem('xtermTheme') || 'dark';
 let term = new Terminal({
     // 计算屏幕高度动态rows
     // rows: 30,
@@ -12,7 +13,8 @@ let term = new Terminal({
     scrollback: 1200,
     //制表宽度
     tabStopWidth: 8,
-    screenKeys: true
+    screenKeys: true,
+    theme: getColor(xtermTheme)
 });
 // 修改terminal的高度为body的高度
 /*document.getElementById('terminal').style.height = window.innerHeight + 'px';
@@ -102,7 +104,7 @@ function openTerminal() {
             term.write('   \\ `\\___x___/\\ \\____\\\\ \\_,__/ \\ `\\____\\ `\\____\\ \\_\\ \\_\\\r\n');
             term.write('    \'\\/__//__/  \\/____/ \\/___/   \\/_____/\\/_____/\\/_/\\/_/\r\n');
             term.write('\x1b[0m\r\n');
-            term.write('\t\t\x1b[31mWelcome Terry Web SSH\x1b[0m\r\n');
+            term.write('\t\t\x1b[31mWelcome 远程调试 终端\x1b[0m\r\n');
 
         },
         onClose: function () {
@@ -132,4 +134,31 @@ function setEncode(encode){
 function logout(){
     window.localStorage.setItem("tagId" + port, null);
     parent.location.reload();
+}
+// 切换主题
+// let theme = 'dark';
+function setTheme(theme){
+    localStorage.setItem('xtermTheme', theme);
+    term.setOption('theme', getColor(theme))
+    openTerminal();
+}
+
+function getColor(theme){
+    if (theme === 'blue') {
+        // 更改终端主题
+        return {background: '#012b58'}
+    } else if (theme === 'dark') {
+        return {background: '#000'}
+    } else if (theme === 'white') {
+        return {
+            foreground: '#333333',  // 深灰色字体
+            background: '#FFFFFF',  // 白色背景
+            cursor: '#007BFF',      // 蓝色光标
+            selection: '#CCCCCC',   // 浅灰色选中背景
+        };
+    } else if (theme === 'green') {
+        return {
+            background: '#006400',  // 白色背景
+        };
+    }
 }
