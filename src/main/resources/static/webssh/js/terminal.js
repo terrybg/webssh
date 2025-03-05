@@ -1,22 +1,38 @@
-let client = new WSSHClient(termUrl);
-let term = new Terminal({
-    cursorBlink: true,
-    cursorStyle: "block",
-    scrollback: 1200,
-    tabStopWidth: 8,
-    screenKeys: true
-});
-var fitAddon=new window.FitAddon.FitAddon();
-term.loadAddon(fitAddon);
-term.open(document.getElementById('terminal'));
-fitAddon.fit();
+// 获取当前 iframe 的 DOM 元素
+let client, term, fitAddon;
+loadTermx(function () {
+    console.log("显示！")
+    client = new WSSHClient(termUrl);
+    term = new Terminal({
+        cursorBlink: true,
+        cursorStyle: "block",
+        scrollback: 1200,
+        tabStopWidth: 8,
+        screenKeys: true
+    });
+    fitAddon=new window.FitAddon.FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(document.getElementById('terminal'));
+    fitAddon.fit();
 // term.write('Hello Remote Shell...');
 //reloadTerm();
-window.onresize = function(){
-    fitAddon.fit();
-    // 获取浏览器窗口的宽度和高度
-    // reloadTerm();
-}
+    window.onresize = function(){
+        fitAddon.fit();
+        // 获取浏览器窗口的宽度和高度
+        // reloadTerm();
+    }
+    term.onData(function (data) {
+        // 键盘输入时的回调函数
+        // fitAddon.fit();
+        // client.send({"operate": "command", "tagId": tagId, "command": data});
+    });
+
+    $(function (){
+        openTerminal();
+    })
+})
+
+
 function reloadTerm(){
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight;
@@ -27,14 +43,6 @@ function reloadTerm(){
     const rows = Math.floor(screenHeight / cellHeight);
     term.resize(cols, rows);
 }
-term.onData(function (data) {
-    // 键盘输入时的回调函数
-    // fitAddon.fit();
-    // client.send({"operate": "command", "tagId": tagId, "command": data});
-});
-$(function (){
-    openTerminal();
-})
 function reload(){
     openTerminal();
 }
