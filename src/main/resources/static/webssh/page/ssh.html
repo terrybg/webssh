@@ -120,8 +120,13 @@
     </div>
     <div class="collapse" id="collapseExample">
         <div class="card card-body bg-dark">
-            <ul class="list-group" id="shortcut">
-            </ul>
+            <input id="shortcutSearch" class="form-control form-control-sm mb-2" placeholder="搜索命令">
+            <select id="shortcutFilter" class="form-control form-control-sm mb-2">
+              <option value="all">全部</option>
+              <option value="global">通用命令</option>
+              <option value="session">本机常用</option>
+            </select>
+            <ul class="list-group" id="shortcut"></ul>
         </div>
     </div>
 </div>

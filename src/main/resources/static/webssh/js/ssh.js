@@ -48,24 +48,59 @@ term.onData(function (data) {
     // fitAddon.fit();
     client.send({"operate": "command", "tagId": tagId, "command": data});
 });
+let shortcutData = { global: [], session: [] };
+
+function loadShortcuts() {
+    const url = sessionId
+        ? `${baseUrl}/commands/for-session/${encodeURIComponent(sessionId)}`
+        : `${baseUrl}/commands?scope=global`;
+    $.get(url, function (res) {
+        if (res.status !== 200) return;
+        if (sessionId) {
+            const result = res.result || {};
+            shortcutData = {
+                global: Array.isArray(result.global) ? result.global : [],
+                session: Array.isArray(result.session) ? result.session : []
+            };
+        } else {
+            const list = Array.isArray(res.result) ? res.result : [];
+            shortcutData = { global: list, session: [] };
+        }
+        renderShortcuts();
+    });
+}
+
+function renderShortcuts() {
+    const q = ($('#shortcutSearch').val() || '').toLowerCase();
+    const filter = $('#shortcutFilter').val();
+    let rows = [];
+    if (filter !== 'session') {
+        rows = rows.concat(shortcutData.global.map(i => Object.assign({}, i, { source: 'global' })));
+    }
+    if (filter !== 'global') {
+        rows = rows.concat(shortcutData.session.map(i => Object.assign({}, i, { source: 'session' })));
+    }
+    rows = rows.filter(i =>
+        !q ||
+        (i.name || '').toLowerCase().includes(q) ||
+        (i.value || '').toLowerCase().includes(q)
+    );
+    $('#shortcut').empty();
+    rows.forEach(item => {
+        const tag = item.source === 'global' ? '通用' : '本机';
+        $(`<li class="list-group-item bg-dark" data-key="${item.value}">[${tag}] ${item.name}<br>${item.value}</li>`)
+            .appendTo('#shortcut')
+            .click(function () {
+                term.paste($(this).attr('data-key'));
+            });
+    });
+}
+
 $(function (){
     openTerminal();
-    // 查询快捷键
-    $.ajax({
-        url: `../data/dict.json`,
-        type: 'GET',
-        contentType: 'application/json;charset=UTF-8',
-        dataType: 'JSON',
-        success: function (res) {
-            res.result.forEach(item => {
-                $(`<li class="list-group-item bg-dark" data-key="${item.value}">${item.name}<br>${item.value}</li>`).appendTo('#shortcut').click(function (){
-                    // 换行并输入起始符“$”
-                    // term.focus();
-                    term.paste($(this).attr('data-key'));
-                });
-            })
-        }
-    });
+    loadShortcuts();
+    $('#shortcutSearch').on('input', renderShortcuts);
+    $('#shortcutFilter').on('change', renderShortcuts);
 })
 function reload(){
     openTerminal();
