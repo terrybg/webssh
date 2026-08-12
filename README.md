@@ -44,6 +44,15 @@ WebSSH 是一个轻量级的开源ssh工具，只需安装在服务端，就可�
 ## 使用
 开启后在浏览器中打开 http://localhost:9092/webssh/page/index.html，即可使用 WebSSH。
 
+开发运行：`mvn spring-boot:run`（默认端口 9092）。
+
+## 会话与命令
+
+- 首页为会话列表；数据文件：`data/sessions.json`、`data/commands.json`
+- 首次启动将 `static/webssh/data/dict.json` 导入为通用命令
+- 控制页快捷键支持搜索与「全部/通用/本机」过滤
+- 注意：会话密码明文存储在 JSON 中，勿公网裸奔
+
 ## 发行版使用
 - linux使用client.sh，windows使用run.bat，mac使用client-mac.sh
 - webssh.zip 需要安装jdk
