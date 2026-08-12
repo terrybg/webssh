@@ -7,6 +7,8 @@ import com.jcraft.jsch.Session;
 import lombok.Data;
 import org.springframework.web.socket.WebSocketSession;
 
+import java.io.BufferedReader;
+
 /**
  * ssh连接信息
  * @version 1.0
@@ -35,4 +37,9 @@ public class SSHConnectInfo {
      */
     private String encoded;
     private Sftp sftp;
+
+    // terminal相关
+    BufferedReader stdInput;
+    BufferedReader stdError;
+    Process process;
 }

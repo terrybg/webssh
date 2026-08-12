@@ -50,6 +50,7 @@ public abstract class RemoteWebSocketHandler implements WebSocketHandler {
     @Override
     public void handleTransportError(WebSocketSession webSocketSession, Throwable throwable) {
         log.error("数据传输错误");
+        close(webSocketSession);
     }
 
     /**
@@ -59,7 +60,7 @@ public abstract class RemoteWebSocketHandler implements WebSocketHandler {
      */
     @Override
     public void afterConnectionClosed(WebSocketSession webSocketSession, CloseStatus closeStatus) {
-        // 调用service关闭连接
+        log.info("close方法");
         close(webSocketSession);
     }
 

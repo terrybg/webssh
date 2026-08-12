@@ -13,7 +13,10 @@ start () {
 	echo "........................Here is the log.............................."
 	echo "....................................................................."
 	echo "........................Start successfully??........................."
-	tail -200f $LOG_PATh
+  tail -200f $LOG_PATH
+  # 等待一段时间后终止 tail 进程，防止crontab堆积tail进程
+  sleep 60
+  ps -ef | grep "tail -200f $LOG_PATH" | grep -v grep | awk '{print $2}' | xargs kill -9
 }
 stop () {
 	echo "Service ${JAR_NAME} is already running,it's pid = ${pid}"

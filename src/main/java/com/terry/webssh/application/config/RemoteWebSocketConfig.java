@@ -1,5 +1,6 @@
 package com.terry.webssh.application.config;
 
+import com.terry.webssh.application.pojo.SSHConnectInfo;
 import com.terry.webssh.application.service.TerminalService;
 import com.terry.webssh.application.constant.ConstantPool;
 import com.terry.webssh.application.service.WebSSHService;
@@ -17,6 +18,7 @@ import org.springframework.web.socket.server.HandshakeInterceptor;
 import javax.annotation.Resource;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * websocket 配置
@@ -32,6 +34,7 @@ public class RemoteWebSocketConfig implements WebSocketConfigurer {
     public RemoteWebSocketConfig(){
         log.info("开启websocket");
     }
+    public static Map<String, SSHConnectInfo> sshMap = new ConcurrentHashMap<>();
 
     @Resource
     WebSSHService webSSHService;
@@ -75,11 +78,9 @@ public class RemoteWebSocketConfig implements WebSocketConfigurer {
             return false;
         }
 
-        @Override
-        public void afterHandshake(ServerHttpRequest serverHttpRequest,
-                                   ServerHttpResponse serverHttpResponse, WebSocketHandler webSocketHandler, Exception e) {
 
+        @Override
+        public void afterHandshake(ServerHttpRequest serverHttpRequest, ServerHttpResponse serverHttpResponse, WebSocketHandler webSocketHandler, Exception e) {
         }
     }
-
 }

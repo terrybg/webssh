@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>iframe 隐藏显示示例</title>
+  <style>
+      /* 给 iframe 设置统一尺寸 */
+      iframe {
+          width: 100%;
+          height: 500px;
+          border: 1px solid #ccc;
+          margin-top: 20px;
+      }
+  </style>
+</head>
+<body>
+<h1>iframe 隐藏显示示例</h1>
+<div>
+  <button onclick="showIframe('iframe1')">显示 1</button>
+  <button onclick="showIframe('iframe2')">显示 2</button>
+  <button onclick="showIframe('iframe3')">显示 3</button>
+</div>
+<!-- 放置3个 iframe，初始时全部隐藏 -->
+<div id="iframeContainer">
+  <iframe id="iframe1" src="terminal.html" style="display: none"></iframe>
+  <iframe id="iframe2" src="terminal.html" style="display: none"></iframe>
+  <iframe id="iframe3" src="terminal.html" style="display: none"></iframe>
+</div>
+
+<script>
+  function showIframe(id) {
+    // 先将所有 iframe 隐藏
+    var iframes = document.querySelectorAll("#iframeContainer iframe");
+    iframes.forEach(function(iframe) {
+      iframe.style.display = "none";
+    });
+    // 仅显示指定 id 的 iframe
+    var target = document.getElementById(id);
+    if (target) {
+      target.style.display = "block";
+    }
+  }
+</script>
+</body>
+</html>
