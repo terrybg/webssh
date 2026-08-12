@@ -75,6 +75,19 @@
             text-align: center;
             padding-top: 40vh;
         }
+        #commandModal .command-value {
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-size: 0.875rem;
+        }
+        #commandModal .command-actions .btn {
+            margin: 2px 2px;
+        }
+        #commandEmptyState {
+            padding: 16px 8px;
+            text-align: center;
+            color: #6c757d;
+        }
     </style>
 </head>
 <body>
@@ -186,6 +199,51 @@
     </div>
 </div>
 
+<!-- 通用 / 会话常用命令 -->
+<div class="modal fade" id="commandModal" tabindex="-1" aria-labelledby="commandModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="commandModalTitle">通用命令</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="commandEmptyState" style="display: none;">暂无命令，请在下方添加</div>
+                <table class="table table-sm table-hover" id="commandTable" style="display: none;">
+                    <thead>
+                    <tr>
+                        <th style="width: 22%;">名称</th>
+                        <th>命令内容</th>
+                        <th style="width: 140px;">操作</th>
+                    </tr>
+                    </thead>
+                    <tbody id="commandTableBody"></tbody>
+                </table>
+                <hr>
+                <h6 id="commandFormTitle">添加命令</h6>
+                <form id="commandForm" novalidate>
+                    <input type="hidden" id="commandId" value="">
+                    <div class="mb-3">
+                        <label for="commandName" class="form-label">名称</label>
+                        <input type="text" class="form-control" id="commandName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="commandValue" class="form-label">命令内容</label>
+                        <textarea class="form-control" id="commandValue" name="value" rows="3" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="commandResetBtn">重置表单</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" id="commandSubmitBtn">添加</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- 全局加载（Task 5 远程连接可用） -->
 <div id="loadingIndicator">
     <p>连接中...</p>
@@ -198,6 +256,7 @@
 <script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
 <script src="../js/index.js" charset="utf-8"></script>
 <script src="../js/sessions.js" charset="utf-8"></script>
+<script src="../js/commands-ui.js" charset="utf-8"></script>
 <script>
     function loadSsh(){
         var leftDeferred = $.Deferred();

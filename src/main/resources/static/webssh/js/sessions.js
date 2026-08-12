@@ -1,6 +1,6 @@
 /**
  * Homepage session list CRUD (Task 3).
- * Stubs for 通用命令 / 常用命令 (Task 4) and 远程 (Task 5).
+ * Wires 通用命令 / 常用命令 to commands-ui (Task 4); stub for 远程 (Task 5).
  */
 (function ($) {
   'use strict';
@@ -173,14 +173,28 @@
       });
   }
 
-  // Task 4 stub
   function openGlobalCommands() {
-    console.log('TODO Task 4: open global commands');
+    if (typeof window.openCommandManager !== 'function') {
+      alert('命令管理未加载');
+      return;
+    }
+    window.openCommandManager({ scope: 'global', title: '通用命令' });
   }
 
-  // Task 4 stub
   function openSessionCommands(session) {
-    console.log('TODO Task 4: open session commands', session && session.id);
+    if (!session || !session.id) {
+      return;
+    }
+    if (typeof window.openCommandManager !== 'function') {
+      alert('命令管理未加载');
+      return;
+    }
+    var name = session.name || session.id;
+    window.openCommandManager({
+      scope: 'session',
+      sessionId: session.id,
+      title: name + ' 常用命令'
+    });
   }
 
   // Task 5 stub
