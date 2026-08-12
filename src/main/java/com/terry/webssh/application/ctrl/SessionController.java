@@ -2,6 +2,7 @@ package com.terry.webssh.application.ctrl;
 
 import com.terry.webssh.application.pojo.SessionConfig;
 import com.terry.webssh.application.pojo.StatusContent;
+import com.terry.webssh.application.store.CommandRepository;
 import com.terry.webssh.application.store.SessionRepository;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,9 +14,11 @@ import java.util.Map;
 @CrossOrigin
 public class SessionController {
     private final SessionRepository repo;
+    private final CommandRepository commandRepository;
 
-    public SessionController(SessionRepository repo) {
+    public SessionController(SessionRepository repo, CommandRepository commandRepository) {
         this.repo = repo;
+        this.commandRepository = commandRepository;
     }
 
     @GetMapping
@@ -49,6 +52,7 @@ public class SessionController {
         if (!removed) {
             return StatusContent.error("session not found");
         }
+        commandRepository.deleteBySessionId(id);
         return StatusContent.ok("成功！", true);
     }
 }
