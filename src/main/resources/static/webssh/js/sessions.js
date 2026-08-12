@@ -197,9 +197,59 @@
     });
   }
 
-  // Task 5 stub
+  function workspaceIframeQuery() {
+    var sid = window.currentSessionId || '';
+    var p = window.currentSessionPort != null ? window.currentSessionPort : 22;
+    return '?sessionId=' + encodeURIComponent(sid) + '&port=' + encodeURIComponent(p);
+  }
+
+  function showWorkspace(session) {
+    $('#sessionListView').hide();
+    $('#workspaceView').show();
+    if (session && session.name && typeof window.changeTabTitle === 'function') {
+      window.changeTabTitle('shell', session.name);
+    }
+    if (typeof window.loadSsh === 'function') {
+      window.loadSsh(workspaceIframeQuery());
+    }
+  }
+
+  function showSessionList() {
+    $('#workspaceView').hide();
+    $('#sessionListView').show();
+  }
+
+  function connectSession(session) {
+    if (!session) {
+      return;
+    }
+    $('#loadingIndicator').show();
+    $.post(baseUrl + '/loginSsh', {
+      ip: session.ip,
+      userName: session.userName,
+      password: session.password,
+      port: session.port
+    })
+      .done(function (res) {
+        if (res.status !== 200) {
+          alert(res.message || '登录失败');
+          return;
+        }
+        window.localStorage.setItem('tagId' + session.port, res.result);
+        window.currentSessionId = session.id;
+        window.currentSessionPort = session.port;
+        showWorkspace(session);
+      })
+      .fail(function () {
+        alert('登录失败');
+      })
+      .always(function () {
+        $('#loadingIndicator').hide();
+      });
+  }
+
   function connectRemote(session) {
-    console.log('TODO Task 5: connect remote', session && session.id);
+    connectSession(session);
   }
 
   $(function () {
@@ -207,6 +257,7 @@
 
     $('#btnAddSession').on('click', openAddModal);
     $('#btnGlobalCommands').on('click', openGlobalCommands);
+    $('#btnBackToSessions').on('click', showSessionList);
     $('#sessionSubmitBtn').on('click', saveSession);
 
     $('#sessionForm').on('keydown', 'input', function (event) {
@@ -246,5 +297,9 @@
   window.loadSessions = loadSessions;
   window.openGlobalCommands = openGlobalCommands;
   window.openSessionCommands = openSessionCommands;
+  window.connectSession = connectSession;
   window.connectRemote = connectRemote;
+  window.showWorkspace = showWorkspace;
+  window.showSessionList = showSessionList;
+  window.workspaceIframeQuery = workspaceIframeQuery;
 })(jQuery);

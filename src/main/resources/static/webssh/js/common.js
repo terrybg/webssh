@@ -10,16 +10,30 @@ function getUrlParameter(name) {
   var results = regex.exec(location.search);
   return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
 }
+
+function getQueryParam(name) {
+  const u = new URL(window.location.href);
+  return u.searchParams.get(name);
+}
+
 var port = getUrlParameter('port') || 22;
 try {
   // 检查是否不是在 'index.html' 页面上
   if (location.href.indexOf('index.html') === -1) {
-    port = parent.getUrlParameter && parent.getUrlParameter('port') || 22;
+    // Prefer iframe query, then parent session context, then parent URL
+    port = getUrlParameter('port')
+      || (window.parent && window.parent.currentSessionPort != null && window.parent.currentSessionPort)
+      || (parent.getUrlParameter && parent.getUrlParameter('port'))
+      || 22;
   }
 } catch (e) {
-  port = 22; // 确保在跨域时 port 为 22
+  port = getUrlParameter('port') || 22; // 确保在跨域时回退到自身 query / 22
 }
 let tagId = window.localStorage.getItem("tagId" + port);
+
+let sessionId = getQueryParam('sessionId')
+  || (window.parent && window.parent.currentSessionId)
+  || null;
 
 function monitorElementVisibility(element, onVisibleCallback, onHideCallback) {
   console.info('进来了');

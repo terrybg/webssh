@@ -24,14 +24,17 @@ $(function(){
         </li>
     `);
     if (type === 'shell') {
+      var q = typeof window.workspaceIframeQuery === 'function'
+        ? window.workspaceIframeQuery()
+        : '';
       $(`.top-tab-pane[route=remote-${type}]`).append(`
         <div class="tab-pane fade active show shell-tab-pane" route="${id}" style="height: calc(100% - 40px)" style="">
             <div class="leftDiv" style="width: 30%">
-                <iframe class="resizable-iframe leftFrame" src="sftp.html"></iframe>
+                <iframe class="resizable-iframe leftFrame" src="sftp.html${q}"></iframe>
             </div>
             <div class="move-bar"></div>
             <div class="rightDiv" style="width: calc(70% - 10px)">
-                <iframe class="resizable-iframe rightFrame"  src="ssh.html"></iframe>
+                <iframe class="resizable-iframe rightFrame"  src="ssh.html${q}"></iframe>
             </div>
         </div>
     `);

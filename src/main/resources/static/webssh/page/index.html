@@ -120,8 +120,9 @@
 <!-- 远程工作区（Task 5 切换显示；默认隐藏） -->
 <div id="workspaceView" style="display: none;">
     <!-- 导航 -->
-    <div class="row bg-dark nav-top">
-        <div class="col-sm">
+    <div class="row bg-dark nav-top m-0">
+        <div class="col-sm d-flex align-items-center">
+            <button type="button" class="btn btn-outline-light btn-sm" id="btnBackToSessions">返回会话列表</button>
             <ul class="nav mr-auto"></ul>
         </div>
         <div class="col-sm">
@@ -258,13 +259,19 @@
 <script src="../js/sessions.js" charset="utf-8"></script>
 <script src="../js/commands-ui.js" charset="utf-8"></script>
 <script>
-    function loadSsh(){
+    function loadSsh(query){
+        var q = query;
+        if (q == null || q === '') {
+            q = typeof window.workspaceIframeQuery === 'function'
+                ? window.workspaceIframeQuery()
+                : '';
+        }
         var leftDeferred = $.Deferred();
         var rightDeferred = $.Deferred();
-        $('.tab-pane.show .leftFrame').attr('src', 'sftp.html').on('load', function() {
+        $('.tab-pane.show .leftFrame').attr('src', 'sftp.html' + q).one('load', function() {
             leftDeferred.resolve();
         });
-        $('.tab-pane.show .rightFrame').attr('src', 'ssh.html').on('load', function() {
+        $('.tab-pane.show .rightFrame').attr('src', 'ssh.html' + q).one('load', function() {
             rightDeferred.resolve();
         });
         // 等待两个iframe都加载完成
