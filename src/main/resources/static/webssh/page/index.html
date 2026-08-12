@@ -259,6 +259,30 @@
 <script src="../js/sessions.js" charset="utf-8"></script>
 <script src="../js/commands-ui.js" charset="utf-8"></script>
 <script>
+    // Document-level resize-bar handlers bind once (not inside loadSsh) so
+    // 远程→返回→远程 does not stack mousemove/mousedown/mouseup listeners.
+    var moveFlag = false;
+    $(document).on('mousedown.movebar', function(e) {
+        var $bar = $(".tab-pane.show .move-bar");
+        if (!$bar.length || !$(e.target).offset()) {
+            return;
+        }
+        // 当鼠标点击到拖动条上时,移动鼠标即可拖拽
+        var left = $(e.target).offset().left - $bar.offset().left;
+        if (left == 0) {
+            moveFlag = true;
+        }
+    });
+    $(document).on('mouseup.movebar', function() {
+        moveFlag = false;
+    });
+    $(document).on('mousemove.movebar', function(e) {
+        if (moveFlag) {
+            reloadIframeWidth(e.pageX);
+        }
+        return false;
+    });
+
     function loadSsh(query){
         var q = query;
         if (q == null || q === '') {
@@ -274,26 +298,13 @@
         $('.tab-pane.show .rightFrame').attr('src', 'ssh.html' + q).one('load', function() {
             rightDeferred.resolve();
         });
-        // 等待两个iframe都加载完成
+        // iframe documents are new each connect; rebind mouseup so drag ends over panes
         $.when(leftDeferred, rightDeferred).done(function() {
-            var moveFlag = false; //是否拖动标志
-            //监听鼠标拖拽拖动条事件
-            $(document).on('mousedown', function(e) {
-                //当鼠标点击到拖动条上时,移动鼠标即可拖拽
-                let left = $(e.target).offset().left - $(".tab-pane.show .move-bar").offset().left;
-                if (left == 0) {
-                    moveFlag = true;
-                }
-            });
-            $(".tab-pane.show .leftFrame,.tab-pane.show .rightFrame").contents().add(document).on('mouseup', function(event) {
-                moveFlag = false;
-            });
-            $(document).on('mousemove', function(e) {
-                if (moveFlag) {
-                    reloadIframeWidth(e.pageX)
-                }
-                return false;
-            });
+            $(".tab-pane.show .leftFrame,.tab-pane.show .rightFrame").contents()
+                .off('mouseup.movebar')
+                .on('mouseup.movebar', function() {
+                    moveFlag = false;
+                });
         });
     }
     reloadIframeWidth($(window).width() / 100 * 30);
