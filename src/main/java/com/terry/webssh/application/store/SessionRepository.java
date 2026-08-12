@@ -13,6 +13,7 @@ import java.util.UUID;
 
 @Component
 public class SessionRepository {
+    private final Object lock = new Object();
     private final JsonFileStore store;
 
     public SessionRepository() {
@@ -24,50 +25,60 @@ public class SessionRepository {
     }
 
     public List<SessionConfig> list() {
-        return new ArrayList<>(load().getItems());
+        synchronized (lock) {
+            return new ArrayList<>(load().getItems());
+        }
     }
 
     public SessionConfig get(String id) {
-        for (SessionConfig item : load().getItems()) {
-            if (id != null && id.equals(item.getId())) {
-                return item;
+        synchronized (lock) {
+            for (SessionConfig item : load().getItems()) {
+                if (id != null && id.equals(item.getId())) {
+                    return item;
+                }
             }
+            return null;
         }
-        return null;
     }
 
     public SessionConfig create(SessionConfig config) {
-        validate(config);
-        SessionStoreData data = load();
-        config.setId(UUID.randomUUID().toString());
-        config.setUpdatedAt(System.currentTimeMillis());
-        data.getItems().add(config);
-        store.write(data);
-        return config;
+        synchronized (lock) {
+            validate(config);
+            SessionStoreData data = load();
+            config.setId(UUID.randomUUID().toString());
+            config.setUpdatedAt(System.currentTimeMillis());
+            data.getItems().add(config);
+            store.write(data);
+            return config;
+        }
     }
 
     public SessionConfig update(String id, SessionConfig config) {
-        validate(config);
-        SessionStoreData data = load();
-        for (int i = 0; i < data.getItems().size(); i++) {
-            if (id != null && id.equals(data.getItems().get(i).getId())) {
-                config.setId(id);
-                config.setUpdatedAt(System.currentTimeMillis());
-                data.getItems().set(i, config);
-                store.write(data);
-                return config;
+        synchronized (lock) {
+            validate(config);
+            SessionStoreData data = load();
+            for (int i = 0; i < data.getItems().size(); i++) {
+                if (id != null && id.equals(data.getItems().get(i).getId())) {
+                    config.setId(id);
+                    config.setUpdatedAt(System.currentTimeMillis());
+                    data.getItems().set(i, config);
+                    store.write(data);
+                    return config;
+                }
             }
+            throw new IllegalArgumentException("session not found: " + id);
         }
-        throw new IllegalArgumentException("session not found: " + id);
     }
 
     public boolean delete(String id) {
-        SessionStoreData data = load();
-        boolean removed = data.getItems().removeIf(item -> id != null && id.equals(item.getId()));
-        if (removed) {
-            store.write(data);
+        synchronized (lock) {
+            SessionStoreData data = load();
+            boolean removed = data.getItems().removeIf(item -> id != null && id.equals(item.getId()));
+            if (removed) {
+                store.write(data);
+            }
+            return removed;
         }
-        return removed;
     }
 
     private SessionStoreData load() {
