@@ -2,6 +2,8 @@
  * Session tabs: fixed "会话列表" + dynamic remote panes.
  * No "新建会话" button — remotes are opened from the list.
  */
+var remoteTabSeq = 0;
+
 $(function () {
   $('.remote-tabs').on('click', '.shell-menu', function (e) {
     if ($(e.target).hasClass('shell-remove')) {
@@ -86,7 +88,8 @@ function ensureRemoteTab(session, options) {
     }
   }
 
-  var route = 's' + Date.now() + Math.floor(Math.random() * 1000);
+  remoteTabSeq += 1;
+  var route = 's' + Date.now() + '-' + remoteTabSeq;
   // 记录“最近一个”路由，供列表点「远程」复用；复制会话会再开新 Tab
   window.openSessionTabs[sid] = route;
   var title = session.name || '会话';

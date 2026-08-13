@@ -219,6 +219,8 @@ var CmdSuggest = (function () {
 
     function handleArrow(delta, raw) {
         if (!visible || !candidates.length) {
+            // Shell history / cursor nav — drop stale buffer so Enter won't collect it
+            resetBuffer();
             send(raw);
             return;
         }
@@ -265,25 +267,19 @@ var CmdSuggest = (function () {
             send(data);
             return;
         }
-        if (data && data.charCodeAt(0) === 0x1b) {
-            hideSuggest();
+        // CSI / other ESC sequences (arrows when not handled, home/end/delete, etc.):
+        // reset buffer so history navigation cannot leave stale text for Enter collect
+        if (data && (data.indexOf('\x1b[') === 0 || data.charCodeAt(0) === 0x1b)) {
+            resetBuffer();
             send(data);
             return;
         }
-        // Multi-line paste: buffer may contain \n; Enter segments trigger collect path
+        // Multi-line paste: one send + one collect (backend truncates by collectLines)
         if (data.indexOf('\r') !== -1 || data.indexOf('\n') !== -1) {
-            var parts = data.split(/(\r\n|\r|\n)/);
-            for (var i = 0; i < parts.length; i++) {
-                var part = parts[i];
-                if (!part) {
-                    continue;
-                }
-                if (part === '\r' || part === '\n' || part === '\r\n') {
-                    handleEnter(part === '\r\n' ? '\r' : part);
-                } else {
-                    appendPrintable(part);
-                }
-            }
+            var toCollect = buffer ? (buffer + data) : data;
+            send(data);
+            resetBuffer();
+            collectText(toCollect);
             return;
         }
         appendPrintable(data);

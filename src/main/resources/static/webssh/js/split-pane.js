@@ -69,8 +69,8 @@
       return;
     }
 
-    var offset = $activePane.offset();
-    paneLeft = offset.left;
+    var el = $activePane[0];
+    paneLeft = el.getBoundingClientRect().left;
     paneWidth = $activePane.outerWidth();
     dragging = true;
     $('body').addClass('split-dragging');

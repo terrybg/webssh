@@ -94,6 +94,25 @@ class CommandRepositoryTest {
     }
 
     @Test
+    void saveSettingsRejectsInvalidCollectLimitAndLines(@TempDir Path temp) {
+        CommandRepository repo = new CommandRepository(temp.resolve("commands.json"), null);
+        SessionCommandSettings s = repo.getSettings("sid");
+
+        s.setCollectLimit(0);
+        assertThrows(IllegalArgumentException.class, () -> repo.saveSettings("sid", s));
+
+        s.setCollectLimit(1001);
+        assertThrows(IllegalArgumentException.class, () -> repo.saveSettings("sid", s));
+
+        s.setCollectLimit(10);
+        s.setCollectLines(0);
+        assertThrows(IllegalArgumentException.class, () -> repo.saveSettings("sid", s));
+
+        s.setCollectLines(51);
+        assertThrows(IllegalArgumentException.class, () -> repo.saveSettings("sid", s));
+    }
+
+    @Test
     void deleteBySessionIdClearsSettings(@TempDir Path temp) {
         CommandRepository repo = new CommandRepository(temp.resolve("commands.json"), null);
         SessionCommandSettings s = repo.getSettings("sid");

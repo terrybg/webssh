@@ -152,6 +152,15 @@ if (typeof CmdSuggest !== 'undefined') {
         loadCommandData: loadShortcuts,
         getCommandData: function () { return shortcutData; }
     });
+} else {
+    // Fallback: keep keyboard → SSH path when cmd-suggest.js is missing
+    term.onData(function (data) {
+        client.send({
+            operate: 'command',
+            tagId: tagId,
+            command: data
+        });
+    });
 }
 
 $(function (){
