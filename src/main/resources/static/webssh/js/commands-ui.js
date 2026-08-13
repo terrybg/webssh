@@ -193,6 +193,7 @@
 
   function hideSettingsBar() {
     $('#commandSettingsBar').hide();
+    fillSettingsForm(null);
   }
 
   function loadSettings() {
@@ -201,6 +202,9 @@
       return;
     }
     $('#commandSettingsBar').show();
+    fillSettingsForm(null);
+    var $btn = $('#cmdSettingsSaveBtn');
+    $btn.prop('disabled', true);
     $.get(baseUrl + '/commands/settings?sessionId=' + encodeURIComponent(currentSessionId))
       .done(function (res) {
         if (res.status !== 200) {
@@ -213,6 +217,9 @@
       .fail(function () {
         alert('加载设置失败');
         fillSettingsForm(null);
+      })
+      .always(function () {
+        $btn.prop('disabled', false);
       });
   }
 
