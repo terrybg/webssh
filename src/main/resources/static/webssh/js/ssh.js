@@ -25,11 +25,19 @@ term.open(document.getElementById('terminal'));*/
 var fitAddon=new window.FitAddon.FitAddon();
 term.loadAddon(fitAddon);
 term.open(document.getElementById('terminal'));
-fitAddon.fit();
+try {
+    fitAddon.fit();
+} catch (e) {
+    console.warn('fitAddon.fit failed', e);
+}
 // term.write('Hello Remote Shell...');
 //reloadTerm();
 window.onresize = function(){
-    fitAddon.fit();
+    try {
+        fitAddon.fit();
+    } catch (e) {
+        console.warn('fitAddon.fit failed', e);
+    }
     // 获取浏览器窗口的宽度和高度
     // reloadTerm();
 }
@@ -43,64 +51,125 @@ function reloadTerm(){
     const rows = Math.floor(screenHeight / cellHeight);
     term.resize(cols, rows);
 }
-term.onData(function (data) {
-    // 键盘输入时的回调函数
-    // fitAddon.fit();
-    client.send({"operate": "command", "tagId": tagId, "command": data});
-});
 let shortcutData = { global: [], session: [] };
 
-function loadShortcuts() {
-    const url = sessionId
-        ? `${baseUrl}/commands/for-session/${encodeURIComponent(sessionId)}`
-        : `${baseUrl}/commands?scope=global`;
-    $.get(url, function (res) {
-        if (res.status !== 200) return;
-        if (sessionId) {
-            const result = res.result || {};
-            shortcutData = {
-                global: Array.isArray(result.global) ? result.global : [],
-                session: Array.isArray(result.session) ? result.session : []
-            };
-        } else {
-            const list = Array.isArray(res.result) ? res.result : [];
-            shortcutData = { global: list, session: [] };
+function escapeShortcutHtml(value) {
+    return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function resolveSessionId() {
+    try {
+        var fromQuery = typeof getQueryParam === 'function' ? getQueryParam('sessionId') : null;
+        if (fromQuery) {
+            return fromQuery;
         }
-        renderShortcuts();
-    });
+    } catch (e) { /* ignore */ }
+    try {
+        if (window.parent && window.parent !== window && window.parent.currentSessionId) {
+            return window.parent.currentSessionId;
+        }
+    } catch (e2) { /* ignore */ }
+    return typeof sessionId !== 'undefined' && sessionId ? sessionId : null;
+}
+
+function loadShortcuts() {
+    var sid = resolveSessionId();
+    const url = sid
+        ? `${baseUrl}/commands/for-session/${encodeURIComponent(sid)}`
+        : `${baseUrl}/commands?scope=global`;
+    $.get(url)
+        .done(function (res) {
+            if (!res || res.status !== 200) {
+                $('#shortcut').html('<li class="list-group-item bg-dark text-warning">快捷键加载失败</li>');
+                return;
+            }
+            if (sid) {
+                const result = res.result || {};
+                shortcutData = {
+                    global: Array.isArray(result.global) ? result.global : [],
+                    session: Array.isArray(result.session) ? result.session : []
+                };
+            } else {
+                const list = Array.isArray(res.result) ? res.result : [];
+                shortcutData = { global: list, session: [] };
+            }
+            renderShortcuts();
+        })
+        .fail(function () {
+            $('#shortcut').html('<li class="list-group-item bg-dark text-warning">快捷键接口请求失败</li>');
+        });
 }
 
 function renderShortcuts() {
-    const q = ($('#shortcutSearch').val() || '').toLowerCase();
-    const filter = $('#shortcutFilter').val();
+    const q = (($('#shortcutSearch').val() || '') + '').toLowerCase();
+    const filter = $('#shortcutFilter').val() || 'all';
     let rows = [];
     if (filter !== 'session') {
-        rows = rows.concat(shortcutData.global.map(i => Object.assign({}, i, { source: 'global' })));
+        rows = rows.concat((shortcutData.global || []).map(function (i) {
+            return { id: i.id, name: i.name, value: i.value, source: 'global' };
+        }));
     }
     if (filter !== 'global') {
-        rows = rows.concat(shortcutData.session.map(i => Object.assign({}, i, { source: 'session' })));
+        rows = rows.concat((shortcutData.session || []).map(function (i) {
+            return { id: i.id, name: i.name, value: i.value, source: 'session' };
+        }));
     }
-    rows = rows.filter(i =>
-        !q ||
-        (i.name || '').toLowerCase().includes(q) ||
-        (i.value || '').toLowerCase().includes(q)
-    );
-    $('#shortcut').empty();
-    rows.forEach(item => {
-        const tag = item.source === 'global' ? '通用' : '本机';
-        $(`<li class="list-group-item bg-dark" data-key="${item.value}">[${tag}] ${item.name}<br>${item.value}</li>`)
-            .appendTo('#shortcut')
-            .click(function () {
-                term.paste($(this).attr('data-key'));
-            });
+    rows = rows.filter(function (i) {
+        if (!q) {
+            return true;
+        }
+        var name = (i.name || '').toLowerCase();
+        var value = (i.value || '').toLowerCase();
+        return name.indexOf(q) !== -1 || value.indexOf(q) !== -1;
+    });
+    var $list = $('#shortcut');
+    $list.empty();
+    if (!rows.length) {
+        $list.append('<li class="list-group-item bg-dark text-muted">无匹配命令</li>');
+        return;
+    }
+    rows.forEach(function (item) {
+        var tag = item.source === 'global' ? '通用' : '本机';
+        var $li = $('<li class="list-group-item bg-dark shortcut-item"></li>');
+        $li.attr('data-key', item.value || '');
+        $li.html('[' + tag + '] ' + escapeShortcutHtml(item.name) + '<br>' + escapeShortcutHtml(item.value));
+        $list.append($li);
+    });
+}
+
+if (typeof CmdSuggest !== 'undefined') {
+    CmdSuggest.init({
+        term: term,
+        client: client,
+        getTagId: function () { return tagId; },
+        getSessionId: resolveSessionId,
+        baseUrl: baseUrl,
+        loadCommandData: loadShortcuts,
+        getCommandData: function () { return shortcutData; }
     });
 }
 
 $(function (){
     openTerminal();
     loadShortcuts();
-    $('#shortcutSearch').on('input', renderShortcuts);
-    $('#shortcutFilter').on('change', renderShortcuts);
+    // 委托绑定，避免元素未就绪或缓存旧页导致无效
+    $(document).on('input keyup', '#shortcutSearch', renderShortcuts);
+    $(document).on('change', '#shortcutFilter', renderShortcuts);
+    $(document).on('click', '#shortcut .shortcut-item', function () {
+        var key = $(this).attr('data-key');
+        if (key != null && term) {
+            term.paste(key);
+        }
+    });
+    // 展开快捷键面板时再拉一次，保证拿到最新命令
+    $('#collapseExample').on('shown.bs.collapse', function () {
+        loadShortcuts();
+    });
 })
 function reload(){
     openTerminal();
