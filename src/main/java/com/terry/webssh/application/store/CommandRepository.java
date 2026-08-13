@@ -6,6 +6,7 @@ import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.terry.webssh.application.pojo.CommandItem;
+import com.terry.webssh.application.pojo.SessionCommandSettings;
 import lombok.Data;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
@@ -164,9 +165,68 @@ public class CommandRepository {
     public void deleteBySessionId(String sessionId) {
         synchronized (lock) {
             CommandStoreData data = load();
-            if (data.getBySession().remove(sessionId) != null) {
+            boolean removedCommands = data.getBySession().remove(sessionId) != null;
+            boolean removedSettings = data.getSessionSettings().remove(sessionId) != null;
+            if (removedCommands || removedSettings) {
                 store.write(data);
             }
+        }
+    }
+
+    public SessionCommandSettings getSettings(String sessionId) {
+        synchronized (lock) {
+            CommandStoreData data = load();
+            return copySettings(settingsOrDefault(data, sessionId));
+        }
+    }
+
+    public SessionCommandSettings saveSettings(String sessionId, SessionCommandSettings settings) {
+        synchronized (lock) {
+            if (StrUtil.isBlank(sessionId)) {
+                throw new IllegalArgumentException("sessionId is required");
+            }
+            if (settings == null) {
+                throw new IllegalArgumentException("settings is required");
+            }
+            SessionCommandSettings validated = validateSettings(settings);
+            CommandStoreData data = load();
+            data.getSessionSettings().put(sessionId, copySettings(validated));
+            store.write(data);
+            return copySettings(validated);
+        }
+    }
+
+    public int collect(String sessionId, String text) {
+        synchronized (lock) {
+            if (StrUtil.isBlank(sessionId)) {
+                throw new IllegalArgumentException("sessionId is required");
+            }
+            CommandStoreData data = load();
+            SessionCommandSettings settings = settingsOrDefault(data, sessionId);
+            if (!settings.isAutoCollect()) {
+                return 0;
+            }
+            List<String> lines = takeCollectLines(text, settings.getCollectLines());
+            if (lines.isEmpty()) {
+                return 0;
+            }
+            List<CommandItem> list = data.getBySession().computeIfAbsent(sessionId, k -> new ArrayList<>());
+            for (String line : lines) {
+                CommandItem existing = findByValue(list, line);
+                if (existing != null) {
+                    list.remove(existing);
+                    existing.setUpdatedAt(Instant.now().toString());
+                    list.add(0, existing);
+                } else {
+                    list.add(0, newItem(nameFrom(line), line));
+                }
+            }
+            int limit = settings.getCollectLimit();
+            while (list.size() > limit) {
+                list.remove(list.size() - 1);
+            }
+            store.write(data);
+            return lines.size();
         }
     }
 
@@ -239,6 +299,9 @@ public class CommandRepository {
         if (data.getBySession() == null) {
             data.setBySession(new HashMap<>());
         }
+        if (data.getSessionSettings() == null) {
+            data.setSessionSettings(new HashMap<>());
+        }
     }
 
     private static List<CommandItem> sessionList(CommandStoreData data, String sessionId) {
@@ -249,12 +312,93 @@ public class CommandRepository {
         return list != null ? list : Collections.emptyList();
     }
 
+    private static SessionCommandSettings settingsOrDefault(CommandStoreData data, String sessionId) {
+        SessionCommandSettings stored = sessionId == null ? null : data.getSessionSettings().get(sessionId);
+        if (stored == null) {
+            return defaultSettings();
+        }
+        return stored;
+    }
+
+    private static SessionCommandSettings defaultSettings() {
+        SessionCommandSettings settings = new SessionCommandSettings();
+        settings.setAutoCollect(true);
+        settings.setCollectLimit(1000);
+        settings.setCollectLines(1);
+        return settings;
+    }
+
+    private static SessionCommandSettings copySettings(SessionCommandSettings source) {
+        SessionCommandSettings copy = new SessionCommandSettings();
+        copy.setAutoCollect(source.isAutoCollect());
+        copy.setCollectLimit(source.getCollectLimit());
+        copy.setCollectLines(source.getCollectLines());
+        return copy;
+    }
+
+    private static SessionCommandSettings validateSettings(SessionCommandSettings settings) {
+        int collectLimit = settings.getCollectLimit();
+        if (collectLimit < 1 || collectLimit > 1000) {
+            throw new IllegalArgumentException("collectLimit must be between 1 and 1000");
+        }
+        int collectLines = settings.getCollectLines();
+        if (collectLines < 1 || collectLines > 50) {
+            throw new IllegalArgumentException("collectLines must be between 1 and 50");
+        }
+        SessionCommandSettings validated = new SessionCommandSettings();
+        validated.setAutoCollect(settings.isAutoCollect());
+        validated.setCollectLimit(collectLimit);
+        validated.setCollectLines(collectLines);
+        return validated;
+    }
+
+    private static List<String> takeCollectLines(String text, int collectLines) {
+        List<String> lines = new ArrayList<>();
+        if (text == null) {
+            return lines;
+        }
+        String[] parts = text.split("\\r?\\n");
+        for (String part : parts) {
+            if (part == null) {
+                continue;
+            }
+            String trimmed = part.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            lines.add(trimmed);
+            if (lines.size() >= collectLines) {
+                break;
+            }
+        }
+        return lines;
+    }
+
+    private static String nameFrom(String line) {
+        if (line.length() <= 40) {
+            return line;
+        }
+        return line.substring(0, 40);
+    }
+
     private static CommandItem findById(List<CommandItem> list, String id) {
         if (list == null || id == null) {
             return null;
         }
         for (CommandItem item : list) {
             if (id.equals(item.getId())) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    private static CommandItem findByValue(List<CommandItem> list, String value) {
+        if (list == null || value == null) {
+            return null;
+        }
+        for (CommandItem item : list) {
+            if (value.equals(item.getValue())) {
                 return item;
             }
         }
@@ -283,5 +427,6 @@ public class CommandRepository {
     static class CommandStoreData {
         private List<CommandItem> global = new ArrayList<>();
         private Map<String, List<CommandItem>> bySession = new HashMap<>();
+        private Map<String, SessionCommandSettings> sessionSettings = new HashMap<>();
     }
 }

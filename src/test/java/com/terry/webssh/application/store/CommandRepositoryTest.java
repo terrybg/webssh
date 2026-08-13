@@ -1,6 +1,7 @@
 package com.terry.webssh.application.store;
 
 import com.terry.webssh.application.pojo.CommandItem;
+import com.terry.webssh.application.pojo.SessionCommandSettings;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -41,5 +42,69 @@ class CommandRepositoryTest {
         repo.deleteSession("sid1", s.getId());
         repo.deleteBySessionId("sid1");
         assertNotNull(g.getId());
+    }
+
+    @Test
+    void settingsDefaultsAndSave(@TempDir Path temp) {
+        CommandRepository repo = new CommandRepository(temp.resolve("commands.json"), null);
+        SessionCommandSettings d = repo.getSettings("sid");
+        assertTrue(d.isAutoCollect());
+        assertEquals(1000, d.getCollectLimit());
+        assertEquals(1, d.getCollectLines());
+        d.setCollectLimit(10);
+        d.setCollectLines(2);
+        d.setAutoCollect(false);
+        SessionCommandSettings saved = repo.saveSettings("sid", d);
+        assertEquals(10, saved.getCollectLimit());
+        assertFalse(repo.getSettings("sid").isAutoCollect());
+    }
+
+    @Test
+    void collectDedupesAndTrimsToLimit(@TempDir Path temp) {
+        CommandRepository repo = new CommandRepository(temp.resolve("commands.json"), null);
+        SessionCommandSettings s = repo.getSettings("sid");
+        s.setCollectLimit(2);
+        s.setCollectLines(5);
+        repo.saveSettings("sid", s);
+        assertEquals(1, repo.collect("sid", "echo a"));
+        assertEquals(1, repo.collect("sid", "echo b"));
+        assertEquals(1, repo.collect("sid", "echo c")); // drops oldest
+        List<CommandItem> list = repo.listSession("sid");
+        assertEquals(2, list.size());
+        assertEquals("echo c", list.get(0).getValue());
+        assertEquals(1, repo.collect("sid", "echo c")); // dedupe still counts as processed
+        list = repo.listSession("sid");
+        assertEquals(2, list.size());
+        assertEquals("echo c", list.get(0).getValue());
+    }
+
+    @Test
+    void collectRespectsAutoCollectOffAndLines(@TempDir Path temp) {
+        CommandRepository repo = new CommandRepository(temp.resolve("commands.json"), null);
+        SessionCommandSettings s = repo.getSettings("sid");
+        s.setAutoCollect(false);
+        repo.saveSettings("sid", s);
+        assertEquals(0, repo.collect("sid", "echo x"));
+        assertTrue(repo.listSession("sid").isEmpty());
+        s.setAutoCollect(true);
+        s.setCollectLines(2);
+        repo.saveSettings("sid", s);
+        assertEquals(2, repo.collect("sid", "line1\nline2\nline3"));
+        assertEquals(2, repo.listSession("sid").size());
+    }
+
+    @Test
+    void deleteBySessionIdClearsSettings(@TempDir Path temp) {
+        CommandRepository repo = new CommandRepository(temp.resolve("commands.json"), null);
+        SessionCommandSettings s = repo.getSettings("sid");
+        s.setAutoCollect(false);
+        s.setCollectLimit(10);
+        repo.saveSettings("sid", s);
+        repo.createSession("sid", "n", "echo x");
+        repo.deleteBySessionId("sid");
+        assertTrue(repo.listSession("sid").isEmpty());
+        SessionCommandSettings after = repo.getSettings("sid");
+        assertTrue(after.isAutoCollect());
+        assertEquals(1000, after.getCollectLimit());
     }
 }
