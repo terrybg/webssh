@@ -3,53 +3,114 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>Terry WebSSH</title>
-    <!-- Bootstrap 的 CSS 文件 -->
     <link rel="stylesheet" href="../js/bootstrap/bootstrap.min.css"/>
     <link rel="stylesheet" href="../css/index.css"/>
     <link rel="shortcut icon" href="../image/logo.png" />
     <link rel="stylesheet" href="../iconfont/iconfont.css">
-    <!-- 图标库： https://icons.bootcss.com/ -->
     <link rel="stylesheet" href="../font/bootstrap-icons.css">
     <link rel="stylesheet" href="../js/jquery-ui.css">
     <style>
-        .shell-tab-pane>div{
-            float: left;
+        html, body {
             height: 100%;
+            margin: 0;
+            min-width: 800px;
         }
-        .move-bar {
-            background: #000;
-            width: 10px;
+        #appShell {
             height: 100%;
-            cursor: e-resize;
+            display: flex;
+            flex-direction: column;
+            background: #212529;
         }
-        .leftDiv{
-            min-width: 300px;
-            max-width: calc(100% - 500px);
+        .remote-tabs {
+            flex: 0 0 auto;
+            background: #1b1e21;
+            padding: 4px 8px 0;
+            border-bottom: 1px solid #343a40;
         }
-        .resizable-iframe{
+        .remote-tabs .nav-link {
+            color: #ced4da;
+        }
+        .remote-tabs .nav-link.active {
+            color: #fff;
+            background: #343a40;
+            border-color: #343a40 #343a40 transparent;
+        }
+        .remote-tabs .list-tab .icon-shanchu2 {
+            display: none;
+        }
+        #tabPanes {
+            flex: 1 1 auto;
+            min-height: 0;
+            position: relative;
+            background: #212529;
+        }
+        .shell-tab-pane {
+            height: 100%;
+            display: none;
+        }
+        .shell-tab-pane.active.show {
+            display: block;
+        }
+        .shell-tab-pane.remote-pane.active.show {
+            display: flex;
+            flex-direction: row;
+            align-items: stretch;
+        }
+        .remote-pane .leftDiv {
+            flex: 0 0 auto;
+            width: 30%;
+            min-width: 200px;
+            height: 100%;
+            overflow: hidden;
+        }
+        .remote-pane .move-bar {
+            flex: 0 0 6px;
+            width: 6px;
+            height: 100%;
+            cursor: col-resize;
+            background: #111;
+            border-left: 1px solid #333;
+            border-right: 1px solid #333;
+            position: relative;
+            z-index: 5;
+        }
+        .remote-pane .move-bar:hover,
+        body.split-dragging .remote-pane .move-bar {
+            background: #0d6efd;
+        }
+        .remote-pane .rightDiv {
+            flex: 1 1 auto;
+            min-width: 320px;
+            height: 100%;
+            overflow: hidden;
+        }
+        .resizable-iframe {
             width: 100%;
             height: 100%;
+            border: 0;
+            display: block;
         }
-        .shell-tab-pane iframe {
-            border: 0px solid #ccc;
+        /* 拖拽时禁用 iframe 捕获鼠标，避免卡顿/松不开 */
+        body.split-dragging {
+            cursor: col-resize !important;
+            user-select: none !important;
         }
-        body{
-            min-width: 800px;
+        body.split-dragging iframe {
+            pointer-events: none !important;
         }
         #sessionListView {
             height: 100%;
             overflow: auto;
             color: #fff;
         }
-        #sessionListView .nav-top {
-            align-items: center;
-            padding: 8px 16px;
+        #sessionListView .session-list-toolbar {
+            padding: 12px 20px 0;
         }
-        #sessionListView .nav-top .btn {
+        #sessionListView .session-list-toolbar .btn {
             margin-right: 8px;
         }
         #sessionListView .session-list-body {
-            padding: 16px 20px 24px;
+            padding: 12px 20px 24px;
         }
         #sessionEmptyState {
             padding: 48px 16px;
@@ -59,8 +120,31 @@
         #sessionTable .session-actions .btn {
             margin: 2px 2px;
         }
-        #workspaceView {
-            height: 100%;
+        #sessionTable tbody tr {
+            cursor: default;
+        }
+        #sessionContextMenu {
+            display: none;
+            position: fixed;
+            z-index: 3000;
+            min-width: 140px;
+            background: #2b3035;
+            border: 1px solid #495057;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,.45);
+            padding: 4px 0;
+        }
+        #sessionContextMenu .ctx-item {
+            display: block;
+            padding: 8px 16px;
+            color: #f8f9fa;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        #sessionContextMenu .ctx-item:hover {
+            background: #0d6efd;
+            color: #fff;
         }
         #loadingIndicator {
             display: none;
@@ -91,70 +175,45 @@
     </style>
 </head>
 <body>
-<!-- 会话列表（默认首页） -->
-<div id="sessionListView">
-    <div class="row bg-dark nav-top m-0">
-        <div class="col-sm d-flex align-items-center">
-            <button type="button" class="btn btn-primary btn-sm" id="btnAddSession">添加会话</button>
-            <button type="button" class="btn btn-outline-light btn-sm" id="btnGlobalCommands">通用命令</button>
-        </div>
-    </div>
-    <div class="session-list-body">
-        <div id="sessionEmptyState" style="display: none;">
-            暂无会话，点击「添加会话」创建
-        </div>
-        <table class="table table-dark table-hover" id="sessionTable" style="display: none;">
-            <thead>
-            <tr>
-                <th>会话名称</th>
-                <th>IP</th>
-                <th>端口</th>
-                <th>操作</th>
-            </tr>
-            </thead>
-            <tbody id="sessionTableBody"></tbody>
-        </table>
-    </div>
-</div>
-
-<!-- 远程工作区（Task 5 切换显示；默认隐藏） -->
-<div id="workspaceView" style="display: none;">
-    <!-- 导航 -->
-    <div class="row bg-dark nav-top m-0">
-        <div class="col-sm d-flex align-items-center">
-            <button type="button" class="btn btn-outline-light btn-sm" id="btnBackToSessions">返回会话列表</button>
-            <ul class="nav mr-auto"></ul>
-        </div>
-        <div class="col-sm">
-        </div>
-    </div>
-    <div class="tab-content" style="height: calc(100% - 0px);">
-        <div class="tab-pane fade active show top-tab-pane" route="remote-shell">
-            <ul class="nav nav-tabs remote-tabs">
-                <li class="nav-item">
-                    <a class="nav-link shell-menu active" route="1">
-                        <span class="iconfont icon-cloudshellyunminglinghang"></span>
-                        <span class="remote-tab-title">会话</span>
-                        <span class="iconfont icon-shanchu2 m-lg-2 shell-remove"></span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link shell-add">
-                        <span class="iconfont icon-tianjia"></span>新建会话
-                    </a>
-                </li>
-            </ul>
-            <div class="tab-pane fade active show shell-tab-pane" route="1" style="height: calc(100% - 40px)">
-                <div class="leftDiv" style="width: 30%">
-                    <iframe class="resizable-iframe leftFrame" src=""></iframe>
+<div id="appShell">
+    <ul class="nav nav-tabs remote-tabs">
+        <li class="nav-item">
+            <a class="nav-link shell-menu list-tab active" route="list">
+                <span class="remote-tab-title">会话列表</span>
+            </a>
+        </li>
+    </ul>
+    <div id="tabPanes">
+        <div class="shell-tab-pane active show" route="list">
+            <div id="sessionListView">
+                <div class="session-list-toolbar">
+                    <button type="button" class="btn btn-primary btn-sm" id="btnAddSession">添加会话</button>
+                    <button type="button" class="btn btn-outline-light btn-sm" id="btnGlobalCommands">通用命令</button>
                 </div>
-                <div class="move-bar"></div>
-                <div class="rightDiv" style="width: calc(70% - 10px)">
-                    <iframe class="resizable-iframe rightFrame" src=""></iframe>
+                <div class="session-list-body">
+                    <div id="sessionEmptyState" style="display: none;">
+                        暂无会话，点击「添加会话」创建
+                    </div>
+                    <table class="table table-dark table-hover" id="sessionTable" style="display: none;">
+                        <thead>
+                        <tr>
+                            <th>会话名称</th>
+                            <th>IP</th>
+                            <th>端口</th>
+                            <th>操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="sessionTableBody"></tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
+</div>
+
+<!-- 行右键菜单 -->
+<div id="sessionContextMenu">
+    <a class="ctx-item" href="javascript:void(0)" data-action="copy">复制会话</a>
 </div>
 
 <!-- 添加 / 修改会话 -->
@@ -255,88 +314,37 @@
     </div>
 </div>
 
-<!-- 全局加载（Task 5 远程连接可用） -->
 <div id="loadingIndicator">
     <p>连接中...</p>
 </div>
 
-<script src="../js/common.js"></script>
 <script src="../js/jquery-3.4.1.min.js"></script>
+<script src="../js/common.js"></script>
 <script src="../js/jquery-ui.js"></script>
 <script src="../js/bootstrap/popper.min.js" charset="utf-8"></script>
 <script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
-<script src="../js/index.js" charset="utf-8"></script>
-<script src="../js/sessions.js" charset="utf-8"></script>
+<script src="../js/index.js?v=6" charset="utf-8"></script>
+<script src="../js/sessions.js?v=6" charset="utf-8"></script>
 <script src="../js/commands-ui.js?v=1" charset="utf-8"></script>
+<script src="../js/split-pane.js?v=1" charset="utf-8"></script>
 <script>
-    // Document-level resize-bar handlers bind once (not inside loadSsh) so
-    // 远程→返回→远程 does not stack mousemove/mousedown/mouseup listeners.
-    var moveFlag = false;
-    $(document).on('mousedown.movebar', function(e) {
-        var $bar = $(".tab-pane.show .move-bar");
-        if (!$bar.length || !$(e.target).offset()) {
-            return;
-        }
-        // 当鼠标点击到拖动条上时,移动鼠标即可拖拽
-        var left = $(e.target).offset().left - $bar.offset().left;
-        if (left == 0) {
-            moveFlag = true;
-        }
-    });
-    $(document).on('mouseup.movebar', function() {
-        moveFlag = false;
-    });
-    $(document).on('mousemove.movebar', function(e) {
-        if (moveFlag) {
-            reloadIframeWidth(e.pageX);
-        }
-        return false;
-    });
-
-    function loadSsh(query){
+    function loadSsh(query, route) {
         var q = query;
         if (q == null || q === '') {
             q = typeof window.workspaceIframeQuery === 'function'
                 ? window.workspaceIframeQuery()
                 : '';
         }
-        var leftDeferred = $.Deferred();
-        var rightDeferred = $.Deferred();
-        $('.tab-pane.show .leftFrame').attr('src', 'sftp.html' + q).one('load', function() {
-            leftDeferred.resolve();
-        });
-        $('.tab-pane.show .rightFrame').attr('src', 'ssh.html' + q).one('load', function() {
-            rightDeferred.resolve();
-        });
-        // iframe documents are new each connect; rebind mouseup so drag ends over panes
-        $.when(leftDeferred, rightDeferred).done(function() {
-            $(".tab-pane.show .leftFrame,.tab-pane.show .rightFrame").contents()
-                .off('mouseup.movebar')
-                .on('mouseup.movebar', function() {
-                    moveFlag = false;
-                });
-        });
-    }
-    reloadIframeWidth($(window).width() / 100 * 30);
-    window.onresize = function(){
-        reloadIframeWidth($(".tab-pane.show .leftDiv").width());
-    }
-    function reloadIframeWidth(leftWidth){
-        var clientWidth = $(window).width();
-        var minWidth = 300, maxMathWidth = 500, moveWidth = 10;
-        // 最小宽
-        if(leftWidth < minWidth){
-            leftWidth = minWidth;//按钮+标题栏+分页栏高度
+        var $pane = route
+            ? $('.shell-tab-pane[route="' + route + '"]')
+            : $('.shell-tab-pane.active.show.remote-pane');
+        if (!$pane.length) {
+            return;
         }
-        // 最大宽
-        var maxWidth = $(window).width() - maxMathWidth;
-        if(leftWidth > maxWidth){
-            leftWidth = maxWidth;
-        }
-        $(".tab-pane.show .leftDiv").width(leftWidth);
-        var rightWidth = "calc(100% - " + leftWidth + "px - " + moveWidth + "px)";
-        $(".tab-pane.show .rightDiv").width(rightWidth);
+        $pane.find('.leftFrame').attr('src', 'sftp.html' + q);
+        $pane.find('.rightFrame').attr('src', 'ssh.html' + q);
     }
+    window.loadSsh = loadSsh;
 </script>
 </body>
 </html>

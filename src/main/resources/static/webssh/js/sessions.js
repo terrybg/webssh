@@ -1,11 +1,11 @@
 /**
- * Homepage session list CRUD (Task 3).
- * Wires 通用命令 / 常用命令 to commands-ui (Task 4); stub for 远程 (Task 5).
+ * Session list inside the first tab; open remotes as additional tabs.
  */
 (function ($) {
   'use strict';
 
   var sessionsCache = {};
+  var contextSessionId = null;
 
   function escapeHtml(value) {
     return String(value == null ? '' : value)
@@ -173,6 +173,50 @@
       });
   }
 
+  /** 复制会话 Tab：再开一个同配置远程连接，不新建会话数据 */
+  function copySessionTab(session) {
+    if (!session || typeof window.ensureRemoteTab !== 'function') {
+      return;
+    }
+    $('#loadingIndicator').show();
+    $.post(baseUrl + '/loginSsh', {
+      ip: session.ip,
+      userName: session.userName,
+      password: session.password,
+      port: session.port
+    })
+      .done(function (res) {
+        if (res.status !== 200) {
+          alert(res.message || '登录失败');
+          return;
+        }
+        window.localStorage.setItem('tagId' + session.port, res.result);
+        window.currentSessionId = session.id;
+        window.currentSessionPort = session.port;
+        var route = window.ensureRemoteTab(session, { forceNew: true });
+        if (typeof window.loadSsh === 'function') {
+          window.loadSsh(workspaceIframeQuery(session), route);
+        }
+      })
+      .fail(function () {
+        alert('登录失败');
+      })
+      .always(function () {
+        $('#loadingIndicator').hide();
+      });
+  }
+
+  function hideContextMenu() {
+    $('#sessionContextMenu').hide();
+    contextSessionId = null;
+  }
+
+  function showContextMenu(pageX, pageY, sessionId) {
+    contextSessionId = sessionId;
+    var $menu = $('#sessionContextMenu');
+    $menu.css({ left: pageX + 'px', top: pageY + 'px' }).show();
+  }
+
   function openGlobalCommands() {
     if (typeof window.openCommandManager !== 'function') {
       alert('命令管理未加载');
@@ -197,32 +241,44 @@
     });
   }
 
-  function workspaceIframeQuery() {
-    var sid = window.currentSessionId || '';
-    var p = window.currentSessionPort != null ? window.currentSessionPort : 22;
+  function workspaceIframeQuery(session) {
+    var sid = (session && session.id) || window.currentSessionId || '';
+    var p = session && session.port != null
+      ? session.port
+      : (window.currentSessionPort != null ? window.currentSessionPort : 22);
     return '?sessionId=' + encodeURIComponent(sid) + '&port=' + encodeURIComponent(p);
   }
 
-  function showWorkspace(session) {
-    $('#sessionListView').hide();
-    $('#workspaceView').show();
-    if (session && session.name && typeof window.changeTabTitle === 'function') {
-      window.changeTabTitle('shell', session.name);
-    }
-    if (typeof window.loadSsh === 'function') {
-      window.loadSsh(workspaceIframeQuery());
-    }
+  function paneHasLiveSsh(route) {
+    var src = $('.shell-tab-pane[route="' + route + '"] .rightFrame').attr('src') || '';
+    return src.indexOf('ssh.html') !== -1;
   }
 
   function showSessionList() {
-    $('#workspaceView').hide();
-    $('#sessionListView').show();
+    if (typeof window.changeMenu === 'function') {
+      window.changeMenu('.shell', 'list');
+    }
   }
 
   function connectSession(session) {
-    if (!session) {
+    if (!session || typeof window.ensureRemoteTab !== 'function') {
       return;
     }
+
+    window.openSessionTabs = window.openSessionTabs || {};
+    var existingRoute = window.openSessionTabs[session.id];
+    if (existingRoute && $('.shell-menu[route="' + existingRoute + '"]').length) {
+      window.currentSessionId = session.id;
+      window.currentSessionPort = session.port;
+      window.changeMenu('.shell', existingRoute);
+      if (!paneHasLiveSsh(existingRoute)) {
+        if (typeof window.loadSsh === 'function') {
+          window.loadSsh(workspaceIframeQuery(session), existingRoute);
+        }
+      }
+      return;
+    }
+
     $('#loadingIndicator').show();
     $.post(baseUrl + '/loginSsh', {
       ip: session.ip,
@@ -238,7 +294,10 @@
         window.localStorage.setItem('tagId' + session.port, res.result);
         window.currentSessionId = session.id;
         window.currentSessionPort = session.port;
-        showWorkspace(session);
+        var route = window.ensureRemoteTab(session);
+        if (typeof window.loadSsh === 'function') {
+          window.loadSsh(workspaceIframeQuery(session), route);
+        }
       })
       .fail(function () {
         alert('登录失败');
@@ -254,10 +313,10 @@
 
   $(function () {
     loadSessions();
+    showSessionList();
 
     $('#btnAddSession').on('click', openAddModal);
     $('#btnGlobalCommands').on('click', openGlobalCommands);
-    $('#btnBackToSessions').on('click', showSessionList);
     $('#sessionSubmitBtn').on('click', saveSession);
 
     $('#sessionForm').on('keydown', 'input', function (event) {
@@ -268,7 +327,7 @@
     });
 
     $('#sessionTableBody').on('click', '.btn-edit-session', function () {
-      var id = $(this).closest('tr').data('id');
+      var id = $(this).closest('tr').attr('data-id');
       var session = sessionsCache[id];
       if (session) {
         openEditModal(session);
@@ -276,30 +335,93 @@
     });
 
     $('#sessionTableBody').on('click', '.btn-delete-session', function () {
-      var id = $(this).closest('tr').data('id');
+      var id = $(this).closest('tr').attr('data-id');
       if (id) {
         deleteSession(id);
       }
     });
 
     $('#sessionTableBody').on('click', '.btn-session-commands', function () {
-      var id = $(this).closest('tr').data('id');
+      var id = $(this).closest('tr').attr('data-id');
       openSessionCommands(sessionsCache[id]);
     });
 
     $('#sessionTableBody').on('click', '.btn-remote-session', function () {
-      var id = $(this).closest('tr').data('id');
+      var id = $(this).closest('tr').attr('data-id');
       connectRemote(sessionsCache[id]);
+    });
+
+    // Tabs 右键：远程会话 Tab 可复制会话（会话列表 Tab 除外）
+    $('.remote-tabs').on('contextmenu', '.shell-menu', function (e) {
+      var $link = $(this);
+      if ($link.hasClass('list-tab') || $link.attr('route') === 'list') {
+        return;
+      }
+      e.preventDefault();
+      var id = $link.attr('data-session-id');
+      if (!id) {
+        return;
+      }
+      showContextMenu(e.pageX, e.pageY, id);
+    });
+
+    $('#sessionContextMenu').on('click', '[data-action="copy"]', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var sid = contextSessionId;
+      hideContextMenu();
+      resolveSession(sid, function (session) {
+        copySessionTab(session);
+      });
+    });
+
+    $(document).on('click', hideContextMenu);
+    $(document).on('keydown', function (e) {
+      if (e.key === 'Escape' || e.keyCode === 27) {
+        hideContextMenu();
+      }
     });
   });
 
-  // Expose for Task 4/5 wiring
+  function resolveSession(id, callback) {
+    if (!id) {
+      return;
+    }
+    if (sessionsCache[id]) {
+      callback(sessionsCache[id]);
+      return;
+    }
+    $.get(baseUrl + '/sessions')
+      .done(function (res) {
+        if (res.status !== 200) {
+          alert(res.message || '加载会话失败');
+          return;
+        }
+        var items = (res.result && res.result.items) || [];
+        var found = null;
+        items.forEach(function (item) {
+          sessionsCache[item.id] = item;
+          if (item.id === id) {
+            found = item;
+          }
+        });
+        if (!found) {
+          alert('未找到该会话配置');
+          return;
+        }
+        callback(found);
+      })
+      .fail(function () {
+        alert('加载会话失败');
+      });
+  }
+
   window.loadSessions = loadSessions;
   window.openGlobalCommands = openGlobalCommands;
   window.openSessionCommands = openSessionCommands;
   window.connectSession = connectSession;
   window.connectRemote = connectRemote;
-  window.showWorkspace = showWorkspace;
   window.showSessionList = showSessionList;
   window.workspaceIframeQuery = workspaceIframeQuery;
+  window.copySessionTab = copySessionTab;
 })(jQuery);
