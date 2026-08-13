@@ -199,6 +199,9 @@ function openTerminal() {
         onConnect: function () {
             // 连接成功回调
             client.send(options);
+            // 同步编码到后端（与顶部「切换编码」一致，默认 UTF-8）
+            var enc = ($('.linux-encode').first().text() || 'UTF-8').trim();
+            client.send({ operate: 'encoded', tagId: tagId, command: enc });
             term.write('\r\n');
             term.write('\x1b[32m  ______\r\n');
             // term.write(' /\\__  _\\\r\n');

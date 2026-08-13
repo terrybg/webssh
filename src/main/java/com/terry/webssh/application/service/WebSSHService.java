@@ -21,6 +21,8 @@ import org.springframework.web.socket.WebSocketSession;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Properties;
@@ -53,6 +55,8 @@ public class WebSSHService extends RemoteWebSocketHandler {
         SSHConnectInfo sshConnectInfo = new SSHConnectInfo();
         sshConnectInfo.setWebSocketSession(session);
         sshConnectInfo.setJSch(new JSch());
+        // 默认 UTF-8，避免 Windows 默认 GBK 导致中文输入乱码
+        sshConnectInfo.setEncoded(StandardCharsets.UTF_8.name());
         String uuid = String.valueOf(session.getAttributes().get(ConstantPool.USER_UUID_KEY));
         sshConnectInfo.setUserId(uuid);
         // 将这个ssh连接信息放入map中
@@ -102,7 +106,7 @@ public class WebSSHService extends RemoteWebSocketHandler {
             if (sshConnectInfo != null) {
                 // 发送指令到站端
                 try {
-                    transToSSH(sshConnectInfo.getChannel(), command);
+                    transToSSH(sshConnectInfo.getChannel(), command, sshConnectInfo.getEncoded());
                 } catch (IOException e) {
                     log.error("webssh连接异常");
                     log.error("异常信息:{}", e.getMessage());
@@ -174,8 +178,9 @@ public class WebSSHService extends RemoteWebSocketHandler {
             while ((i = inputStream.read(buffer)) != -1) {
                 byte[] bytes = Arrays.copyOfRange(buffer, 0, i);
                 if (StrUtil.isNotEmpty(sshConnectInfo.getEncoded())) {
-                    // String data = new String(bytes, sshConnectInfo.getEncoded());
-                    bytes = new String(bytes, sshConnectInfo.getEncoded()).getBytes();
+                    // 远端编码 → Unicode → UTF-8 字节，供浏览器/xterm 正确显示中文
+                    Charset remote = resolveCharset(sshConnectInfo.getEncoded());
+                    bytes = new String(bytes, remote).getBytes(StandardCharsets.UTF_8);
                 }
                 sendMessage(sshConnectInfo.getWebSocketSession(), bytes);
             }
@@ -190,16 +195,25 @@ public class WebSSHService extends RemoteWebSocketHandler {
     }
 
     /**
-     * 将消息转发到终端
-     * @param channel
-     * @param command
-     * @throws IOException
+     * 将消息转发到终端（按连接编码写出，默认 UTF-8）
      */
-    private void transToSSH(Channel channel, String command) throws IOException {
+    private void transToSSH(Channel channel, String command, String charsetName) throws IOException {
         if (channel != null) {
             OutputStream outputStream = channel.getOutputStream();
-            outputStream.write(command.getBytes());
+            Charset charset = resolveCharset(charsetName);
+            outputStream.write(command.getBytes(charset));
             outputStream.flush();
+        }
+    }
+
+    private static Charset resolveCharset(String charsetName) {
+        if (StrUtil.isBlank(charsetName)) {
+            return StandardCharsets.UTF_8;
+        }
+        try {
+            return Charset.forName(charsetName);
+        } catch (Exception e) {
+            return StandardCharsets.UTF_8;
         }
     }
 }
