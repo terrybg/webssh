@@ -211,6 +211,16 @@
                 </button>
             </div>
             <div class="modal-body">
+                <div id="commandSettingsBar" style="display:none" class="mb-3">
+                    <div class="form-check form-check-inline">
+                        <input type="checkbox" id="cmdAutoCollect" class="form-check-input">
+                        <label for="cmdAutoCollect">自动收集</label>
+                    </div>
+                    <label class="ml-2">收集上限 <input type="number" id="cmdCollectLimit" min="1" max="1000" style="width:5em"></label>
+                    <label class="ml-2">收集行数 <input type="number" id="cmdCollectLines" min="1" max="50" style="width:4em"></label>
+                    <button type="button" class="btn btn-sm btn-outline-primary ml-2" id="cmdSettingsSaveBtn">保存设置</button>
+                    <div class="small text-muted mt-1">回车后按行数写入本机常用命令；超上限删最旧；相同命令不重复新增。</div>
+                </div>
                 <div id="commandEmptyState" style="display: none;">暂无命令，请在下方添加</div>
                 <table class="table table-sm table-hover" id="commandTable" style="display: none;">
                     <thead>
@@ -257,7 +267,7 @@
 <script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
 <script src="../js/index.js" charset="utf-8"></script>
 <script src="../js/sessions.js" charset="utf-8"></script>
-<script src="../js/commands-ui.js" charset="utf-8"></script>
+<script src="../js/commands-ui.js?v=1" charset="utf-8"></script>
 <script>
     // Document-level resize-bar handlers bind once (not inside loadSsh) so
     // 远程→返回→远程 does not stack mousemove/mousedown/mouseup listeners.

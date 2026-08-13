@@ -180,6 +180,84 @@
       });
   }
 
+  function fillSettingsForm(settings) {
+    settings = settings || {};
+    $('#cmdAutoCollect').prop('checked', settings.autoCollect !== false);
+    $('#cmdCollectLimit').val(
+      settings.collectLimit != null ? settings.collectLimit : 1000
+    );
+    $('#cmdCollectLines').val(
+      settings.collectLines != null ? settings.collectLines : 1
+    );
+  }
+
+  function hideSettingsBar() {
+    $('#commandSettingsBar').hide();
+  }
+
+  function loadSettings() {
+    if (currentScope !== 'session' || !currentSessionId) {
+      hideSettingsBar();
+      return;
+    }
+    $('#commandSettingsBar').show();
+    $.get(baseUrl + '/commands/settings?sessionId=' + encodeURIComponent(currentSessionId))
+      .done(function (res) {
+        if (res.status !== 200) {
+          alert(res.message || '加载设置失败');
+          fillSettingsForm(null);
+          return;
+        }
+        fillSettingsForm(res.result || null);
+      })
+      .fail(function () {
+        alert('加载设置失败');
+        fillSettingsForm(null);
+      });
+  }
+
+  function saveSettings() {
+    if (currentScope !== 'session' || !currentSessionId) {
+      return;
+    }
+    var limit = parseInt($('#cmdCollectLimit').val(), 10);
+    var lines = parseInt($('#cmdCollectLines').val(), 10);
+    if (isNaN(limit) || limit < 1 || limit > 1000) {
+      alert('收集上限须为 1–1000');
+      return;
+    }
+    if (isNaN(lines) || lines < 1 || lines > 50) {
+      alert('收集行数须为 1–50');
+      return;
+    }
+    var $btn = $('#cmdSettingsSaveBtn');
+    $btn.prop('disabled', true);
+    $.ajax({
+      url: baseUrl + '/commands/settings?sessionId=' + encodeURIComponent(currentSessionId),
+      type: 'PUT',
+      contentType: 'application/json',
+      dataType: 'json',
+      data: JSON.stringify({
+        autoCollect: $('#cmdAutoCollect').is(':checked'),
+        collectLimit: limit,
+        collectLines: lines
+      })
+    })
+      .done(function (res) {
+        if (res.status !== 200) {
+          alert(res.message || '保存设置失败');
+          return;
+        }
+        fillSettingsForm(res.result || null);
+      })
+      .fail(function () {
+        alert('保存设置失败');
+      })
+      .always(function () {
+        $btn.prop('disabled', false);
+      });
+  }
+
   /**
    * @param {{ scope: 'global'|'session', sessionId?: string, title: string }} options
    */
@@ -196,6 +274,11 @@
     $('#commandModalTitle').text(options.title || (currentScope === 'global' ? '通用命令' : '常用命令'));
     resetCommandForm();
     renderCommandTable([]);
+    if (currentScope === 'session') {
+      loadSettings();
+    } else {
+      hideSettingsBar();
+    }
     $('#commandModal').modal('show');
     loadCommands();
   }
@@ -205,6 +288,7 @@
     $('#commandResetBtn').on('click', function () {
       resetCommandForm();
     });
+    $('#cmdSettingsSaveBtn').on('click', saveSettings);
 
     $('#commandForm').on('keydown', 'input, textarea', function (event) {
       if ((event.key === 'Enter' || event.keyCode === 13) && !event.shiftKey) {
@@ -233,6 +317,7 @@
 
     $('#commandModal').on('hidden.bs.modal', function () {
       resetCommandForm();
+      hideSettingsBar();
       commandsCache = {};
     });
   });
