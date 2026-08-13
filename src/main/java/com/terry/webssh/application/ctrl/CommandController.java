@@ -2,12 +2,14 @@ package com.terry.webssh.application.ctrl;
 
 import cn.hutool.core.util.StrUtil;
 import com.terry.webssh.application.pojo.CommandItem;
+import com.terry.webssh.application.pojo.SessionCommandSettings;
 import com.terry.webssh.application.pojo.StatusContent;
 import com.terry.webssh.application.store.CommandRepository;
 import com.terry.webssh.application.store.SessionRepository;
 import lombok.Data;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -112,6 +114,44 @@ public class CommandController {
         }
     }
 
+    @GetMapping("/settings")
+    public StatusContent<SessionCommandSettings> getSettings(@RequestParam String sessionId) {
+        try {
+            requireSession(sessionId);
+            return StatusContent.ok("成功！", commandRepository.getSettings(sessionId));
+        } catch (IllegalArgumentException e) {
+            return StatusContent.error(e.getMessage());
+        }
+    }
+
+    @PutMapping("/settings")
+    public StatusContent<SessionCommandSettings> putSettings(@RequestParam String sessionId,
+                                                             @RequestBody SessionCommandSettings body) {
+        try {
+            requireSession(sessionId);
+            if (body == null) {
+                return StatusContent.error("body is required");
+            }
+            return StatusContent.ok("成功！", commandRepository.saveSettings(sessionId, body));
+        } catch (IllegalArgumentException e) {
+            return StatusContent.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/collect")
+    public StatusContent<Map<String, Object>> collect(@RequestBody CollectRequest body) {
+        try {
+            if (body == null) {
+                return StatusContent.error("body is required");
+            }
+            requireSession(body.getSessionId());
+            int collected = commandRepository.collect(body.getSessionId(), body.getText());
+            return StatusContent.ok("成功！", Collections.singletonMap("collected", collected));
+        } catch (IllegalArgumentException e) {
+            return StatusContent.error(e.getMessage());
+        }
+    }
+
     private void requireSession(String sessionId) {
         if (StrUtil.isBlank(sessionId)) {
             throw new IllegalArgumentException("sessionId is required");
@@ -127,5 +167,11 @@ public class CommandController {
         private String sessionId;
         private String name;
         private String value;
+    }
+
+    @Data
+    public static class CollectRequest {
+        private String sessionId;
+        private String text;
     }
 }
