@@ -107,7 +107,7 @@ function ensureRemoteTab(session, options) {
   $('.shell-menu[route="' + route + '"] .remote-tab-title').text(title);
 
   $('#tabPanes').append(
-    '<div class="shell-tab-pane remote-pane" route="' + route + '" data-session-id="' + sid + '" data-session-port="' + port + '">' +
+    '<div class="shell-tab-pane remote-pane files-hidden" route="' + route + '" data-session-id="' + sid + '" data-session-port="' + port + '">' +
       '<div class="leftDiv">' +
         '<iframe class="resizable-iframe leftFrame" src=""></iframe>' +
       '</div>' +

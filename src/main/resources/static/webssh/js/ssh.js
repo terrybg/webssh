@@ -251,6 +251,262 @@ function logout(){
     window.localStorage.setItem("tagId" + port, null);
     parent.location.reload();
 }
+
+/** 打开浮动文件窗口（可多开）；按钮高亮表示已有窗口或侧栏停靠 */
+function toggleFilesModule() {
+    if (!window.parent || window.parent === window) {
+        return;
+    }
+    window.parent.postMessage({ type: 'webssh-toggle-files' }, '*');
+}
+
+function currentTagIdForUpload() {
+    return typeof tagId !== 'undefined' && tagId ? tagId : '';
+}
+
+function fetchShellPwdForUpload() {
+    return $.ajax({
+        url: baseUrl + '/pwd?tagId=' + encodeURIComponent(currentTagIdForUpload()),
+        method: 'GET'
+    }).then(function (res) {
+        if (res && res.status === 200 && res.result) {
+            return String(res.result).trim();
+        }
+        return null;
+    }, function () {
+        return null;
+    });
+}
+
+function showDropToast(msg) {
+    var $t = $('#sshDropToast');
+    if (!$t.length) {
+        $t = $('<div id="sshDropToast"></div>').appendTo('body');
+    }
+    $t.text(msg).addClass('show');
+    clearTimeout(showDropToast._timer);
+    showDropToast._timer = setTimeout(function () {
+        $t.removeClass('show');
+    }, 2200);
+}
+
+function uploadFilesToShellCwd(fileList) {
+    var files = Array.prototype.slice.call(fileList || []).filter(function (f) {
+        return f && f.name;
+    });
+    if (!files.length) {
+        return;
+    }
+    showDropToast('解析会话目录…');
+    fetchShellPwdForUpload().then(function (pwd) {
+        if (!pwd) {
+            showDropToast('无法获取当前目录');
+            return;
+        }
+        $.ajax({
+            url: baseUrl + '/ls?path=' + encodeURIComponent(pwd) + '&tagId=' + encodeURIComponent(currentTagIdForUpload()),
+            method: 'GET'
+        }).then(function (res) {
+            var nameSet = {};
+            ((res && res.result) || []).forEach(function (it) {
+                if (it && it.name) {
+                    nameSet[it.name] = true;
+                }
+            });
+            var i = 0;
+            var uploadedNames = [];
+
+            function suggestName(fileName) {
+                if (!nameSet[fileName]) {
+                    return fileName;
+                }
+                var dot = fileName.lastIndexOf('.');
+                var hasExt = dot > 0 && dot < fileName.length - 1;
+                var base = hasExt ? fileName.slice(0, dot) : fileName;
+                var ext = hasExt ? fileName.slice(dot) : '';
+                base = base.replace(/ \(\d+\)$/, '');
+                var n = 1;
+                var next;
+                do {
+                    next = base + ' (' + n + ')' + ext;
+                    n += 1;
+                } while (nameSet[next]);
+                return next;
+            }
+
+            function askConflict(fileName) {
+                var dfd = $.Deferred();
+                var suggested = suggestName(fileName);
+                $('#sshConflictMsg').text('已存在「' + fileName + '」，请选择处理方式：');
+                $('#sshConflictRename').val(suggested);
+                $('#sshConflictModal').addClass('show').css('display', 'flex');
+                setTimeout(function () {
+                    $('#sshConflictRename').trigger('focus').select();
+                }, 50);
+                function done(action, name) {
+                    $('#sshConflictBtnRename,#sshConflictBtnReplace,#sshConflictBtnSkip').off('.cf');
+                    $('#sshConflictRename').off('.cf');
+                    $('#sshConflictModal').removeClass('show').hide();
+                    dfd.resolve({ action: action, name: name });
+                }
+                $('#sshConflictBtnRename').off('.cf').on('click.cf', function () {
+                    var n = ($('#sshConflictRename').val() || '').trim();
+                    if (!n || n.indexOf('/') >= 0 || n.indexOf('\\') >= 0) {
+                        showDropToast('名称不合法');
+                        return;
+                    }
+                    done('rename', n);
+                });
+                $('#sshConflictBtnReplace').off('.cf').on('click.cf', function () {
+                    done('replace', fileName);
+                });
+                $('#sshConflictBtnSkip').off('.cf').on('click.cf', function () {
+                    done('skip', null);
+                });
+                $('#sshConflictRename').off('.cf').on('keydown.cf', function (e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        $('#sshConflictBtnRename').click();
+                    }
+                });
+                return dfd.promise();
+            }
+
+            function finish() {
+                showDropToast(uploadedNames.length ? ('已上传到 ' + pwd) : '已取消上传');
+                try {
+                    if (window.parent && window.parent !== window) {
+                        window.parent.postMessage({
+                            type: 'webssh-refresh-sftp',
+                            path: pwd,
+                            selectNames: uploadedNames
+                        }, '*');
+                    }
+                } catch (e) { /* ignore */ }
+            }
+
+            function next() {
+                if (i >= files.length) {
+                    finish();
+                    return;
+                }
+                var file = files[i];
+                i += 1;
+                var finalName = file.name;
+                var chain = $.Deferred().resolve(true).promise();
+                if (nameSet[finalName]) {
+                    chain = askConflict(finalName).then(function (choice) {
+                        if (!choice || choice.action === 'skip') {
+                            return false;
+                        }
+                        if (choice.action === 'rename') {
+                            if (nameSet[choice.name] && choice.name !== finalName) {
+                                showDropToast('名称仍冲突');
+                                i -= 1;
+                                return false;
+                            }
+                            finalName = choice.name;
+                        }
+                        return true;
+                    });
+                }
+                chain.then(function (shouldUpload) {
+                    if (!shouldUpload) {
+                        next();
+                        return;
+                    }
+                    showDropToast('上传 ' + i + '/' + files.length + '：' + finalName);
+                    var formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('path', pwd);
+                    formData.append('fileName', finalName);
+                    $.ajax({
+                        url: baseUrl + '/upload?tagId=' + encodeURIComponent(currentTagIdForUpload()),
+                        method: 'POST',
+                        data: formData,
+                        processData: false,
+                        contentType: false
+                    }).then(function (res) {
+                        if (res && res.status !== 200) {
+                            showDropToast('失败：' + (res.message || finalName));
+                            return;
+                        }
+                        var saved = (res && res.result) ? String(res.result) : finalName;
+                        uploadedNames.push(saved);
+                        nameSet[saved] = true;
+                        next();
+                    }, function () {
+                        showDropToast('上传失败：' + finalName);
+                    });
+                });
+            }
+            next();
+        }, function () {
+            showDropToast('无法读取目标目录');
+        });
+    });
+}
+
+(function bindTerminalDropUpload() {
+    var $zone = $(document.body);
+    $zone.on('dragenter dragover', function (e) {
+        var dt = e.originalEvent && e.originalEvent.dataTransfer;
+        if (!dt || !dt.types || (dt.types.indexOf && dt.types.indexOf('Files') < 0
+            && [].indexOf.call(dt.types, 'Files') < 0
+            && [].indexOf.call(dt.types, 'application/x-moz-file') < 0)) {
+            return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        $zone.addClass('ssh-drop-target');
+    });
+    $zone.on('dragleave', function (e) {
+        if (e.target !== document.body && !$(e.target).is('body')) {
+            return;
+        }
+        $zone.removeClass('ssh-drop-target');
+    });
+    $zone.on('drop', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $zone.removeClass('ssh-drop-target');
+        var dt = e.originalEvent && e.originalEvent.dataTransfer;
+        var files = dt && dt.files;
+        if (!files || !files.length) {
+            return;
+        }
+        uploadFilesToShellCwd(files);
+    });
+})();
+
+function setFilesButtonVisible(visible) {
+    var $btn = $('#btnToggleFiles');
+    if (!$btn.length) {
+        return;
+    }
+    if (visible) {
+        $btn.addClass('active btn-primary').removeClass('btn-secondary');
+        $btn.attr('title', '再开一个文件窗口');
+    } else {
+        $btn.removeClass('active btn-primary').addClass('btn-secondary');
+        $btn.attr('title', '打开文件窗口');
+    }
+}
+
+window.addEventListener('message', function (e) {
+    var data = e.data;
+    if (!data || data.type !== 'webssh-files-visible') {
+        return;
+    }
+    setFilesButtonVisible(!!data.visible);
+});
+
+// 向父页同步初始状态（默认隐藏）
+try {
+    if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'webssh-query-files' }, '*');
+    }
+} catch (e) { /* ignore */ }
 // 切换主题
 // let theme = 'dark';
 function setTheme(theme){

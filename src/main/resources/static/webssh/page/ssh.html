@@ -156,6 +156,94 @@
         .cmd-suggest li.active .cmd-match {
             color: #ffd666;
         }
+        body.ssh-drop-target {
+            outline: 2px dashed #0d6efd;
+            outline-offset: -4px;
+        }
+        #sshDropToast {
+            position: fixed;
+            left: 50%;
+            bottom: 72px;
+            transform: translateX(-50%);
+            z-index: 9999;
+            background: rgba(0, 0, 0, 0.82);
+            color: #fff;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            max-width: 80%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #sshDropToast.show {
+            opacity: 1;
+        }
+        #sshConflictModal {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            background: rgba(0,0,0,.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        #sshConflictModal.show {
+            display: flex;
+        }
+        .ssh-conflict-box {
+            width: min(420px, 92vw);
+            background: #1e1e1e;
+            color: #eee;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 14px 16px;
+            box-shadow: 0 8px 28px rgba(0,0,0,.4);
+        }
+        .ssh-conflict-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .ssh-conflict-msg {
+            font-size: 13px;
+            margin-bottom: 10px;
+            color: #ccc;
+        }
+        .ssh-conflict-label {
+            display: block;
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 4px;
+        }
+        #sshConflictRename {
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 12px;
+            padding: 6px 8px;
+            border: 1px solid #555;
+            border-radius: 4px;
+            background: #111;
+            color: #fff;
+        }
+        .ssh-conflict-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .ssh-conflict-actions button {
+            border: 0;
+            border-radius: 4px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        #sshConflictBtnRename { background: #0d6efd; color: #fff; }
+        #sshConflictBtnReplace { background: #d97706; color: #fff; }
+        #sshConflictBtnSkip { background: #555; color: #fff; }
     </style>
 </head>
 <body><!-- 对话框 -->
@@ -214,6 +302,9 @@
                 <div class="dropdown-item" onclick="setEncode('GBK')">GBK</div>
             </div>
         </div>
+        <button type="button" id="btnToggleFiles" class="btn btn-secondary" title="显示/隐藏左侧文件模块（打开后左侧有「查看」可切换详细信息/大图标）" onclick="toggleFilesModule()">
+            文件
+        </button>
         <a class="btn btn-secondary" data-toggle="collapse" href="#collapseExample" role="button" aria-expanded="false" aria-controls="collapseExample">
             快捷键
         </a>
@@ -242,6 +333,19 @@
         </div>
     </div>
 </div>
+<div id="sshConflictModal" style="display:none">
+  <div class="ssh-conflict-box">
+    <div class="ssh-conflict-title">目标已包含同名文件</div>
+    <div class="ssh-conflict-msg" id="sshConflictMsg"></div>
+    <label class="ssh-conflict-label" for="sshConflictRename">重命名为</label>
+    <input id="sshConflictRename" type="text" autocomplete="off">
+    <div class="ssh-conflict-actions">
+      <button type="button" id="sshConflictBtnRename">重命名</button>
+      <button type="button" id="sshConflictBtnReplace">替换</button>
+      <button type="button" id="sshConflictBtnSkip">放弃上传</button>
+    </div>
+  </div>
+</div>
 <script src="../js/jquery-3.4.1.min.js"></script>
 <script src="../js/common.js"></script>
 <script src="../js/xterm2.js" charset="utf-8"></script>
@@ -250,6 +354,6 @@
 <script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
 <script src="../js/websocket.js" charset="utf-8"></script>
 <script src="../js/cmd-suggest.js?v=7" charset="utf-8"></script>
-<script src="../js/ssh.js?v=5" charset="utf-8"></script>
+<script src="../js/ssh.js?v=9" charset="utf-8"></script>
 </body>
 </html>

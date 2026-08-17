@@ -3,69 +3,955 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>Remote Shell</title>
-    <link rel="stylesheet" href="../css/xterm2.css" />
     <link rel="stylesheet" href="../js/bootstrap/bootstrap.min.css"/>
     <link rel="stylesheet" href="../iconfont/iconfont.css">
-    <!-- 图标库： https://icons.bootcss.com/ -->
     <link rel="stylesheet" href="../font/bootstrap-icons.css">
     <style>
-        body{position: relative;background-color: #000;}
-        html{height: 100%;}
-        /* 自定义样式 */
-        .folder:hover {
-            background-color: #007bff; /* Bootstrap 主题色 */
-            color: white;
-            cursor: pointer; /* 鼠标变成手型 */
+        html, body {
+            height: 100%;
+            margin: 0;
+            background: #f3f3f3;
+            overflow: hidden;
+            font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+            font-size: 13px;
         }
-        #fileList {
-            background-color: white;
-            height: calc(100vh - 40px); /* 设置最大高度 */
-            overflow-y: auto; /* 设置垂直滚动条 */
+        .sftp-root {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
-        .list-group-item {padding: 0rem 0.25rem;}
-        .bi-download:hover{cursor: pointer;}
-        .bi-folder-fill{color:#ffb233}
-        .bi-file-earmark-fill{color:#666666}
-        /* 整个滚动条 */
-        ::-webkit-scrollbar {width : 7px;}
-        /*!* 滚动条里面滑块 *!*/
-        ::-webkit-scrollbar-thumb {border-radius: 7px;background: #818181;}
-        /*!*滚动条里面轨道*!*/
-        ::-webkit-scrollbar-track {border-radius: 7px;box-shadow: inset 0 0 1px rgba(0, 0, 0, 0.2);background: white;}
+        .sftp-nav {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 8px;
+            background: #f3f3f3;
+            border-bottom: 1px solid #d4d4d4;
+        }
+        .sftp-nav-btns {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            flex: 0 0 auto;
+        }
+        .sftp-nav .nav-btn {
+            border: 1px solid transparent;
+            background: transparent;
+            width: 28px;
+            height: 28px;
+            line-height: 1;
+            border-radius: 4px;
+            cursor: pointer;
+            color: #333;
+            padding: 0;
+        }
+        .sftp-nav .nav-btn:hover:not(:disabled) {
+            background: #e5e5e5;
+            border-color: #d0d0d0;
+        }
+        .sftp-nav .nav-btn:disabled {
+            opacity: 0.35;
+            cursor: default;
+        }
+        /* Windows 风格地址栏：面包屑与路径编辑共用同一框 */
+        .sftp-address {
+            flex: 1 1 auto;
+            min-width: 120px;
+            height: 28px;
+            display: flex;
+            align-items: stretch;
+            background: #fff;
+            border: 1px solid #8a8a8a;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .sftp-address:focus-within,
+        .sftp-address.editing {
+            border-color: #0078d4;
+            box-shadow: 0 0 0 1px #0078d4;
+        }
+        .sftp-address-body {
+            flex: 1 1 auto;
+            min-width: 0;
+            position: relative;
+            display: flex;
+            align-items: center;
+            cursor: text;
+        }
+        .sftp-breadcrumbs {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            white-space: nowrap;
+            padding: 0 8px;
+            font-size: 12px;
+            line-height: 26px;
+            height: 100%;
+            scrollbar-width: none;
+        }
+        .sftp-breadcrumbs::-webkit-scrollbar {
+            display: none;
+        }
+        .sftp-breadcrumbs a {
+            color: #1a1a1a;
+            text-decoration: none;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .sftp-breadcrumbs a:hover {
+            background: #e5f3ff;
+            color: #0563c1;
+        }
+        .sftp-breadcrumbs .bc-sep {
+            margin: 0 1px;
+            color: #666;
+            font-size: 11px;
+        }
+        .sftp-breadcrumbs .bc-root {
+            color: #333;
+        }
+        .sftp-address.editing .sftp-breadcrumbs {
+            display: none;
+        }
+        .sftp-address #currentPath {
+            display: none;
+            position: absolute;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+            outline: 0;
+            margin: 0;
+            padding: 0 8px;
+            font-size: 12px;
+            font-family: inherit;
+            background: #fff;
+            color: #1a1a1a;
+            box-shadow: none;
+            border-radius: 0;
+        }
+        .sftp-address.editing #currentPath {
+            display: block;
+        }
+        .sftp-address .addr-action {
+            flex: 0 0 28px;
+            width: 28px;
+            border: 0;
+            border-left: 1px solid #e0e0e0;
+            background: #fafafa;
+            color: #333;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0;
+        }
+        .sftp-address .addr-action:hover {
+            background: #e8f4ff;
+            color: #0078d4;
+        }
+        .sftp-nav-tools {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            flex: 0 0 auto;
+        }
+        .sftp-nav-tools .nav-tool,
+        .sftp-nav-tools .sftp-view-menu > .btn {
+            border: 1px solid transparent;
+            background: transparent;
+            height: 28px;
+            min-height: 28px;
+            padding: 0 8px;
+            border-radius: 4px;
+            color: #333;
+            font-size: 12px;
+            font-weight: 400;
+            line-height: 26px;
+            white-space: nowrap;
+        }
+        .sftp-nav-tools .nav-tool:hover,
+        .sftp-nav-tools .sftp-view-menu > .btn:hover,
+        .sftp-nav-tools .sftp-view-menu > .btn:focus {
+            background: #e5e5e5;
+            border-color: #d0d0d0;
+            color: #111;
+        }
+        .sftp-nav-tools .sftp-view-menu > .btn {
+            box-shadow: none;
+        }
+        .sftp-nav-tools .dropdown-toggle::after {
+            margin-left: 0.35em;
+        }
+        .sftp-nav-tools .dropdown-menu {
+            z-index: 1050;
+            font-size: 13px;
+        }
+        .sftp-nav-tools .dropdown-item.active {
+            background: #e5f1fb;
+            color: #000;
+        }
+        .sftp-nav-tools .dropdown-item .bi {
+            margin-right: 6px;
+        }
+        .sftp-search {
+            flex: 0 1 220px;
+            min-width: 120px;
+            max-width: 260px;
+            height: 28px;
+            display: flex;
+            align-items: stretch;
+            background: #fff;
+            border: 1px solid #8a8a8a;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .sftp-search:focus-within {
+            border-color: #0078d4;
+            box-shadow: 0 0 0 1px #0078d4;
+        }
+        .sftp-search #fileSearch {
+            flex: 1 1 auto;
+            min-width: 0;
+            width: auto;
+            border: 0;
+            outline: 0;
+            border-radius: 0;
+            padding: 0 8px;
+            font-size: 12px;
+            background: transparent;
+        }
+        .sftp-search #searchDepth {
+            flex: 0 0 auto;
+            width: 58px;
+            border: 0;
+            border-left: 1px solid #e0e0e0;
+            border-radius: 0;
+            background: #fafafa;
+            padding: 0 2px;
+            font-size: 11px;
+            color: #444;
+        }
+        .sftp-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            display: flex;
+        }
+        .sftp-side {
+            flex: 0 0 200px;
+            border-right: 1px solid #d4d4d4;
+            background: #f3f3f3;
+            overflow: auto;
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+        }
+        .sftp-side .side-title {
+            padding: 8px 10px 4px;
+            color: #555;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+        .sftp-side .side-list {
+            list-style: none;
+            margin: 0;
+            padding: 0 0 6px;
+        }
+        .sftp-side .side-list li.fav-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 6px 3px 8px;
+            border-radius: 2px;
+            margin: 0 4px;
+        }
+        .sftp-side .side-list li.fav-item:hover {
+            background: #e5f3ff;
+        }
+        .sftp-side .fav-ico {
+            color: #e8b84a;
+            font-size: 12px;
+        }
+        .sftp-side .side-list a {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #222;
+            text-decoration: none;
+        }
+        .sftp-side .fav-del {
+            border: 0;
+            background: transparent;
+            color: #999;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0 4px;
+        }
+        .sftp-side .side-empty {
+            padding: 4px 10px;
+            color: #999;
+        }
+        .sftp-tree {
+            flex: 1 1 auto;
+            padding: 0 0 10px;
+            user-select: none;
+        }
+        .sftp-tree .tree-group-label {
+            padding: 8px 10px 4px;
+            color: #555;
+            font-weight: 600;
+            font-size: 11px;
+        }
+        .sftp-tree .tree-row {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            height: 24px;
+            padding-left: calc(6px + var(--depth, 0) * 14px);
+            padding-right: 6px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            white-space: nowrap;
+        }
+        .sftp-tree .tree-row:hover {
+            background: #e5f3ff;
+        }
+        .sftp-tree .tree-row.active {
+            background: #cce8ff;
+            border-color: #99d1ff;
+        }
+        .sftp-tree .tree-twisty {
+            width: 14px;
+            flex: 0 0 14px;
+            text-align: center;
+            font-size: 9px;
+            color: #555;
+            line-height: 1;
+            cursor: pointer;
+        }
+        .sftp-tree .tree-twisty.empty {
+            visibility: hidden;
+        }
+        .sftp-tree .tree-folder {
+            color: #e8b84a;
+            font-size: 14px;
+            margin-right: 4px;
+        }
+        .sftp-tree .tree-label {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #222;
+        }
+        .sftp-tree .tree-loading {
+            padding-left: calc(24px + var(--depth, 0) * 14px);
+            color: #888;
+            height: 22px;
+            line-height: 22px;
+        }
+        .sftp-main {
+            flex: 1 1 auto;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .sftp-main #fileView {
+            flex: 1 1 auto;
+        }
+        #fileView .col-perm { width: 120px; color: #555; font-family: Consolas, monospace; font-size: 12px; }
+        #fileView .col-owner { width: 72px; }
+        #fileView .cut-item { opacity: 0.45; }
+        #fileView .drop-hover { outline: 2px solid #0d6efd; background: rgba(13,110,253,.08); }
+        #fileView.view-tiles .icon-tile {
+            width: calc(160px * var(--icon-scale));
+            text-align: left;
+        }
+        #fileView.view-tiles .icon-tile .thumb {
+            float: left;
+            margin-right: 8px;
+        }
+        #fileView.view-icons-xl .icon-tile {
+            width: calc(120px * var(--icon-scale));
+        }
+        #fileView.view-content .content-row {
+            display: flex;
+            gap: 10px;
+            padding: 8px 10px;
+            border-bottom: 1px solid #eee;
+            cursor: default;
+        }
+        #fileView.view-content .content-row.selected {
+            background: #cce8ff;
+        }
+        #fileView.view-content .content-icon {
+            font-size: 28px;
+            color: #e8b84a;
+        }
+        #fileView.view-content .content-sub {
+            color: #666;
+            font-size: 12px;
+            margin-top: 2px;
+        }
+        #marquee {
+            position: fixed;
+            border: 1px solid #0078d7;
+            background: rgba(0, 120, 215, 0.15);
+            z-index: 5000;
+            pointer-events: none;
+        }
+        #editContent {
+            width: 100%;
+            min-height: 360px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 13px;
+        }
+        #propsBody {
+            white-space: pre-wrap;
+            font-family: Consolas, "Microsoft YaHei", monospace;
+            font-size: 13px;
+            margin: 0;
+        }
+        .sftp-view-menu .dropdown-item .bi {
+            width: 1.2em;
+            margin-right: 6px;
+        }
+        #fileView {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: auto;
+            background: #fff;
+        }
+        /* —— 详细信息（类 Windows 详情） —— */
+        .view-details table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+        .view-details thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #fafafa;
+            border-bottom: 1px solid #e0e0e0;
+            font-weight: 600;
+            color: #444;
+            padding: 6px 10px;
+            text-align: left;
+            user-select: none;
+            cursor: pointer;
+        }
+        .view-details thead th:hover {
+            background: #f0f0f0;
+        }
+        .view-details thead th .sort-ind {
+            margin-left: 4px;
+            color: #0d6efd;
+            font-size: 11px;
+        }
+        .view-details .rel-hint {
+            color: #888;
+            font-size: 11px;
+            margin-left: 22px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .view-details tbody td {
+            padding: 4px 10px;
+            border-bottom: 1px solid #f0f0f0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+        }
+        .view-details tbody tr {
+            cursor: default;
+        }
+        .view-details tbody tr:hover {
+            background: #e5f3ff;
+        }
+        .view-details tbody tr.selected {
+            background: #cce8ff;
+        }
+        .view-details tr.folder {
+            cursor: pointer;
+        }
+        .view-details .col-name { width: 42%; }
+        .view-details .col-mtime { width: 28%; }
+        .view-details .col-size { width: 16%; }
+        .view-details .col-type { width: 14%; }
+        .view-details .name-cell .bi {
+            margin-right: 6px;
+        }
+        .view-details .bi-folder-fill { color: #ffb233; }
+        .view-details .bi-file-earmark-fill { color: #6c757d; }
+        .view-details .bi-file-earmark-image { color: #0d6efd; }
+        .view-details .bi-film { color: #6f42c1; }
+        .icon-tile .thumb .bi-film { color: #6f42c1; }
+        /* —— 大图标 —— */
+        .view-icons {
+            --icon-scale: 1;
+            padding: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            gap: calc(8px * var(--icon-scale));
+        }
+        .icon-tile {
+            width: calc(104px * var(--icon-scale));
+            padding: calc(8px * var(--icon-scale)) calc(4px * var(--icon-scale)) calc(6px * var(--icon-scale));
+            text-align: center;
+            border-radius: 4px;
+            cursor: default;
+            user-select: none;
+        }
+        .icon-tile:hover {
+            background: #e5f3ff;
+        }
+        .icon-tile.selected {
+            background: #cce8ff;
+        }
+        .icon-tile.folder {
+            cursor: pointer;
+        }
+        .icon-tile .thumb {
+            width: calc(72px * var(--icon-scale));
+            height: calc(72px * var(--icon-scale));
+            margin: 0 auto calc(6px * var(--icon-scale));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f7f7f7;
+            border: 1px solid #e8e8e8;
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+        .icon-tile .thumb img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+        .icon-tile .thumb .bi {
+            font-size: calc(40px * var(--icon-scale));
+            line-height: 1;
+        }
+        .icon-tile .thumb .bi-folder-fill { color: #ffb233; }
+        .icon-tile .thumb .bi-file-earmark-fill { color: #6c757d; }
+        .icon-tile .thumb .ext-badge {
+            position: absolute;
+            left: auto;
+            right: calc(2px * var(--icon-scale));
+            bottom: calc(2px * var(--icon-scale));
+            transform: none;
+            z-index: 2;
+            max-width: calc(100% - 6px);
+            padding: 0 calc(4px * var(--icon-scale));
+            border-radius: 2px;
+            border: 1px solid rgba(0,0,0,.12);
+            background: #fff;
+            color: #333;
+            font: 700 calc(10px * var(--icon-scale))/1.45 Consolas, "Courier New", monospace;
+            letter-spacing: 0.02em;
+            text-transform: lowercase;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            pointer-events: none;
+            box-shadow: 0 1px 2px rgba(0,0,0,.08);
+        }
+        .icon-tile .thumb .ext-badge.ext-code { color: #0b5ed7; border-color: #b6d4fe; background: #e7f1ff; }
+        .icon-tile .thumb .ext-badge.ext-archive { color: #842029; border-color: #f5c2c7; background: #f8d7da; }
+        .icon-tile .thumb .ext-badge.ext-text { color: #41464b; border-color: #ced4da; background: #f8f9fa; }
+        .icon-tile .thumb .ext-badge.ext-media { color: #5a2d82; border-color: #d5b3f0; background: #f3e8ff; }
+        .icon-tile .label {
+            font-size: calc(12px * var(--icon-scale));
+            line-height: 1.25;
+            max-height: 2.5em;
+            overflow: hidden;
+            word-break: break-all;
+            color: #222;
+        }
+        .name-cell .name-text {
+            cursor: default;
+        }
+        .icon-tile .name-text {
+            cursor: default;
+        }
+        #fileView .rename-input {
+            display: inline-block;
+            width: calc(100% - 8px);
+            max-width: 280px;
+            min-height: 1.4em;
+            margin: 0;
+            padding: 1px 4px;
+            font: inherit;
+            line-height: 1.3;
+            border: 1px solid #0078d7;
+            outline: none;
+            background: #fff;
+            color: #111;
+            box-sizing: border-box;
+            resize: none;
+            overflow: hidden;
+            word-break: break-all;
+            white-space: pre-wrap;
+        }
+        .icon-tile .rename-input {
+            display: block;
+            width: 100%;
+            max-width: none;
+            min-height: 2.6em;
+            margin: 0 auto;
+            text-align: center;
+            font-size: calc(12px * var(--icon-scale));
+        }
+        .content-row .rename-input {
+            width: 100%;
+            max-width: 420px;
+        }
+        #fileContextMenu {
+            display: none;
+            position: fixed;
+            z-index: 3000;
+            min-width: 140px;
+            padding: 4px 0;
+            background: #fff;
+            border: 1px solid #c8c8c8;
+            box-shadow: 0 4px 16px rgba(0,0,0,.18);
+            border-radius: 4px;
+        }
+        #fileContextMenu .ctx-item {
+            display: block;
+            padding: 6px 14px;
+            color: #222;
+            text-decoration: none;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        #fileContextMenu .ctx-item:hover {
+            background: #e5f3ff;
+            color: #000;
+        }
+        #fileContextMenu .ctx-item.disabled {
+            color: #aaa;
+            pointer-events: none;
+        }
+        #fileContextMenu .ctx-sep {
+            height: 1px;
+            margin: 4px 0;
+            background: #e0e0e0;
+        }
+        #fileContextMenu .ctx-item .ctx-key {
+            float: right;
+            margin-left: 24px;
+            color: #888;
+            font-size: 12px;
+        }
+        #chmodGrid {
+            display: grid;
+            grid-template-columns: 72px repeat(3, 1fr);
+            gap: 6px 8px;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+        #chmodGrid .chk {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        #fileHoverTip {
+            display: none;
+            position: fixed;
+            z-index: 3100;
+            min-width: 200px;
+            max-width: 320px;
+            padding: 8px 10px;
+            background: #ffffe1;
+            border: 1px solid #888;
+            box-shadow: 2px 2px 6px rgba(0,0,0,.18);
+            color: #222;
+            font-size: 12px;
+            line-height: 1.45;
+            pointer-events: none;
+        }
+        #fileHoverTip .tip-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+            word-break: break-all;
+        }
+        #fileHoverTip .tip-row {
+            color: #444;
+        }
+        .sftp-drop-target {
+            outline: 2px dashed #0d6efd;
+            outline-offset: -4px;
+            background: rgba(13, 110, 253, 0.06) !important;
+        }
+        #sftpToast {
+            position: fixed;
+            left: 50%;
+            bottom: 28px;
+            transform: translateX(-50%) translateY(8px);
+            z-index: 3200;
+            max-width: 86%;
+            padding: 8px 14px;
+            background: rgba(32, 32, 32, 0.92);
+            color: #fff;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.35;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.18s ease, transform 0.18s ease;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            box-shadow: 0 4px 14px rgba(0,0,0,.22);
+        }
+        #sftpToast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        #conflictOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 20000;
+            background: rgba(0, 0, 0, 0.45);
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        #conflictOverlay.show {
+            display: flex;
+        }
+        #conflictOverlay .conflict-box {
+            width: min(440px, 100%);
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 10px 32px rgba(0,0,0,.28);
+            padding: 14px 16px 12px;
+        }
+        #conflictOverlay .conflict-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        #conflictOverlay .conflict-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { border-radius: 4px; background: #b0b0b0; }
+        ::-webkit-scrollbar-track { background: #f0f0f0; }
     </style>
 </head>
-<body><!-- 对话框 -->
-<!-- 使用自带的aria-labelledby事件按钮会冲突 -->
-<div>
-    <div class="input-group">
-        <input type="text" class="form-control" id="currentPath" placeholder="Current Directory" onkeypress="handleKeyPress(event)">
-        <input type="file" class="form-control-file" style="display: none" onchange="uploadFile()">
-        <div class="input-group-append">
-            <button type="button" class="btn btn-primary" onclick="reload()" title="刷新文件"><span class="iconfont icon-shuaxin"></span></button>
-            <button type="button" class="btn btn-primary" onclick="triggerFile()" title="上传文件"><span class="iconfont icon-yunshangchuan"></span></button>
+<body>
+<div class="sftp-root">
+    <div class="sftp-nav">
+        <div class="sftp-nav-btns">
+            <button type="button" class="nav-btn" id="btnNavBack" title="后退 (Alt+←)">◀</button>
+            <button type="button" class="nav-btn" id="btnNavForward" title="前进 (Alt+→)">▶</button>
+            <button type="button" class="nav-btn" id="btnNavUp" title="上级 (Backspace / Alt+↑)">↑</button>
+        </div>
+        <div class="sftp-address" id="sftpAddress" title="单击空白处编辑路径">
+            <div class="sftp-address-body" id="sftpAddressBody">
+                <div id="sftpBreadcrumbs" class="sftp-breadcrumbs"></div>
+                <input type="text" id="currentPath" placeholder="输入路径后回车" spellcheck="false" autocomplete="off">
+            </div>
+            <button type="button" class="addr-action" id="btnAddrRefresh" title="刷新 (F5)" onclick="reload()">
+                <span class="iconfont icon-shuaxin"></span>
+            </button>
+        </div>
+        <div class="sftp-nav-tools">
+            <div class="btn-group sftp-view-menu">
+                <button type="button" class="btn dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" id="btnSftpView" title="查看方式">
+                    <i class="bi bi-layout-sidebar"></i> <span class="view-btn-text">查看</span>
+                </button>
+                <div class="dropdown-menu dropdown-menu-right">
+                    <h6 class="dropdown-header">查看方式</h6>
+                    <a class="dropdown-item view-opt" href="javascript:void(0)" data-view="details">
+                        <i class="bi bi-list-ul"></i>详细信息
+                    </a>
+                    <a class="dropdown-item view-opt" href="javascript:void(0)" data-view="content">
+                        <i class="bi bi-card-list"></i>内容
+                    </a>
+                    <a class="dropdown-item view-opt" href="javascript:void(0)" data-view="tiles">
+                        <i class="bi bi-grid"></i>平铺
+                    </a>
+                    <a class="dropdown-item view-opt" href="javascript:void(0)" data-view="icons">
+                        <i class="bi bi-grid-3x3-gap"></i>大图标
+                    </a>
+                    <a class="dropdown-item view-opt" href="javascript:void(0)" data-view="icons-xl">
+                        <i class="bi bi-square"></i>超大图标
+                    </a>
+                </div>
+            </div>
+            <button type="button" class="nav-tool" id="btnUpload" title="上传文件" onclick="triggerFile()">
+                <span class="iconfont icon-yunshangchuan"></span>
+            </button>
+            <button type="button" class="nav-btn" id="btnFav" title="收藏当前目录">★</button>
+            <input type="file" class="form-control-file" style="display: none" multiple onchange="uploadFile()">
+        </div>
+        <div class="sftp-search" title="搜索文件名；层级=向下包含的子目录层数（1=仅当前目录）">
+            <input type="text" id="fileSearch" placeholder="搜索…" autocomplete="off">
+            <select id="searchDepth" title="搜索层级">
+                <option value="1" selected>1 层</option>
+                <option value="2">2 层</option>
+                <option value="3">3 层</option>
+                <option value="4">4 层</option>
+                <option value="5">5 层</option>
+            </select>
         </div>
     </div>
-    <ul id="fileList" class="list-group">
-        <!-- 文件列表将通过 jQuery 动态渲染 -->
-    </ul>
+    <div class="sftp-body">
+        <aside class="sftp-side">
+            <div class="side-title">快速访问</div>
+            <ul id="sftpFavList" class="side-list"></ul>
+            <div id="sftpTree" class="sftp-tree"></div>
+        </aside>
+        <div class="sftp-main">
+            <div id="fileView" class="view-details"></div>
+        </div>
+    </div>
 </div>
-<!-- 对话框 -->
+
+<div id="fileHoverTip" aria-hidden="true"></div>
+
+<div id="fileContextMenu"></div>
+
+<div class="modal fade" id="promptModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title" id="promptTitle">输入</h6>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" class="form-control form-control-sm" id="promptInput" autocomplete="off">
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-sm btn-primary" id="promptOk">确定</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="chmodModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title">修改权限</h6>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2 text-muted small" id="chmodTarget"></div>
+                <div id="chmodGrid">
+                    <div></div><div>读(r)</div><div>写(w)</div><div>执行(x)</div>
+                    <div>所有者</div>
+                    <label class="chk"><input type="checkbox" data-bit="400"></label>
+                    <label class="chk"><input type="checkbox" data-bit="200"></label>
+                    <label class="chk"><input type="checkbox" data-bit="100"></label>
+                    <div>组</div>
+                    <label class="chk"><input type="checkbox" data-bit="40"></label>
+                    <label class="chk"><input type="checkbox" data-bit="20"></label>
+                    <label class="chk"><input type="checkbox" data-bit="10"></label>
+                    <div>其他人</div>
+                    <label class="chk"><input type="checkbox" data-bit="4"></label>
+                    <label class="chk"><input type="checkbox" data-bit="2"></label>
+                    <label class="chk"><input type="checkbox" data-bit="1"></label>
+                </div>
+                <div class="form-group mb-0">
+                    <label for="chmodOctal" class="mb-1">八进制</label>
+                    <input type="text" class="form-control form-control-sm" id="chmodOctal" maxlength="4" placeholder="如 755">
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-sm btn-primary" id="chmodOk">确定</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="conflictOverlay" aria-hidden="true">
+    <div class="conflict-box" role="dialog" aria-modal="true" aria-labelledby="conflictTitle">
+        <div class="conflict-title" id="conflictTitle">目标已包含同名文件</div>
+        <p class="mb-2" id="conflictMsg"></p>
+        <label class="mb-1 small text-muted" for="conflictRenameInput">重命名为</label>
+        <input type="text" class="form-control form-control-sm" id="conflictRenameInput" autocomplete="off">
+        <div class="conflict-actions">
+            <button type="button" class="btn btn-sm btn-primary" id="conflictRename">重命名</button>
+            <button type="button" class="btn btn-sm btn-warning" id="conflictReplace">替换</button>
+            <button type="button" class="btn btn-sm btn-secondary" id="conflictSkip">放弃上传</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="propsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title">属性</h6>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <pre id="propsBody"></pre>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title" id="editTitle">编辑</h6>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editPath">
+                <textarea id="editContent" class="form-control" spellcheck="false"></textarea>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-sm btn-primary" id="editSave">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="load" tabindex="-1" data-backdrop="static" data-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered">
         <div class="modal-content">
-            <div class="text-center">
-                <!-- 进度条 -->
-                <div><span class="navbar-brand mb-0 h1" id="uploadMessage" >上传中...</span></div>
+            <div class="text-center p-3">
+                <div><span class="navbar-brand mb-0 h1" id="uploadMessage">上传中...</span></div>
                 <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
             </div>
         </div>
     </div>
 </div>
+
 <script src="../js/common.js"></script>
 <script src="../js/jquery-3.4.1.min.js"></script>
 <script src="../js/bootstrap/popper.min.js" charset="utf-8"></script>
 <script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
 <script src="../js/websocket.js" charset="utf-8"></script>
-<script src="../js/sftp.js" charset="utf-8"></script>
+<script src="../js/sftp.js?v=35" charset="utf-8"></script>
+<script src="../js/sftp-win.js?v=7" charset="utf-8"></script>
 </body>
 </html>

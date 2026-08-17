@@ -20,6 +20,7 @@
             display: flex;
             flex-direction: column;
             background: #212529;
+            position: relative;
         }
         .remote-tabs {
             flex: 0 0 auto;
@@ -55,15 +56,37 @@
             display: flex;
             flex-direction: row;
             align-items: stretch;
-        }
-        .remote-pane .leftDiv {
-            flex: 0 0 auto;
-            width: 30%;
-            min-width: 200px;
-            height: 100%;
+            position: relative;
             overflow: hidden;
         }
+        /* 旧单侧栏：多停靠改用 folder-dock-strip */
+        .remote-pane .leftDiv,
         .remote-pane .move-bar {
+            display: none !important;
+        }
+        .remote-pane.has-folder-sessions .rightDiv {
+            height: calc(100% - 36px);
+        }
+        .folder-dock-strip {
+            flex: 0 0 auto;
+            display: none;
+            flex-direction: row;
+            flex-wrap: nowrap;
+            align-items: stretch;
+            min-width: 0;
+            height: 100%;
+            background: #1a1a1a;
+            overflow: hidden;
+        }
+        .remote-pane.has-folder-sessions .folder-dock-strip,
+        .remote-pane.has-folder-sessions .folder-dock-edge {
+            height: calc(100% - 36px);
+        }
+        .remote-pane.has-dock-panels .folder-dock-strip {
+            display: flex !important;
+        }
+        .folder-dock-edge,
+        .folder-dock-bar {
             flex: 0 0 6px;
             width: 6px;
             height: 100%;
@@ -73,16 +96,125 @@
             border-right: 1px solid #333;
             position: relative;
             z-index: 5;
+            display: none;
         }
-        .remote-pane .move-bar:hover,
-        body.split-dragging .remote-pane .move-bar {
+        .remote-pane.has-dock-panels .folder-dock-edge {
+            display: block !important;
+        }
+        .folder-dock-strip .folder-dock-bar {
+            display: block !important;
+            flex: 0 0 6px;
+        }
+        .folder-dock-edge:hover,
+        .folder-dock-bar:hover,
+        body.split-dragging .folder-dock-edge,
+        body.split-dragging .folder-dock-bar {
             background: #0d6efd;
+        }
+        .fw-folder-ico {
+            flex: 0 0 16px;
+            display: block;
         }
         .remote-pane .rightDiv {
             flex: 1 1 auto;
             min-width: 320px;
             height: 100%;
             overflow: hidden;
+        }
+        /* 拖到左侧停靠提示 */
+        .remote-pane.dock-drop-left::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 36px;
+            left: 0;
+            width: 22%;
+            z-index: 1700;
+            pointer-events: none;
+            background: rgba(13, 110, 253, 0.18);
+            border: 2px dashed #0d6efd;
+        }
+        /* 全会话预览层：fixed 盖住整个工作区（含文件+终端 iframe，避免被 iframe 盖住） */
+        #sessionPreviewOverlay {
+            display: none;
+            position: fixed;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 9000;
+            background: rgba(10, 10, 12, 0.96);
+            flex-direction: column;
+        }
+        #sessionPreviewOverlay.show {
+            display: flex;
+        }
+        #sessionPreviewOverlay .session-preview-bar {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            background: #1b1e21;
+            border-bottom: 1px solid #343a40;
+            color: #eee;
+        }
+        #sessionPreviewOverlay .session-preview-bar .title {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 14px;
+        }
+        #sessionPreviewOverlay .session-preview-bar .hint {
+            color: #888;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        #sessionPreviewOverlay .session-preview-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+        }
+        #sessionPreviewOverlay .session-preview-body img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            box-shadow: 0 8px 32px rgba(0,0,0,.45);
+        }
+        #sessionPreviewOverlay .session-preview-body video {
+            max-width: 100%;
+            max-height: 100%;
+            background: #000;
+            box-shadow: 0 8px 32px rgba(0,0,0,.45);
+            outline: none;
+        }
+        #sessionPreviewOverlay .session-preview-body pre {
+            align-self: stretch;
+            width: 100%;
+            max-height: 100%;
+            margin: 0;
+            padding: 16px 20px;
+            overflow: auto;
+            text-align: left;
+            color: #ddd;
+            background: #121212;
+            border-radius: 4px;
+            font: 13px/1.5 Consolas, Monaco, monospace;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        #sessionPreviewOverlay .preview-msg {
+            color: #aaa;
+            font-size: 14px;
+        }
+        #sessionPreviewOverlay .preview-msg.error {
+            color: #f88;
         }
         .resizable-iframe {
             width: 100%;
@@ -97,6 +229,204 @@
         }
         body.split-dragging iframe {
             pointer-events: none !important;
+        }
+        body.folder-win-dragging iframe {
+            pointer-events: none !important;
+        }
+        body.folder-win-dragging {
+            user-select: none !important;
+        }
+        .folder-win-layer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1500;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .remote-pane.has-folder-sessions .folder-win-layer {
+            bottom: 36px;
+        }
+
+        .folder-win.docked {
+            position: relative !important;
+            left: auto !important;
+            top: auto !important;
+            right: auto !important;
+            bottom: auto !important;
+            inset: auto !important;
+            float: none !important;
+            flex: 0 0 auto !important;
+            flex-shrink: 0 !important;
+            width: 340px;
+            max-width: none;
+            height: 100% !important;
+            min-width: 220px;
+            min-height: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            border: 0 !important;
+            border-right: 1px solid #333 !important;
+            z-index: auto !important;
+            transform: none !important;
+            margin: 0 !important;
+        }
+        .folder-win.docked .folder-win-resize {
+            display: none !important;
+        }
+        .folder-win.docked.minimized {
+            display: none !important;
+        }
+        .folder-task-btn.docked {
+            border-style: dashed;
+        }
+        .folder-win {
+            position: absolute;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            min-width: 420px;
+            min-height: 280px;
+            background: #f0f0f0;
+            border: 1px solid #555;
+            border-radius: 6px;
+            box-shadow: 0 12px 40px rgba(0,0,0,.45);
+            overflow: hidden;
+        }
+        .folder-win.focused {
+            border-color: #0d6efd;
+            box-shadow: 0 14px 44px rgba(0,0,0,.5);
+        }
+        .folder-win.minimized {
+            display: none !important;
+        }
+        .folder-win.maximized {
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            border-radius: 0;
+        }
+        .folder-win-title {
+            flex: 0 0 34px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 6px 0 10px;
+            background: linear-gradient(180deg, #3a3a3a, #2a2a2a);
+            color: #f2f2f2;
+            cursor: move;
+            user-select: none;
+        }
+        .folder-win.focused .folder-win-title {
+            background: linear-gradient(180deg, #1f6feb, #0d47a1);
+        }
+        .folder-win-icon {
+            font-size: 14px;
+            line-height: 1;
+        }
+        .folder-win-title-text {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 13px;
+        }
+        .folder-win-actions {
+            display: flex;
+            gap: 2px;
+        }
+        .folder-win-actions .fw-btn {
+            width: 36px;
+            height: 26px;
+            border: 0;
+            background: transparent;
+            color: #eee;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            border-radius: 3px;
+        }
+        .folder-win-actions .fw-btn:hover {
+            background: rgba(255,255,255,.18);
+        }
+        .folder-win-actions .fw-close:hover {
+            background: #e81123;
+            color: #fff;
+        }
+        .folder-win-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            background: #fff;
+        }
+        .folder-win-frame {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            display: block;
+        }
+        .folder-win-resize {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: 14px;
+            height: 14px;
+            cursor: nwse-resize;
+            background: linear-gradient(135deg, transparent 50%, #888 50%);
+        }
+        .folder-taskbar {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1600;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 0 8px;
+            background: linear-gradient(180deg, #2d2d30, #1e1e1e);
+            border-top: 1px solid #3f3f46;
+            pointer-events: auto;
+        }
+        .folder-task-btn {
+            max-width: 200px;
+            height: 28px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            overflow: hidden;
+            border: 1px solid transparent;
+            background: rgba(255,255,255,.06);
+            color: #eee;
+            border-radius: 4px;
+            padding: 0 10px 0 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .folder-task-btn .fw-folder-ico {
+            flex: 0 0 16px;
+        }
+        .folder-task-btn .folder-task-label {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .folder-task-btn:hover {
+            background: rgba(255,255,255,.12);
+            border-color: #555;
+        }
+        .folder-task-btn.active {
+            background: rgba(13, 110, 253, 0.35);
+            border-color: #0d6efd;
+            box-shadow: inset 0 -2px 0 #0d6efd;
+        }
+        .folder-task-btn.minimized {
+            opacity: 0.78;
         }
         #sessionListView {
             height: 100%;
@@ -209,9 +539,17 @@
             </div>
         </div>
     </div>
+    <div id="sessionPreviewOverlay" aria-hidden="true">
+        <div class="session-preview-bar">
+            <span class="title" id="sessionPreviewTitle">预览</span>
+            <span class="hint">Esc 关闭 · 视频时空格暂停/播放</span>
+            <button type="button" class="btn btn-sm btn-outline-light" id="sessionPreviewClose">关闭</button>
+        </div>
+        <div class="session-preview-body" id="sessionPreviewBody">
+            <div class="preview-msg">加载中…</div>
+        </div>
+    </div>
 </div>
-
-<!-- 行右键菜单 -->
 <div id="sessionContextMenu">
     <a class="ctx-item" href="javascript:void(0)" data-action="copy">复制会话</a>
 </div>
@@ -323,10 +661,11 @@
 <script src="../js/jquery-ui.js"></script>
 <script src="../js/bootstrap/popper.min.js" charset="utf-8"></script>
 <script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
-<script src="../js/index.js?v=6" charset="utf-8"></script>
+<script src="../js/index.js?v=9" charset="utf-8"></script>
 <script src="../js/sessions.js?v=6" charset="utf-8"></script>
 <script src="../js/commands-ui.js?v=1" charset="utf-8"></script>
-<script src="../js/split-pane.js?v=1" charset="utf-8"></script>
+<script src="../js/split-pane.js?v=5" charset="utf-8"></script>
+<script src="../js/folder-windows.js?v=5" charset="utf-8"></script>
 <script>
     function loadSsh(query, route) {
         var q = query;
@@ -341,10 +680,276 @@
         if (!$pane.length) {
             return;
         }
-        $pane.find('.leftFrame').attr('src', 'sftp.html' + q);
+        // 文件模块默认隐藏：仅预加载终端；首次显示文件时再加载 SFTP
+        $pane.data('workspaceQuery', q);
         $pane.find('.rightFrame').attr('src', 'ssh.html' + q);
+        if (!$pane.hasClass('files-hidden')) {
+            ensureSftpLoaded($pane);
+        }
     }
     window.loadSsh = loadSsh;
+
+function notifyFilesVisible($pane, targetWin) {
+        var visible = $pane.find('.folder-win').length > 0;
+        function ping(win) {
+            if (!win) {
+                return;
+            }
+            try {
+                win.postMessage({ type: 'webssh-files-visible', visible: visible }, '*');
+            } catch (e) { /* ignore */ }
+        }
+        ping(targetWin);
+        try {
+            ping($pane.find('.leftFrame')[0] && $pane.find('.leftFrame')[0].contentWindow);
+            ping($pane.find('.rightFrame')[0] && $pane.find('.rightFrame')[0].contentWindow);
+        } catch (e2) { /* ignore */ }
+    }
+    window.notifyFilesVisible = notifyFilesVisible;
+
+    function ensureSftpLoaded($pane) {
+        var $left = $pane.find('.leftFrame');
+        var src = $left.attr('src') || '';
+        var q = $pane.data('workspaceQuery') || '';
+        var sep = q.indexOf('?') >= 0 ? '&' : '?';
+        // 注入当前 tagId，避免 iframe 读到空的 localStorage
+        var port = $pane.data('session-port') || window.currentSessionPort || 22;
+        var tid = window.localStorage.getItem('tagId' + port) || '';
+        var next = 'sftp.html' + q + sep + 'v=35&tagId=' + encodeURIComponent(tid);
+        if (src === next) {
+            // 已加载：仍通知同步到 shell 目录
+            try {
+                var leftWin = $left[0] && $left[0].contentWindow;
+                if (leftWin) {
+                    leftWin.postMessage({ type: 'webssh-files-visible', visible: true }, '*');
+                }
+            } catch (e) { /* ignore */ }
+            return;
+        }
+        $left.attr('src', next);
+    }
+    window.ensureSftpLoaded = ensureSftpLoaded;
+
+    var previewSeq = 0;
+
+    function closeSessionPreview() {
+        previewSeq += 1;
+        var $ov = $('#sessionPreviewOverlay');
+        $ov.removeClass('show').attr('aria-hidden', 'true');
+        $('#sessionPreviewBody').empty();
+    }
+
+    function openSessionPreview(data) {
+        var name = data.name || '预览';
+        var kind = data.kind || 'image';
+        var url = data.url;
+        var seq = ++previewSeq;
+        var $ov = $('#sessionPreviewOverlay');
+        // 提到 appShell 末尾，确保盖住所有 iframe
+        $('#appShell').append($ov);
+        var $body = $('#sessionPreviewBody');
+        $('#sessionPreviewTitle').text(name);
+        $body.html('<div class="preview-msg">加载中…</div>');
+        $ov.addClass('show').attr('aria-hidden', 'false');
+        try {
+            $ov[0].focus({ preventScroll: true });
+        } catch (err) { /* ignore */ }
+
+        if (!url) {
+            $body.html('<div class="preview-msg error">预览地址无效</div>');
+            return;
+        }
+        if (kind === 'text') {
+            fetch(url, { credentials: 'same-origin' })
+                .then(function (res) {
+                    if (!res.ok) {
+                        throw new Error('HTTP ' + res.status);
+                    }
+                    return res.text();
+                })
+                .then(function (text) {
+                    if (seq !== previewSeq) {
+                        return;
+                    }
+                    $body.html('<pre></pre>').find('pre').text(text);
+                })
+                .catch(function (err) {
+                    if (seq !== previewSeq) {
+                        return;
+                    }
+                    $body.html('<div class="preview-msg error">文本预览失败：' + (err && err.message ? err.message : '') + '</div>');
+                });
+            return;
+        }
+        if (kind === 'video') {
+            var video = document.createElement('video');
+            video.controls = true;
+            video.autoplay = true;
+            video.playsInline = true;
+            video.preload = 'metadata';
+            video.src = url;
+            video.onerror = function () {
+                if (seq !== previewSeq) {
+                    return;
+                }
+                $body.html('<div class="preview-msg error">视频加载失败（浏览器可能不支持该编码，可尝试下载）</div>');
+            };
+            $body.empty().append(video);
+            return;
+        }
+        var img = new Image();
+        img.onload = function () {
+            if (seq !== previewSeq) {
+                return;
+            }
+            $body.empty().append(img);
+        };
+        img.onerror = function () {
+            if (seq !== previewSeq) {
+                return;
+            }
+            $body.html('<div class="preview-msg error">图片加载失败（可检查 /preview 接口或 tagId）</div>');
+        };
+        img.src = url;
+    }
+
+    $('#sessionPreviewClose').on('click', closeSessionPreview);
+    $('#sessionPreviewOverlay').attr('tabindex', '-1').on('click', function (e) {
+        if (e.target === this || $(e.target).hasClass('session-preview-body')) {
+            closeSessionPreview();
+        }
+    });
+    $(document).on('keydown.sessionPreview', function (e) {
+        if (!$('#sessionPreviewOverlay').hasClass('show')) {
+            return;
+        }
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            closeSessionPreview();
+            return;
+        }
+        if (e.key === ' ' || e.code === 'Space') {
+            e.preventDefault();
+            e.stopPropagation();
+            var video = document.querySelector('#sessionPreviewBody video');
+            if (video) {
+                if (video.paused) {
+                    video.play();
+                } else {
+                    video.pause();
+                }
+                return;
+            }
+            closeSessionPreview();
+        }
+    });
+
+    window.addEventListener('message', function (e) {
+        var data = e.data;
+        if (!data || typeof data !== 'object') {
+            return;
+        }
+        var isPreviewMsg = data.type === 'webssh-file-preview'
+            || data.type === 'webssh-file-preview-toggle'
+            || data.type === 'webssh-file-preview-close';
+        var $frame = $('iframe').filter(function () {
+            return this.contentWindow === e.source;
+        });
+        if (!$frame.length && !isPreviewMsg) {
+            return;
+        }
+        var $pane = $frame.closest('.remote-pane');
+        if (!$pane.length && !isPreviewMsg) {
+            return;
+        }
+        if (data.type === 'webssh-toggle-files') {
+            if (window.FolderWindows) {
+                window.FolderWindows.handleToggleFiles($pane, e.source);
+            } else {
+                $pane.toggleClass('files-hidden');
+                if (!$pane.hasClass('files-hidden')) {
+                    ensureSftpLoaded($pane);
+                }
+                notifyFilesVisible($pane, e.source);
+            }
+            try {
+                var rightWin = $pane.find('.rightFrame')[0] && $pane.find('.rightFrame')[0].contentWindow;
+                if (rightWin) {
+                    rightWin.dispatchEvent(new Event('resize'));
+                }
+            } catch (err) { /* ignore */ }
+            return;
+        }
+        if (data.type === 'webssh-query-files') {
+            var hasWin = $pane.find('.folder-win').length > 0;
+            try {
+                e.source.postMessage({ type: 'webssh-files-visible', visible: hasWin }, '*');
+            } catch (e0) { /* ignore */ }
+            return;
+        }
+        if (data.type === 'webssh-folder-clipboard-set') {
+            if (window.FolderWindows) {
+                window.FolderWindows.broadcastClipboard($pane, data.clipboard || null);
+            } else {
+                window.__websshFolderClipboard = data.clipboard || null;
+            }
+            return;
+        }
+        if (data.type === 'webssh-folder-path') {
+            var $ff = $('iframe').filter(function () {
+                return this.contentWindow === e.source;
+            }).first();
+            if (window.FolderWindows && $ff.length) {
+                window.FolderWindows.setWindowTitle($ff, data.path);
+            }
+            return;
+        }
+        if (data.type === 'webssh-folder-dock-side') {
+            if (window.FolderWindows) {
+                window.FolderWindows.dockFromFrame($pane, e.source);
+            }
+            return;
+        }
+        if (data.type === 'webssh-refresh-sftp') {
+            try {
+                function pingFrame(win) {
+                    if (!win) {
+                        return;
+                    }
+                    if (data.path) {
+                        win.postMessage({
+                            type: 'webssh-sync-cwd',
+                            path: data.path,
+                            selectNames: data.selectNames || null
+                        }, '*');
+                    } else {
+                        win.postMessage({ type: 'webssh-files-visible', visible: true }, '*');
+                    }
+                }
+                pingFrame($pane.find('.leftFrame')[0] && $pane.find('.leftFrame')[0].contentWindow);
+                $pane.find('.folder-win-frame').each(function () {
+                    pingFrame(this.contentWindow);
+                });
+            } catch (err2) { /* ignore */ }
+            return;
+        }
+        if (data.type === 'webssh-file-preview') {
+            openSessionPreview(data);
+            return;
+        }
+        if (data.type === 'webssh-file-preview-toggle') {
+            if ($('#sessionPreviewOverlay').hasClass('show')) {
+                closeSessionPreview();
+            } else {
+                openSessionPreview(data);
+            }
+            return;
+        }
+        if (data.type === 'webssh-file-preview-close') {
+            closeSessionPreview();
+        }
+    });
 </script>
 </body>
 </html>

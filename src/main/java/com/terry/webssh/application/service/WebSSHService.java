@@ -182,7 +182,12 @@ public class WebSSHService extends RemoteWebSocketHandler {
                     Charset remote = resolveCharset(sshConnectInfo.getEncoded());
                     bytes = new String(bytes, remote).getBytes(StandardCharsets.UTF_8);
                 }
-                sendMessage(sshConnectInfo.getWebSocketSession(), bytes);
+                String text = new String(bytes, StandardCharsets.UTF_8);
+                String filtered = sshConnectInfo.filterPwdCapture(text);
+                if (StrUtil.isNotEmpty(filtered)) {
+                    sendMessage(sshConnectInfo.getWebSocketSession(),
+                            filtered.getBytes(StandardCharsets.UTF_8));
+                }
             }
         } finally {
             // 断开连接后关闭会话
@@ -197,16 +202,20 @@ public class WebSSHService extends RemoteWebSocketHandler {
     /**
      * 将消息转发到终端（按连接编码写出，默认 UTF-8）
      */
-    private void transToSSH(Channel channel, String command, String charsetName) throws IOException {
+    public static void writeToChannel(Channel channel, String command, String charsetName) throws IOException {
         if (channel != null) {
             OutputStream outputStream = channel.getOutputStream();
-            Charset charset = resolveCharset(charsetName);
+            Charset charset = resolveCharsetStatic(charsetName);
             outputStream.write(command.getBytes(charset));
             outputStream.flush();
         }
     }
 
-    private static Charset resolveCharset(String charsetName) {
+    private void transToSSH(Channel channel, String command, String charsetName) throws IOException {
+        writeToChannel(channel, command, charsetName);
+    }
+
+    private static Charset resolveCharsetStatic(String charsetName) {
         if (StrUtil.isBlank(charsetName)) {
             return StandardCharsets.UTF_8;
         }
@@ -215,5 +224,22 @@ public class WebSSHService extends RemoteWebSocketHandler {
         } catch (Exception e) {
             return StandardCharsets.UTF_8;
         }
+    }
+
+    private static Charset resolveCharset(String charsetName) {
+        return resolveCharsetStatic(charsetName);
+    }
+
+    public static SSHConnectInfo findShellByTagId(String tagId) {
+        if (StrUtil.isBlank(tagId)) {
+            return null;
+        }
+        for (SSHConnectInfo info : sshMap.values()) {
+            if (info != null && tagId.equals(info.getTagId())
+                    && info.getChannel() != null && info.getChannel().isConnected()) {
+                return info;
+            }
+        }
+        return null;
     }
 }

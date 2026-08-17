@@ -21,4 +21,16 @@ public class SftpFile {
     private String createTime;
 
     private String modifyTime;
+
+    /** 权限八进制，如 755 */
+    private String permissions;
+
+    /** 权限符号串，如 rwxr-xr-x */
+    private String permissionText;
+
+    /** 所有者 uid（字符串） */
+    private String owner;
+
+    /** 组 gid（字符串） */
+    private String group;
 }

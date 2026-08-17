@@ -29,7 +29,31 @@ try {
 } catch (e) {
   port = getUrlParameter('port') || 22; // 确保在跨域时回退到自身 query / 22
 }
-let tagId = window.localStorage.getItem("tagId" + port);
+function normalizeTagId(v) {
+  if (v == null) {
+    return '';
+  }
+  v = String(v).trim();
+  // ssh 断开时曾写入字符串 "null"
+  if (!v || v === 'null' || v === 'undefined') {
+    return '';
+  }
+  return v;
+}
+
+// 优先 URL 上的 tagId（父页注入），再读 localStorage
+let tagId = normalizeTagId(getUrlParameter('tagId'))
+  || normalizeTagId(getQueryParam('tagId'))
+  || normalizeTagId(window.localStorage.getItem("tagId" + port));
+
+function currentTagId() {
+  return normalizeTagId(getUrlParameter('tagId'))
+    || normalizeTagId(getQueryParam('tagId'))
+    || normalizeTagId(window.localStorage.getItem("tagId" + port))
+    || normalizeTagId(tagId)
+    || normalizeTagId(window.parent && window.parent.localStorage
+      && window.parent.localStorage.getItem("tagId" + port));
+}
 
 let sessionId = getQueryParam('sessionId')
   || (window.parent && window.parent.currentSessionId)
