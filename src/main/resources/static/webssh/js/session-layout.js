@@ -239,7 +239,7 @@
         var list = [];
         $allWindows().each(function () {
             var $win = $(this);
-            if ($win.hasClass('minimized') || $win.hasClass('docked')) {
+            if ($win.hasClass('minimized')) {
                 return;
             }
             var slot = $win.data('snap-slot');
@@ -470,7 +470,12 @@
         };
     }
 
+    /** Immediate persist; cancels any pending debounced save. */
     function saveNow() {
+        if (saveTimer) {
+            clearTimeout(saveTimer);
+            saveTimer = null;
+        }
         if (restoring) {
             return;
         }
@@ -601,9 +606,14 @@
         onMaxEnter: onMaxEnter,
         onMaxLeave: onMaxLeave,
         save: save,
+        saveNow: saveNow,
         load: load,
         restore: restore,
         STORAGE_KEY: STORAGE_KEY,
         TEMPLATES: TEMPLATES
     };
+
+    $(w).on('beforeunload.sessionLayout', function () {
+        saveNow();
+    });
 })(window);

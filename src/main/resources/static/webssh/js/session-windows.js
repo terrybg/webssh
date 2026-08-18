@@ -9,6 +9,7 @@
     var DOCK_BAR_W = 4;
     var SNAP_EDGE = 24;
     var SNAP_UNSnap_THRESHOLD = 24;
+    var DOCK_UNDOCK_THRESHOLD = 40;
 
     var FOLDER_ICO =
         '<svg class="fw-folder-ico" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">' +
@@ -585,7 +586,15 @@
         focusWindow($win);
     }
 
-    function notifyLayoutSave() {
+    function notifyLayoutSave(immediate) {
+        if (immediate) {
+            if (w.SessionLayout && typeof w.SessionLayout.saveNow === 'function') {
+                w.SessionLayout.saveNow();
+            } else if (w.SessionLayout && typeof w.SessionLayout.save === 'function') {
+                w.SessionLayout.save();
+            }
+            return;
+        }
         if (w.SessionLayout && typeof w.SessionLayout.save === 'function') {
             w.SessionLayout.save();
         }
@@ -606,7 +615,8 @@
             syncDockStripVisible();
         }
         updateTaskbar();
-        notifyLayoutSave();
+        // Flush immediately so a quick refresh cannot resurrect the closed window
+        notifyLayoutSave(true);
     }
 
     function bindWindowChrome($win) {
@@ -675,24 +685,30 @@
         var sx, sy, ol, ot;
         var dragWasSnapped = false;
         var dragUnsnapped = false;
+        var dragFromDock = false;
+        var dockUndocked = false;
         var lastClientX = 0;
         var lastClientY = 0;
         $win.find('.session-win-title').on('mousedown', function (e) {
             if ($(e.target).closest('.fw-btn').length) {
                 return;
             }
-            if ($win.hasClass('maximized') || $win.hasClass('docked')) {
+            if ($win.hasClass('maximized')) {
                 return;
             }
             dragging = true;
             dragWasSnapped = $win.hasClass('snapped');
             dragUnsnapped = false;
+            dragFromDock = $win.hasClass('docked');
+            dockUndocked = false;
             sx = e.clientX;
             sy = e.clientY;
             lastClientX = sx;
             lastClientY = sy;
-            ol = parseInt($win.css('left'), 10) || 0;
-            ot = parseInt($win.css('top'), 10) || 0;
+            if (!dragFromDock) {
+                ol = parseInt($win.css('left'), 10) || 0;
+                ot = parseInt($win.css('top'), 10) || 0;
+            }
             $('body').addClass('folder-win-dragging');
             e.preventDefault();
         });
@@ -702,6 +718,28 @@
             }
             lastClientX = e.clientX;
             lastClientY = e.clientY;
+            if (dragFromDock && !dockUndocked) {
+                var ddx = e.clientX - sx;
+                var ddy = e.clientY - sy;
+                if (Math.sqrt(ddx * ddx + ddy * ddy) <= DOCK_UNDOCK_THRESHOLD) {
+                    return;
+                }
+                dockUndocked = true;
+                undock($win);
+                var layerEl = $layer()[0];
+                var layerRect = layerEl ? layerEl.getBoundingClientRect() : { left: 0, top: 0 };
+                var ww = $win.outerWidth() || 420;
+                var newLeft = Math.max(0, e.clientX - layerRect.left - Math.min(80, ww / 2));
+                var newTop = Math.max(0, e.clientY - layerRect.top - 14);
+                $win.css({
+                    left: newLeft + 'px',
+                    top: newTop + 'px'
+                });
+                ol = newLeft;
+                ot = newTop;
+                sx = e.clientX;
+                sy = e.clientY;
+            }
             if (dragWasSnapped && !dragUnsnapped) {
                 var dx0 = e.clientX - sx;
                 var dy0 = e.clientY - sy;
@@ -742,7 +780,11 @@
             dragging = false;
             $('body').removeClass('folder-win-dragging');
             hideSnapPreview();
-            if (!dragWasSnapped || dragUnsnapped) {
+            // Drag started in dock but never crossed undock threshold — stay docked
+            if (dragFromDock && !dockUndocked) {
+                return;
+            }
+            if (!dragWasSnapped || dragUnsnapped || dockUndocked) {
                 var zone = hitSnapZone(lastClientX, lastClientY, getSnapHitBounds());
                 if (zone) {
                     snap($win, zone);
