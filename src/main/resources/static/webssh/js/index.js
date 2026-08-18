@@ -1,6 +1,7 @@
 /**
- * Session tabs: fixed "会话列表" + dynamic remote panes.
- * No "新建会话" button — remotes are opened from the list.
+ * Session tabs: fixed "会话列表" + dynamic remote panes (legacy).
+ * Happy-path remote/file opens use SessionWindows via sessions.js;
+ * ensureRemoteTab remains for copy-tab / migration paths only.
  */
 var remoteTabSeq = 0;
 

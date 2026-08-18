@@ -223,66 +223,119 @@
     return '?sessionId=' + encodeURIComponent(sid) + '&port=' + encodeURIComponent(p);
   }
 
-  function paneHasLiveSsh(route) {
-    var src = $('.shell-tab-pane[route="' + route + '"] .rightFrame').attr('src') || '';
-    return src.indexOf('ssh.html') !== -1;
-  }
-
   function showSessionList() {
     if (typeof window.changeMenu === 'function') {
       window.changeMenu('.shell', 'list');
     }
   }
 
-  function connectSession(session) {
-    if (!session || typeof window.ensureRemoteTab !== 'function') {
-      return;
+  /**
+   * Ensure SSH login tagId for session.port.
+   * Reuses localStorage tagId when still present (window close does not clear it).
+   */
+  function ensureLoggedIn(session) {
+    if (!session) {
+      return $.Deferred().reject('无效会话').promise();
     }
-
-    window.openSessionTabs = window.openSessionTabs || {};
-    var existingRoute = window.openSessionTabs[session.id];
-    if (existingRoute && $('.shell-menu[route="' + existingRoute + '"]').length) {
+    var port = session.port != null ? session.port : 22;
+    var existing = '';
+    try {
+      existing = window.localStorage.getItem('tagId' + port) || '';
+    } catch (e) {
+      existing = '';
+    }
+    if (existing) {
       window.currentSessionId = session.id;
-      window.currentSessionPort = session.port;
-      window.changeMenu('.shell', existingRoute);
-      if (!paneHasLiveSsh(existingRoute)) {
-        if (typeof window.loadSsh === 'function') {
-          window.loadSsh(workspaceIframeQuery(session), existingRoute);
-        }
-      }
-      return;
+      window.currentSessionPort = port;
+      return $.Deferred().resolve(existing).promise();
     }
-
-    $('#loadingIndicator').show();
-    $.post(baseUrl + '/loginSsh', {
+    return $.post(baseUrl + '/loginSsh', {
       ip: session.ip,
       userName: session.userName,
       password: session.password,
-      port: session.port
-    })
-      .done(function (res) {
-        if (res.status !== 200) {
-          alert(res.message || '登录失败');
-          return;
-        }
-        window.localStorage.setItem('tagId' + session.port, res.result);
-        window.currentSessionId = session.id;
-        window.currentSessionPort = session.port;
-        var route = window.ensureRemoteTab(session);
-        if (typeof window.loadSsh === 'function') {
-          window.loadSsh(workspaceIframeQuery(session), route);
-        }
+      port: port
+    }).then(function (res) {
+      if (!res || res.status !== 200) {
+        return $.Deferred().reject((res && res.message) || '登录失败').promise();
+      }
+      window.localStorage.setItem('tagId' + port, res.result);
+      window.currentSessionId = session.id;
+      window.currentSessionPort = port;
+      return res.result;
+    }, function () {
+      return $.Deferred().reject('登录失败').promise();
+    });
+  }
+
+  /** Alias used by brief / callers expecting ensureSshSession */
+  function ensureSshSession(session) {
+    return ensureLoggedIn(session);
+  }
+
+  function openSshWindow(session) {
+    if (!session) {
+      return;
+    }
+    if (!window.SessionWindows || typeof window.SessionWindows.open !== 'function') {
+      alert('会话窗口未加载');
+      return;
+    }
+    $('#loadingIndicator').show();
+    ensureLoggedIn(session)
+      .done(function (tagId) {
+        var q = workspaceIframeQuery(session);
+        SessionWindows.open({
+          kind: 'ssh',
+          sessionId: session.id,
+          port: session.port,
+          title: session.name || session.ip || '终端',
+          query: q,
+          tagId: tagId
+        });
       })
-      .fail(function () {
-        alert('登录失败');
+      .fail(function (msg) {
+        alert(msg || '登录失败');
       })
       .always(function () {
         $('#loadingIndicator').hide();
       });
   }
 
+  function openFileWindow(session) {
+    if (!session) {
+      return;
+    }
+    if (!window.SessionWindows || typeof window.SessionWindows.open !== 'function') {
+      alert('会话窗口未加载');
+      return;
+    }
+    $('#loadingIndicator').show();
+    ensureLoggedIn(session)
+      .done(function (tagId) {
+        var q = workspaceIframeQuery(session);
+        SessionWindows.open({
+          kind: 'sftp',
+          sessionId: session.id,
+          port: session.port,
+          title: (session.name || session.ip || '文件') + ' 文件',
+          query: q,
+          tagId: tagId
+        });
+      })
+      .fail(function (msg) {
+        alert(msg || '登录失败');
+      })
+      .always(function () {
+        $('#loadingIndicator').hide();
+      });
+  }
+
+  function connectSession(session) {
+    openSshWindow(session);
+  }
+
   function connectRemote(session) {
-    connectSession(session);
+    openSshWindow(session);
   }
 
   function wireDesktopCallbacks() {
@@ -311,15 +364,22 @@
         resolveSession(session.id, openSessionCommands);
       }
     };
-    // Task 3 will replace these with openSshWindow / openFileWindow
     D.onOpenRemote = function (session) {
-      if (typeof console !== 'undefined' && console.warn) {
-        console.warn('[Desktop] onOpenRemote stub until Task 3', session);
+      if (session && session.id && sessionsCache[session.id]) {
+        openSshWindow(sessionsCache[session.id]);
+      } else if (session && session.id) {
+        resolveSession(session.id, openSshWindow);
+      } else if (session) {
+        openSshWindow(session);
       }
     };
     D.onOpenFiles = function (session) {
-      if (typeof console !== 'undefined' && console.warn) {
-        console.warn('[Desktop] onOpenFiles stub until Task 3', session);
+      if (session && session.id && sessionsCache[session.id]) {
+        openFileWindow(sessionsCache[session.id]);
+      } else if (session && session.id) {
+        resolveSession(session.id, openFileWindow);
+      } else if (session) {
+        openFileWindow(session);
       }
     };
     if (typeof D.bind === 'function') {
@@ -416,6 +476,10 @@
   window.openSessionCommands = openSessionCommands;
   window.connectSession = connectSession;
   window.connectRemote = connectRemote;
+  window.openSshWindow = openSshWindow;
+  window.openFileWindow = openFileWindow;
+  window.ensureLoggedIn = ensureLoggedIn;
+  window.ensureSshSession = ensureSshSession;
   window.showSessionList = showSessionList;
   window.workspaceIframeQuery = workspaceIframeQuery;
   window.copySessionTab = copySessionTab;
