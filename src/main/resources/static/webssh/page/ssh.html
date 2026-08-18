@@ -302,7 +302,8 @@
                 <div class="dropdown-item" onclick="setEncode('GBK')">GBK</div>
             </div>
         </div>
-        <button type="button" id="btnToggleFiles" class="btn btn-secondary" title="显示/隐藏左侧文件模块（打开后左侧有「查看」可切换详细信息/大图标）" onclick="toggleFilesModule()">
+        <!-- v1 desktop: open files from desktop icon menu, not SSH toolbar -->
+        <button type="button" id="btnToggleFiles" class="btn btn-secondary" style="display:none" aria-hidden="true" title="显示/隐藏左侧文件模块" onclick="toggleFilesModule()">
             文件
         </button>
         <a class="btn btn-secondary" data-toggle="collapse" href="#collapseExample" role="button" aria-expanded="false" aria-controls="collapseExample">
@@ -354,6 +355,6 @@
 <script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
 <script src="../js/websocket.js" charset="utf-8"></script>
 <script src="../js/cmd-suggest.js?v=7" charset="utf-8"></script>
-<script src="../js/ssh.js?v=9" charset="utf-8"></script>
+<script src="../js/ssh.js?v=10" charset="utf-8"></script>
 </body>
 </html>

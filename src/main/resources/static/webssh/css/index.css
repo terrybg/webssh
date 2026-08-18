@@ -23,7 +23,8 @@ a {color: #FFF;}
     content:" ";
 }
 .iconfont{font-size: 18px;margin-right: 5px;}
-.remote-tabs{border: 1px solid}
+/* legacy tab bar kept in DOM for migration; not primary UI */
+.remote-tabs{display:none!important;border:1px solid}
 .tab-pane{height: 100%;}
 .icon-shanchu2:hover{background: #000;border-radius: 10px;}
 

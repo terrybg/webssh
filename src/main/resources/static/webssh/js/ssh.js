@@ -166,6 +166,8 @@ if (typeof CmdSuggest !== 'undefined') {
 $(function (){
     openTerminal();
     loadShortcuts();
+    // v1: files open from desktop icon menu, not SSH toolbar
+    $('#btnToggleFiles').hide().attr('aria-hidden', 'true');
     // 委托绑定，避免元素未就绪或缓存旧页导致无效
     $(document).on('input keyup', '#shortcutSearch', renderShortcuts);
     $(document).on('change', '#shortcutFilter', renderShortcuts);
@@ -484,6 +486,8 @@ function setFilesButtonVisible(visible) {
     if (!$btn.length) {
         return;
     }
+    // v1: keep toolbar「文件」hidden; open files from desktop icon → 文件
+    $btn.hide().attr('aria-hidden', 'true');
     if (visible) {
         $btn.addClass('active btn-primary').removeClass('btn-secondary');
         $btn.attr('title', '再开一个文件窗口');

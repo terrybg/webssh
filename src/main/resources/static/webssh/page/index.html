@@ -22,7 +22,10 @@
             background: #212529;
             position: relative;
         }
-        /* v1: hide remote-tab chrome; desktop is primary entry */
+        /* v1: hide remote-tab chrome; desktop icons are primary entry */
+        #appShell > .remote-tabs {
+            display: none !important;
+        }
         .remote-tabs {
             display: none !important;
             flex: 0 0 auto;
@@ -40,6 +43,11 @@
         }
         .remote-tabs .list-tab .icon-shanchu2 {
             display: none;
+        }
+        #tabPanes,
+        .desktop-pane,
+        #desktopRoot {
+            height: 100%;
         }
         #tabPanes {
             flex: 1 1 auto;
