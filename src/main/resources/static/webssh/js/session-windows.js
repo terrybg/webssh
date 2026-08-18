@@ -1,9 +1,12 @@
 /**
- * 桌面会话浮动窗：SSH / SFTP + 共享任务栏（无停靠）
+ * 桌面会话浮动窗：SSH / SFTP + 左侧多分栏停靠 + 共享任务栏
  */
 (function (w) {
     var zCounter = 3000;
     var winSeq = 0;
+    var DEFAULT_DOCK_W = 420;
+    var MIN_DOCK_W = 280;
+    var DOCK_BAR_W = 4;
 
     var FOLDER_ICO =
         '<svg class="fw-folder-ico" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">' +
@@ -94,6 +97,68 @@
         $('#tabPanes').toggleClass('has-desktop-sessions', !!has);
     }
 
+    function clearSnap($win) {
+        /* no-op until Task 3 */
+    }
+
+    function setDockPanelWidth($win, width) {
+        width = Math.max(MIN_DOCK_W, Math.round(width));
+        $win.data('dock-width', width);
+        $win.css('width', width + 'px');
+    }
+
+    function syncDockButton($win) {
+        var $btn = $win.find('.sw-dock');
+        if ($win.hasClass('docked')) {
+            $btn.attr('title', '取消停靠（浮动）').text('⧉');
+            $win.find('.sw-max').hide();
+        } else {
+            $btn.attr('title', '停靠到左侧（从左到右排列）').text('▤');
+            $win.find('.sw-max').show();
+        }
+    }
+
+    function captureFloatRect($win) {
+        if (!$win || !$win.length || $win.hasClass('docked') || $win.hasClass('maximized')) {
+            return;
+        }
+        $win.data('float-rect', {
+            left: $win.css('left'),
+            top: $win.css('top'),
+            width: $win.css('width'),
+            height: $win.css('height')
+        });
+    }
+
+    function visibleDocked() {
+        return $dockStrip().children('.session-win.docked').not('.minimized');
+    }
+
+    function dockStripTotalWidth() {
+        var total = 0;
+        visibleDocked().each(function () {
+            var $w = $(this);
+            total += $w.data('dock-width') || DEFAULT_DOCK_W;
+        });
+        total += $dockStrip().children('.desktop-dock-bar').length * DOCK_BAR_W;
+        return total;
+    }
+
+    function syncSessionLayerInset() {
+        var inset = dockStripTotalWidth();
+        $layer().css('left', inset > 0 ? inset + 'px' : '');
+    }
+
+    function notifyDockedResize() {
+        $dockStrip().find('.session-win-frame').each(function () {
+            try {
+                if (this.contentWindow) {
+                    this.contentWindow.dispatchEvent(new Event('resize'));
+                }
+            } catch (e) { /* ignore */ }
+        });
+    }
+
     function syncDockStripVisible() {
         var $strip = $dockStrip();
         if (!$strip.length) {
@@ -104,9 +169,41 @@
         $strip.attr('aria-hidden', hasDocked ? 'false' : 'true');
         if (!hasDocked) {
             $strip.css('display', 'none');
+            $layer().css('left', '');
         } else {
             $strip.css('display', '');
         }
+    }
+
+    function relayoutDock() {
+        var $strip = $dockStrip();
+        if (!$strip.length) {
+            return;
+        }
+        var $all = $allWindows().filter('.docked');
+        $all.each(function () {
+            var $win = $(this);
+            var w0 = $win.data('dock-width') || DEFAULT_DOCK_W;
+            $win.data('dock-width', w0);
+            this.style.cssText = 'width:' + w0 + 'px;';
+            if (!$win.parent().is($strip)) {
+                $strip.append($win);
+            }
+        });
+        $strip.children('.desktop-dock-bar').remove();
+        var $visible = $strip.children('.session-win.docked').not('.minimized');
+        $visible.each(function (i) {
+            if (i > 0) {
+                $(this).before('<div class="desktop-dock-bar" title="拖动调整分栏"></div>');
+            }
+        });
+        $strip.children('.session-win.docked.minimized').appendTo($strip);
+        syncDockStripVisible();
+        syncSessionLayerInset();
+        $all.each(function () {
+            syncDockButton($(this));
+        });
+        notifyDockedResize();
     }
 
     function dock($win) {
@@ -117,11 +214,18 @@
         if (!$strip.length) {
             return;
         }
-        $win.removeClass('maximized minimized').addClass('docked');
+        clearSnap($win);
+        captureFloatRect($win);
+        $win.removeClass('maximized minimized');
+        var w0 = $win.data('dock-width') || DEFAULT_DOCK_W;
+        $win.data('dock-width', w0).addClass('docked');
         $strip.append($win);
-        syncDockStripVisible();
+        relayoutDock();
         focusWindow($win);
         updateTaskbar();
+        if (w.SessionLayout && typeof w.SessionLayout.save === 'function') {
+            w.SessionLayout.save();
+        }
     }
 
     function undock($win) {
@@ -129,19 +233,50 @@
             return;
         }
         var kind = $win.data('kind') || $win.attr('data-kind') || 'ssh';
-        var off = cascadeOffset($layer().find('.session-win').not('.docked').length);
         $win.removeClass('docked maximized');
-        $win.css({
-            left: off.left + 'px',
-            top: off.top + 'px',
-            width: (kind === 'sftp' ? 720 : 800) + 'px',
-            height: (kind === 'sftp' ? 480 : 520) + 'px',
-            zIndex: ++zCounter
-        });
+        $win[0].style.cssText = '';
+        var r = $win.data('float-rect');
+        if (r) {
+            $win.css({
+                left: r.left,
+                top: r.top,
+                width: r.width,
+                height: r.height,
+                zIndex: ++zCounter
+            });
+        } else {
+            var off = cascadeOffset($layer().find('.session-win').not('.docked').length);
+            $win.css({
+                left: off.left + 'px',
+                top: off.top + 'px',
+                width: (kind === 'sftp' ? 720 : 800) + 'px',
+                height: (kind === 'sftp' ? 480 : 520) + 'px',
+                zIndex: ++zCounter
+            });
+        }
+        syncDockButton($win);
         $layer().append($win);
-        syncDockStripVisible();
+        if (!$dockStrip().find('.session-win.docked').length) {
+            syncDockStripVisible();
+        } else {
+            relayoutDock();
+        }
         focusWindow($win);
         updateTaskbar();
+        if (w.SessionLayout && typeof w.SessionLayout.save === 'function') {
+            w.SessionLayout.save();
+        }
+    }
+
+    function dockFromFrame(iframeWindow) {
+        var $srcFrame = $('iframe').filter(function () {
+            return this.contentWindow === iframeWindow;
+        }).first();
+        var $win = $srcFrame.closest('.session-win');
+        if (!$win.length || $win.hasClass('docked')) {
+            return;
+        }
+        dock($win);
     }
 
     function open(opts) {
@@ -225,6 +360,9 @@
             return;
         }
         $win.addClass('minimized').removeClass('focused maximized');
+        if ($win.hasClass('docked')) {
+            relayoutDock();
+        }
         updateTaskbar();
     }
 
@@ -233,12 +371,20 @@
             return;
         }
         $win.removeClass('minimized');
-        // focusWindow already refreshes the taskbar
+        if ($win.hasClass('docked')) {
+            if (!$win.data('dock-width')) {
+                $win.data('dock-width', DEFAULT_DOCK_W);
+            }
+            relayoutDock();
+        }
         focusWindow($win);
     }
 
     function maximizeWindow($win) {
         if (!$win || !$win.length) {
+            return;
+        }
+        if ($win.hasClass('docked')) {
             return;
         }
         if ($win.hasClass('maximized')) {
@@ -264,10 +410,15 @@
             return;
         }
         var id = $win.data('win-id');
+        var wasDocked = $win.hasClass('docked');
         $(document).off('.sw' + id).off('.swr' + id);
         // 仅移除 DOM；不 logout、不清 localStorage tagId
         $win.remove();
-        syncDockStripVisible();
+        if (wasDocked) {
+            relayoutDock();
+        } else {
+            syncDockStripVisible();
+        }
         updateTaskbar();
     }
 
@@ -446,7 +597,74 @@
         close: closeWindow,
         dock: dock,
         undock: undock,
+        dockFromFrame: dockFromFrame,
+        relayoutDock: relayoutDock,
+        setDockPanelWidth: setDockPanelWidth,
         updateTaskbar: updateTaskbar,
-        setTitle: setTitle
+        setTitle: setTitle,
+        MIN_DOCK_W: MIN_DOCK_W
     };
+
+    var splitDragging = false;
+    var splitLeft = null;
+    var splitRight = null;
+    var splitStartX = 0;
+    var splitLeftW0 = 0;
+    var splitRightW0 = 0;
+
+    function endSplitDrag() {
+        if (!splitDragging) {
+            return;
+        }
+        splitDragging = false;
+        splitLeft = null;
+        splitRight = null;
+        $('body').removeClass('split-dragging');
+        notifyDockedResize();
+    }
+
+    $(document).on('mousedown.swdocksplit', '#desktopDockStrip .desktop-dock-bar', function (e) {
+        if (e.which !== 1 && e.button !== 0) {
+            return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        splitLeft = $(this).prevAll('.session-win.docked').not('.minimized').first();
+        splitRight = $(this).nextAll('.session-win.docked').not('.minimized').first();
+        if (!splitLeft.length || !splitRight.length) {
+            return;
+        }
+        splitStartX = e.clientX;
+        splitLeftW0 = splitLeft.outerWidth();
+        splitRightW0 = splitRight.outerWidth();
+        splitDragging = true;
+        $('body').addClass('split-dragging');
+    });
+
+    $(document).on('mousemove.swdocksplit', function (e) {
+        if (!splitDragging || !splitLeft || !splitRight) {
+            return;
+        }
+        e.preventDefault();
+        var dx = e.clientX - splitStartX;
+        var lw = splitLeftW0 + dx;
+        var rw = splitRightW0 - dx;
+        if (lw < MIN_DOCK_W) {
+            rw -= (MIN_DOCK_W - lw);
+            lw = MIN_DOCK_W;
+        }
+        if (rw < MIN_DOCK_W) {
+            lw -= (MIN_DOCK_W - rw);
+            rw = MIN_DOCK_W;
+        }
+        if (lw < MIN_DOCK_W || rw < MIN_DOCK_W) {
+            return;
+        }
+        setDockPanelWidth(splitLeft, lw);
+        setDockPanelWidth(splitRight, rw);
+        syncSessionLayerInset();
+    });
+
+    $(document).on('mouseup.swdocksplit', endSplitDrag);
+    $(window).on('blur.swdocksplit', endSplitDrag);
 })(window);

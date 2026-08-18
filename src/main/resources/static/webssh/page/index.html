@@ -269,7 +269,7 @@
             bottom: 36px;
         }
         #tabPanes.has-desktop-dock {
-            /* strip + floating layer share horizontal space (width layout in Task 2) */
+            /* strip + floating layer share horizontal space */
         }
         #tabPanes.has-desktop-dock #desktopSessionLayer,
         #tabPanes.has-desktop-dock .desktop-dock-strip {
@@ -282,8 +282,12 @@
             bottom: 48px;
             display: none;
             flex-direction: row;
+            flex-wrap: nowrap;
+            align-items: stretch;
+            min-width: 0;
             z-index: 2500;
             background: rgba(0, 0, 0, 0.04);
+            overflow: hidden;
         }
         #tabPanes.has-desktop-dock .desktop-dock-strip {
             display: flex;
@@ -292,11 +296,30 @@
             position: relative !important;
             left: auto !important;
             top: auto !important;
+            right: auto !important;
+            bottom: auto !important;
+            inset: auto !important;
+            float: none !important;
+            flex: 0 0 auto !important;
+            flex-shrink: 0 !important;
+            width: 420px;
+            max-width: none;
+            min-width: 280px;
             height: 100% !important;
+            min-height: 0 !important;
             max-height: none;
             border-radius: 0;
+            box-shadow: none !important;
+            border: 0 !important;
+            border-right: 1px solid #ccc !important;
+            z-index: auto !important;
+            transform: none !important;
+            margin: 0 !important;
         }
         .desktop-dock-strip .session-win.docked .session-win-resize {
+            display: none !important;
+        }
+        .desktop-dock-strip .session-win.docked.minimized {
             display: none !important;
         }
         .desktop-dock-bar {
@@ -800,7 +823,7 @@
 <script src="../js/sessions.js?v=10" charset="utf-8"></script>
 <script src="../js/commands-ui.js?v=1" charset="utf-8"></script>
 <script src="../js/split-pane.js?v=5" charset="utf-8"></script>
-<script src="../js/session-windows.js?v=3" charset="utf-8"></script>
+<script src="../js/session-windows.js?v=4" charset="utf-8"></script>
 <script src="../js/folder-windows.js?v=6" charset="utf-8"></script>
 <script>
     function loadSsh(query, route) {
@@ -996,7 +1019,7 @@ function notifyFilesVisible($pane, targetWin) {
             return;
         }
         var $pane = $frame.closest('.remote-pane');
-        var isDesktopFrame = $frame.closest('#desktopSessionLayer').length > 0;
+        var isDesktopFrame = $frame.closest('#desktopSessionLayer, #desktopDockStrip').length > 0;
         // 桌面浮动窗 iframe 不在 .remote-pane 内：用 #appShell 作消息宿主
         if (!$pane.length && isDesktopFrame) {
             $pane = $('#appShell');
@@ -1059,7 +1082,7 @@ function notifyFilesVisible($pane, targetWin) {
             if (!$ff.length) {
                 return;
             }
-            if ($ff.closest('#desktopSessionLayer').length && window.SessionWindows) {
+            if ($ff.closest('#desktopSessionLayer, #desktopDockStrip').length && window.SessionWindows) {
                 var path = data.path || '';
                 var title;
                 if (!path || path === '/') {
@@ -1075,8 +1098,8 @@ function notifyFilesVisible($pane, targetWin) {
             return;
         }
         if (data.type === 'webssh-folder-dock-side') {
-            if (isDesktopFrame) {
-                // 桌面浮动窗首版不停靠
+            if (isDesktopFrame && window.SessionWindows && SessionWindows.dockFromFrame) {
+                SessionWindows.dockFromFrame(e.source);
                 return;
             }
             if (window.FolderWindows) {
@@ -1101,7 +1124,7 @@ function notifyFilesVisible($pane, targetWin) {
                     }
                 }
                 if (isDesktopFrame) {
-                    $('#desktopSessionLayer .session-win-frame, #desktopSessionLayer .folder-win-frame').each(function () {
+                    $('#desktopSessionLayer .session-win-frame, #desktopSessionLayer .folder-win-frame, #desktopDockStrip .session-win-frame').each(function () {
                         pingFrame(this.contentWindow);
                     });
                 } else {
