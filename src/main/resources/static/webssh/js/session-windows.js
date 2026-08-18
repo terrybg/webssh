@@ -26,6 +26,14 @@
         return $('#desktopTaskbar');
     }
 
+    function $dockStrip() {
+        return $('#desktopDockStrip');
+    }
+
+    function $allWindows() {
+        return $layer().find('.session-win').add($dockStrip().find('.session-win'));
+    }
+
     function cascadeOffset(n) {
         return { left: 36 + (n % 6) * 28, top: 28 + (n % 6) * 24 };
     }
@@ -86,6 +94,56 @@
         $('#tabPanes').toggleClass('has-desktop-sessions', !!has);
     }
 
+    function syncDockStripVisible() {
+        var $strip = $dockStrip();
+        if (!$strip.length) {
+            return;
+        }
+        var hasDocked = $strip.find('.session-win.docked').length > 0;
+        $('#tabPanes').toggleClass('has-desktop-dock', hasDocked);
+        $strip.attr('aria-hidden', hasDocked ? 'false' : 'true');
+        if (!hasDocked) {
+            $strip.css('display', 'none');
+        } else {
+            $strip.css('display', '');
+        }
+    }
+
+    function dock($win) {
+        if (!$win || !$win.length || $win.hasClass('docked')) {
+            return;
+        }
+        var $strip = $dockStrip();
+        if (!$strip.length) {
+            return;
+        }
+        $win.removeClass('maximized minimized').addClass('docked');
+        $strip.append($win);
+        syncDockStripVisible();
+        focusWindow($win);
+        updateTaskbar();
+    }
+
+    function undock($win) {
+        if (!$win || !$win.length || !$win.hasClass('docked')) {
+            return;
+        }
+        var kind = $win.data('kind') || $win.attr('data-kind') || 'ssh';
+        var off = cascadeOffset($layer().find('.session-win').not('.docked').length);
+        $win.removeClass('docked maximized');
+        $win.css({
+            left: off.left + 'px',
+            top: off.top + 'px',
+            width: (kind === 'sftp' ? 720 : 800) + 'px',
+            height: (kind === 'sftp' ? 480 : 520) + 'px',
+            zIndex: ++zCounter
+        });
+        $layer().append($win);
+        syncDockStripVisible();
+        focusWindow($win);
+        updateTaskbar();
+    }
+
     function open(opts) {
         opts = opts || {};
         var $host = $layer();
@@ -111,6 +169,7 @@
                 iconForKind(kind) +
                 '<span class="session-win-title-text folder-win-title-text"></span>' +
                 '<div class="session-win-actions folder-win-actions">' +
+                  '<button type="button" class="fw-btn sw-dock" title="停靠到左侧（从左到右排列）">▤</button>' +
                   '<button type="button" class="fw-btn sw-min fw-min" title="最小化">—</button>' +
                   '<button type="button" class="fw-btn sw-max fw-max" title="最大化">□</button>' +
                   '<button type="button" class="fw-btn sw-close fw-close" title="关闭">×</button>' +
@@ -151,7 +210,7 @@
         if (!$win || !$win.length) {
             return;
         }
-        $layer().find('.session-win').removeClass('focused');
+        $allWindows().removeClass('focused');
         $win.addClass('focused');
         $win.css('z-index', ++zCounter);
         if ($win.hasClass('minimized')) {
@@ -208,6 +267,7 @@
         $(document).off('.sw' + id).off('.swr' + id);
         // 仅移除 DOM；不 logout、不清 localStorage tagId
         $win.remove();
+        syncDockStripVisible();
         updateTaskbar();
     }
 
@@ -215,6 +275,14 @@
         var id = $win.data('win-id');
         $win.on('mousedown', function () {
             focusWindow($win);
+        });
+        $win.find('.sw-dock').on('click', function (e) {
+            e.stopPropagation();
+            if ($win.hasClass('docked')) {
+                undock($win);
+            } else {
+                dock($win);
+            }
         });
         $win.find('.sw-close').on('click', function (e) {
             e.stopPropagation();
@@ -229,7 +297,7 @@
             maximizeWindow($win);
         });
         $win.find('.session-win-title').on('dblclick', function (e) {
-            if ($(e.target).closest('.fw-btn').length) {
+            if ($(e.target).closest('.fw-btn').length || $win.hasClass('docked')) {
                 return;
             }
             maximizeWindow($win);
@@ -241,7 +309,7 @@
             if ($(e.target).closest('.fw-btn').length) {
                 return;
             }
-            if ($win.hasClass('maximized')) {
+            if ($win.hasClass('maximized') || $win.hasClass('docked')) {
                 return;
             }
             dragging = true;
@@ -272,7 +340,7 @@
         var resizing = false;
         var rsx, rsy, rw, rh;
         $win.find('.session-win-resize').on('mousedown', function (e) {
-            if ($win.hasClass('maximized')) {
+            if ($win.hasClass('maximized') || $win.hasClass('docked')) {
                 return;
             }
             resizing = true;
@@ -305,11 +373,11 @@
     function updateTaskbar() {
         var $bar = $taskbar();
         var $host = $layer();
-        if (!$bar.length || !$host.length) {
+        if (!$bar.length) {
             return;
         }
         var sessions = [];
-        $host.find('.session-win').each(function () {
+        $allWindows().each(function () {
             var $win = $(this);
             var kind = $win.attr('data-kind') || $win.data('kind') || 'ssh';
             sessions.push({
@@ -340,7 +408,7 @@
         $bar.html(html).show();
         $bar.off('click').on('click', '.folder-task-btn', function () {
             var sid = $(this).data('sess-id');
-            var $win = $host.find('.session-win[data-win-id="' + sid + '"]');
+            var $win = $allWindows().filter('[data-win-id="' + sid + '"]');
             if (!$win.length) {
                 return;
             }
@@ -376,6 +444,8 @@
         focus: focusWindow,
         minimize: minimizeWindow,
         close: closeWindow,
+        dock: dock,
+        undock: undock,
         updateTaskbar: updateTaskbar,
         setTitle: setTitle
     };

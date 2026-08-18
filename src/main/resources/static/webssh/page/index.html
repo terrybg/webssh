@@ -268,6 +268,47 @@
         #tabPanes.has-desktop-sessions #desktopSessionLayer {
             bottom: 36px;
         }
+        #tabPanes.has-desktop-dock {
+            /* strip + floating layer share horizontal space (width layout in Task 2) */
+        }
+        #tabPanes.has-desktop-dock #desktopSessionLayer,
+        #tabPanes.has-desktop-dock .desktop-dock-strip {
+            bottom: 36px;
+        }
+        .desktop-dock-strip {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 48px;
+            display: none;
+            flex-direction: row;
+            z-index: 2500;
+            background: rgba(0, 0, 0, 0.04);
+        }
+        #tabPanes.has-desktop-dock .desktop-dock-strip {
+            display: flex;
+        }
+        .desktop-dock-strip .session-win.docked {
+            position: relative !important;
+            left: auto !important;
+            top: auto !important;
+            height: 100% !important;
+            max-height: none;
+            border-radius: 0;
+        }
+        .desktop-dock-strip .session-win.docked .session-win-resize {
+            display: none !important;
+        }
+        .desktop-dock-bar {
+            width: 4px;
+            cursor: col-resize;
+            flex: 0 0 4px;
+            background: transparent;
+        }
+        .desktop-dock-bar:hover,
+        body.split-dragging .desktop-dock-bar {
+            background: #0d6efd;
+        }
         #desktopRoot,
         .webssh-desktop {
             height: 100%;
@@ -626,6 +667,7 @@
             <div id="desktopRoot" class="webssh-desktop">
                 <div id="desktopIconGrid" class="desktop-icon-grid"></div>
             </div>
+            <div id="desktopDockStrip" class="desktop-dock-strip" style="display:none" aria-hidden="true"></div>
             <div id="desktopSessionLayer" class="session-win-layer"></div>
             <div id="desktopTaskbar" class="folder-taskbar" style="display:none"></div>
         </div>
@@ -758,7 +800,7 @@
 <script src="../js/sessions.js?v=10" charset="utf-8"></script>
 <script src="../js/commands-ui.js?v=1" charset="utf-8"></script>
 <script src="../js/split-pane.js?v=5" charset="utf-8"></script>
-<script src="../js/session-windows.js?v=2" charset="utf-8"></script>
+<script src="../js/session-windows.js?v=3" charset="utf-8"></script>
 <script src="../js/folder-windows.js?v=6" charset="utf-8"></script>
 <script>
     function loadSsh(query, route) {
