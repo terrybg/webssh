@@ -754,6 +754,32 @@
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-thumb { border-radius: 4px; background: #b0b0b0; }
         ::-webkit-scrollbar-track { background: #f0f0f0; }
+        .upload-progress-panel {
+            text-align: left;
+        }
+        .upload-progress-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #222;
+            margin-bottom: 10px;
+            word-break: break-all;
+        }
+        .upload-progress-size {
+            font-size: 12px;
+            color: #555;
+            margin-bottom: 4px;
+        }
+        .upload-progress-track {
+            height: 18px;
+            background: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .upload-progress-track .progress-bar {
+            font-size: 11px;
+            line-height: 18px;
+            transition: width 0.12s linear;
+        }
     </style>
 </head>
 <body>
@@ -936,11 +962,18 @@
 </div>
 
 <div class="modal fade" id="load" tabindex="-1" data-backdrop="static" data-keyboard="false" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 480px;">
         <div class="modal-content">
-            <div class="text-center p-3">
-                <div><span class="navbar-brand mb-0 h1" id="uploadMessage">上传中...</span></div>
-                <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+            <div class="upload-progress-panel p-3">
+                <div class="upload-progress-title" id="uploadMessage">上传中...</div>
+                <div class="upload-progress-size" id="uploadSizeCurrent">当前 —</div>
+                <div class="progress upload-progress-track mb-2">
+                    <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                </div>
+                <div class="upload-progress-size" id="uploadSizeTotal">合计 —</div>
+                <div class="progress upload-progress-track">
+                    <div id="progressBarTotal" class="progress-bar bg-info" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                </div>
             </div>
         </div>
     </div>
@@ -951,7 +984,7 @@
 <script src="../js/bootstrap/popper.min.js" charset="utf-8"></script>
 <script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
 <script src="../js/websocket.js" charset="utf-8"></script>
-<script src="../js/sftp.js?v=35" charset="utf-8"></script>
+<script src="../js/sftp.js?v=36" charset="utf-8"></script>
 <script src="../js/sftp-win.js?v=7" charset="utf-8"></script>
 </body>
 </html>

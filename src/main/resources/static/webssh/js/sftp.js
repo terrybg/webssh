@@ -673,8 +673,8 @@ function openEntry(relPath, isDir) {
     }
     var currentPath = $('#currentPath').val() || '/';
     if (relPath === '..') {
-        currentPath = currentPath.split('/').slice(0, -1).join('/');
-        if (currentPath === '') {
+            currentPath = currentPath.split('/').slice(0, -1).join('/');
+            if (currentPath === '') {
             currentPath = '/';
         }
         navigateTo(currentPath);
@@ -898,7 +898,7 @@ function handleCtrlWheel(e) {
     }
     if (iconScale <= ICON_SCALE_MIN + 0.001) {
         setViewMode('details');
-    } else {
+        } else {
         setIconScale(iconScale - ICON_SCALE_STEP);
     }
 }
@@ -966,7 +966,7 @@ $(function () {
         }
         if (sortKey === key) {
             sortAsc = !sortAsc;
-        } else {
+            } else {
             sortKey = key;
             sortAsc = true;
         }
@@ -1341,7 +1341,31 @@ function syncToShellCwd(fallback, opts) {
     });
 }
 
-function uploadOneFile(file, path, fileName) {
+function formatByteSize(bytes) {
+    var n = Number(bytes);
+    if (!isFinite(n) || n < 0) {
+        n = 0;
+    }
+    var units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    var i = 0;
+    while (n >= 1024 && i < units.length - 1) {
+        n /= 1024;
+        i += 1;
+    }
+    var digits = i === 0 ? 0 : (n >= 100 ? 0 : 1);
+    return n.toFixed(digits) + ' ' + units[i];
+}
+
+function setProgressBar($bar, pct, label) {
+    if (!$bar || !$bar.length) {
+        return;
+    }
+    var p = Math.max(0, Math.min(100, Math.round(pct || 0)));
+    var text = label != null ? String(label) : (p + '%');
+    $bar.css('width', p + '%').attr('aria-valuenow', p).text(text);
+}
+
+function uploadOneFile(file, path, fileName, onProgress) {
     var formData = new FormData();
     formData.append('file', file);
     formData.append('path', path);
@@ -1353,7 +1377,21 @@ function uploadOneFile(file, path, fileName) {
         method: 'POST',
         data: formData,
         processData: false,
-        contentType: false
+        contentType: false,
+        xhr: function () {
+            var xhr = $.ajaxSettings.xhr();
+            if (xhr && xhr.upload && typeof onProgress === 'function') {
+                xhr.upload.addEventListener('progress', function (e) {
+                    if (!e) {
+                        return;
+                    }
+                    var loaded = e.loaded || 0;
+                    var total = e.lengthComputable ? e.total : (file && file.size) || 0;
+                    onProgress(loaded, total);
+                });
+            }
+            return xhr;
+        }
     });
 }
 
@@ -1510,10 +1548,38 @@ function uploadFilesToPath(fileList, path, opts) {
         alert('上传目录无效');
         return;
     }
+    var batchTotal = 0;
+    files.forEach(function (f) {
+        batchTotal += (f.size || 0);
+    });
+    var batchDone = 0;
+
+    function updateUi(fileIndex, fileName, fileLoaded, fileTotal) {
+        var n = files.length;
+        var ft = fileTotal || 0;
+        var fl = Math.min(fileLoaded || 0, ft || fileLoaded || 0);
+        var filePct = ft > 0 ? (fl / ft) * 100 : (fl > 0 ? 100 : 0);
+        var overallLoaded = batchDone + fl;
+        var overallPct = batchTotal > 0 ? (overallLoaded / batchTotal) * 100 : ((fileIndex / n) * 100);
+        $('#uploadMessage').text('正在上传 ' + fileName + '（' + fileIndex + ' / ' + n + '）');
+        $('#uploadSizeCurrent').text(
+            '当前 ' + formatByteSize(fl) + ' / ' + formatByteSize(ft)
+        );
+        $('#uploadSizeTotal').text(
+            '合计 ' + formatByteSize(overallLoaded) + ' / ' + formatByteSize(batchTotal)
+            + '（' + n + ' 个文件）'
+        );
+        setProgressBar($('#progressBar'), filePct);
+        setProgressBar($('#progressBarTotal'), overallPct);
+    }
+
     $('#load').modal({ keyboard: false });
     $('#load').modal('show');
-    $('#progressBar').css('width', '0%').attr('aria-valuenow', 0).text('0%');
     $('#uploadMessage').text('准备上传…');
+    $('#uploadSizeCurrent').text('当前 —');
+    $('#uploadSizeTotal').text('合计 0 B / ' + formatByteSize(batchTotal) + '（' + files.length + ' 个文件）');
+    setProgressBar($('#progressBar'), 0);
+    setProgressBar($('#progressBarTotal'), 0);
 
     var i = 0;
     var uploadedNames = [];
@@ -1535,7 +1601,13 @@ function uploadFilesToPath(fileList, path, opts) {
         }
         $('#uploadMessage').text(ok ? '上传完成！' : ($('#uploadMessage').text() || '已结束'));
         if (ok) {
-            $('#progressBar').css('width', '100%').text('100%');
+            setProgressBar($('#progressBar'), 100);
+            setProgressBar($('#progressBarTotal'), 100);
+            $('#uploadSizeCurrent').text('当前 ' + formatByteSize(0) + ' / ' + formatByteSize(0));
+            $('#uploadSizeTotal').text(
+                '合计 ' + formatByteSize(batchTotal) + ' / ' + formatByteSize(batchTotal)
+                + '（' + files.length + ' 个文件）'
+            );
         }
         setTimeout(function () {
             $('#load').modal('hide');
@@ -1576,9 +1648,7 @@ function uploadFilesToPath(fileList, path, opts) {
         }
         var file = files[i];
         i += 1;
-        $('#uploadMessage').text('处理 ' + i + '/' + files.length + '：' + file.name);
-        var pct = Math.round(((i - 1) / files.length) * 100);
-        $('#progressBar').css('width', pct + '%').attr('aria-valuenow', pct).text(pct + '%');
+        updateUi(i, file.name, 0, file.size || 0);
 
         ensureNames().then(function (set) {
             var finalName = file.name;
@@ -1593,6 +1663,8 @@ function uploadFilesToPath(fileList, path, opts) {
                         if (i < files.length) {
                             resumeUploadModal();
                         }
+                        batchDone += (file.size || 0);
+                        updateUi(i, file.name, file.size || 0, file.size || 0);
                         return false;
                     }
                     resumeUploadModal();
@@ -1612,8 +1684,10 @@ function uploadFilesToPath(fileList, path, opts) {
                     next();
                     return;
                 }
-                $('#uploadMessage').text('上传中 ' + i + '/' + files.length + '：' + finalName);
-                return uploadOneFile(file, path, finalName).then(function (res) {
+                updateUi(i, finalName, 0, file.size || 0);
+                return uploadOneFile(file, path, finalName, function (loaded, total) {
+                    updateUi(i, finalName, loaded, total || file.size || 0);
+                }).then(function (res) {
                     if (res && res.status !== 200) {
                         $('#uploadMessage').text('失败：' + (res.message || finalName));
                         finish(false);
@@ -1622,6 +1696,8 @@ function uploadFilesToPath(fileList, path, opts) {
                     var saved = (res && res.result) ? String(res.result) : finalName;
                     uploadedNames.push(saved);
                     set[saved] = true;
+                    batchDone += (file.size || 0);
+                    updateUi(i, finalName, file.size || 0, file.size || 0);
                     next();
                 }, function () {
                     $('#uploadMessage').text('上传失败：' + finalName);
@@ -1834,7 +1910,7 @@ function endInlineRename(commit) {
     }).then(function (res) {
         if (!res || res.status !== 200) {
             alert((res && res.message) || '重命名失败');
-            reload();
+        reload();
             return;
         }
         reload();
