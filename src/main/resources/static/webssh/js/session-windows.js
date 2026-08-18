@@ -7,6 +7,8 @@
     var DEFAULT_DOCK_W = 420;
     var MIN_DOCK_W = 280;
     var DOCK_BAR_W = 4;
+    var SNAP_EDGE = 24;
+    var SNAP_UNSnap_THRESHOLD = 24;
 
     var FOLDER_ICO =
         '<svg class="fw-folder-ico" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">' +
@@ -97,8 +99,187 @@
         $('#tabPanes').toggleClass('has-desktop-sessions', !!has);
     }
 
+    function $snapPreview() {
+        return $('#desktopSnapPreview');
+    }
+
+    function getSnapHitBounds() {
+        var layer = $layer()[0];
+        if (!layer) {
+            return null;
+        }
+        var r = layer.getBoundingClientRect();
+        return {
+            left: r.left,
+            top: r.top,
+            width: r.width,
+            height: r.height,
+            right: r.right,
+            bottom: r.bottom
+        };
+    }
+
+    function getSnapLayerRect() {
+        var host = $layer()[0];
+        if (!host) {
+            return null;
+        }
+        return {
+            left: 0,
+            top: 0,
+            width: host.clientWidth,
+            height: host.clientHeight
+        };
+    }
+
+    function hitSnapZone(clientX, clientY, bounds) {
+        if (!bounds) {
+            return null;
+        }
+        var edge = SNAP_EDGE;
+        var nearL = clientX <= bounds.left + edge;
+        var nearR = clientX >= bounds.right - edge;
+        var nearT = clientY <= bounds.top + edge;
+        var nearB = clientY >= bounds.bottom - edge;
+        if (nearL && nearT) {
+            return 'top-left';
+        }
+        if (nearR && nearT) {
+            return 'top-right';
+        }
+        if (nearL && nearB) {
+            return 'bottom-left';
+        }
+        if (nearR && nearB) {
+            return 'bottom-right';
+        }
+        if (nearL) {
+            return 'left';
+        }
+        if (nearR) {
+            return 'right';
+        }
+        return null;
+    }
+
+    function rectForSnapSlot(slot, layerRect) {
+        if (!layerRect || !slot) {
+            return null;
+        }
+        var w = layerRect.width;
+        var h = layerRect.height;
+        var hw = Math.floor(w / 2);
+        var hh = Math.floor(h / 2);
+        switch (slot) {
+            case 'left':
+                return { left: 0, top: 0, width: hw, height: h };
+            case 'right':
+                return { left: w - hw, top: 0, width: hw, height: h };
+            case 'top-left':
+                return { left: 0, top: 0, width: hw, height: hh };
+            case 'top-right':
+                return { left: w - hw, top: 0, width: hw, height: hh };
+            case 'bottom-left':
+                return { left: 0, top: h - hh, width: hw, height: hh };
+            case 'bottom-right':
+                return { left: w - hw, top: h - hh, width: hw, height: hh };
+            default:
+                return null;
+        }
+    }
+
+    function hideSnapPreview() {
+        var $pv = $snapPreview();
+        if ($pv.length) {
+            $pv.css('display', 'none');
+        }
+    }
+
+    function showSnapPreview(slot) {
+        var layerRect = getSnapLayerRect();
+        var slotRect = rectForSnapSlot(slot, layerRect);
+        var $pv = $snapPreview();
+        var $tab = $('#tabPanes');
+        if (!slotRect || !$pv.length || !$tab.length) {
+            return;
+        }
+        var tabR = $tab[0].getBoundingClientRect();
+        var layerR = $layer()[0].getBoundingClientRect();
+        $pv.css({
+            display: 'block',
+            left: (layerR.left - tabR.left + slotRect.left) + 'px',
+            top: (layerR.top - tabR.top + slotRect.top) + 'px',
+            width: slotRect.width + 'px',
+            height: slotRect.height + 'px'
+        });
+    }
+
     function clearSnap($win) {
-        /* no-op until Task 3 */
+        if (!$win || !$win.length) {
+            return;
+        }
+        $win.removeClass('snapped snap-left snap-right snap-top-left snap-top-right snap-bottom-left snap-bottom-right');
+        $win.removeData('snap-slot');
+    }
+
+    function notifyWinResize($win) {
+        if (!$win || !$win.length) {
+            return;
+        }
+        $win.find('.session-win-frame').each(function () {
+            try {
+                if (this.contentWindow) {
+                    this.contentWindow.dispatchEvent(new Event('resize'));
+                }
+            } catch (e) { /* ignore */ }
+        });
+    }
+
+    function snap($win, slot) {
+        if (!$win || !$win.length || !slot) {
+            return;
+        }
+        if ($win.hasClass('maximized')) {
+            $win.removeClass('maximized');
+        }
+        if ($win.hasClass('docked')) {
+            $win.removeClass('docked');
+            $win[0].style.cssText = '';
+            syncDockButton($win);
+            $layer().append($win);
+            if (!$dockStrip().find('.session-win.docked').length) {
+                syncDockStripVisible();
+            } else {
+                relayoutDock();
+            }
+        }
+        if (!$win.hasClass('snapped')) {
+            captureFloatRect($win);
+        }
+        clearSnap($win);
+        var layerRect = getSnapLayerRect();
+        var rect = rectForSnapSlot(slot, layerRect);
+        if (!rect) {
+            return;
+        }
+        $win.addClass('snapped snap-' + slot);
+        $win.data('snap-slot', slot);
+        $win.css({
+            left: rect.left + 'px',
+            top: rect.top + 'px',
+            width: rect.width + 'px',
+            height: rect.height + 'px',
+            zIndex: ++zCounter
+        });
+        hideSnapPreview();
+        focusWindow($win);
+        notifyWinResize($win);
+        if (w.SessionLayout && typeof w.SessionLayout.onAfterSnap === 'function') {
+            w.SessionLayout.onAfterSnap($win, slot);
+        }
+        if (w.SessionLayout && typeof w.SessionLayout.save === 'function') {
+            w.SessionLayout.save();
+        }
     }
 
     function setDockPanelWidth($win, width) {
@@ -119,7 +300,7 @@
     }
 
     function captureFloatRect($win) {
-        if (!$win || !$win.length || $win.hasClass('docked') || $win.hasClass('maximized')) {
+        if (!$win || !$win.length || $win.hasClass('docked') || $win.hasClass('maximized') || $win.hasClass('snapped')) {
             return;
         }
         $win.data('float-rect', {
@@ -387,6 +568,9 @@
         if ($win.hasClass('docked')) {
             return;
         }
+        if ($win.hasClass('snapped')) {
+            clearSnap($win);
+        }
         if ($win.hasClass('maximized')) {
             $win.removeClass('maximized');
             if ($win.data('restore-rect')) {
@@ -456,6 +640,10 @@
 
         var dragging = false;
         var sx, sy, ol, ot;
+        var dragWasSnapped = false;
+        var dragUnsnapped = false;
+        var lastClientX = 0;
+        var lastClientY = 0;
         $win.find('.session-win-title').on('mousedown', function (e) {
             if ($(e.target).closest('.fw-btn').length) {
                 return;
@@ -464,8 +652,12 @@
                 return;
             }
             dragging = true;
+            dragWasSnapped = $win.hasClass('snapped');
+            dragUnsnapped = false;
             sx = e.clientX;
             sy = e.clientY;
+            lastClientX = sx;
+            lastClientY = sy;
             ol = parseInt($win.css('left'), 10) || 0;
             ot = parseInt($win.css('top'), 10) || 0;
             $('body').addClass('folder-win-dragging');
@@ -475,10 +667,40 @@
             if (!dragging) {
                 return;
             }
+            lastClientX = e.clientX;
+            lastClientY = e.clientY;
+            if (dragWasSnapped && !dragUnsnapped) {
+                var dx0 = e.clientX - sx;
+                var dy0 = e.clientY - sy;
+                if (Math.sqrt(dx0 * dx0 + dy0 * dy0) <= SNAP_UNSnap_THRESHOLD) {
+                    return;
+                }
+                dragUnsnapped = true;
+                clearSnap($win);
+                var fr = $win.data('float-rect');
+                if (fr) {
+                    $win.css({
+                        left: fr.left,
+                        top: fr.top,
+                        width: fr.width,
+                        height: fr.height
+                    });
+                }
+                ol = parseInt($win.css('left'), 10) || 0;
+                ot = parseInt($win.css('top'), 10) || 0;
+                sx = e.clientX;
+                sy = e.clientY;
+            }
             $win.css({
                 left: Math.max(0, ol + e.clientX - sx) + 'px',
                 top: Math.max(0, ot + e.clientY - sy) + 'px'
             });
+            var zone = hitSnapZone(e.clientX, e.clientY, getSnapHitBounds());
+            if (zone) {
+                showSnapPreview(zone);
+            } else {
+                hideSnapPreview();
+            }
         });
         $(document).on('mouseup.sw' + id, function () {
             if (!dragging) {
@@ -486,12 +708,23 @@
             }
             dragging = false;
             $('body').removeClass('folder-win-dragging');
+            hideSnapPreview();
+            if (!dragWasSnapped || dragUnsnapped) {
+                var zone = hitSnapZone(lastClientX, lastClientY, getSnapHitBounds());
+                if (zone) {
+                    snap($win, zone);
+                    return;
+                }
+            }
+            if (!$win.hasClass('snapped')) {
+                captureFloatRect($win);
+            }
         });
 
         var resizing = false;
         var rsx, rsy, rw, rh;
         $win.find('.session-win-resize').on('mousedown', function (e) {
-            if ($win.hasClass('maximized') || $win.hasClass('docked')) {
+            if ($win.hasClass('maximized') || $win.hasClass('docked') || $win.hasClass('snapped')) {
                 return;
             }
             resizing = true;
@@ -600,6 +833,8 @@
         dockFromFrame: dockFromFrame,
         relayoutDock: relayoutDock,
         setDockPanelWidth: setDockPanelWidth,
+        snap: snap,
+        clearSnap: clearSnap,
         updateTaskbar: updateTaskbar,
         setTitle: setTitle,
         MIN_DOCK_W: MIN_DOCK_W

@@ -431,6 +431,22 @@
         .folder-task-btn .sw-term-ico {
             flex: 0 0 16px;
         }
+        .desktop-snap-preview {
+            position: absolute;
+            pointer-events: none;
+            z-index: 10050;
+            background: rgba(13, 110, 253, 0.25);
+            border: 2px solid rgba(13, 110, 253, 0.8);
+            display: none;
+        }
+        .session-win.snapped {
+            min-width: 0 !important;
+            min-height: 0 !important;
+            border-radius: 0;
+        }
+        .session-win.snapped .session-win-resize {
+            display: none !important;
+        }
 
         .folder-win.docked {
             position: relative !important;
@@ -692,6 +708,7 @@
             </div>
             <div id="desktopDockStrip" class="desktop-dock-strip" style="display:none" aria-hidden="true"></div>
             <div id="desktopSessionLayer" class="session-win-layer"></div>
+            <div id="desktopSnapPreview" class="desktop-snap-preview" style="display:none"></div>
             <div id="desktopTaskbar" class="folder-taskbar" style="display:none"></div>
         </div>
     </div>
@@ -823,7 +840,7 @@
 <script src="../js/sessions.js?v=10" charset="utf-8"></script>
 <script src="../js/commands-ui.js?v=1" charset="utf-8"></script>
 <script src="../js/split-pane.js?v=5" charset="utf-8"></script>
-<script src="../js/session-windows.js?v=4" charset="utf-8"></script>
+<script src="../js/session-windows.js?v=5" charset="utf-8"></script>
 <script src="../js/folder-windows.js?v=6" charset="utf-8"></script>
 <script>
     function loadSsh(query, route) {
