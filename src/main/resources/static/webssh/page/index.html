@@ -447,6 +447,117 @@
         .session-win.snapped .session-win-resize {
             display: none !important;
         }
+        .desktop-layout-picker {
+            position: absolute;
+            z-index: 10060;
+            min-width: 268px;
+            padding: 10px 12px;
+            background: #2b2b2b;
+            border: 1px solid #4a4a4a;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+            display: none;
+        }
+        .desktop-layout-picker-inner {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+        .desktop-layout-tpl {
+            flex: 1;
+            min-width: 72px;
+        }
+        .layout-tpl-label {
+            color: #cfcfcf;
+            font-size: 11px;
+            margin-bottom: 6px;
+            text-align: center;
+        }
+        .layout-tpl-cells {
+            display: grid;
+            gap: 3px;
+            height: 52px;
+            background: #1f1f1f;
+            border-radius: 4px;
+            padding: 3px;
+        }
+        .layout-tpl-cells-cols2 {
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr;
+        }
+        .layout-tpl-cells-quad {
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+        }
+        .layout-tpl-cells-left-stack {
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+        }
+        .layout-tpl-cells-left-stack .layout-cell[data-slot="left"] {
+            grid-row: 1 / span 2;
+        }
+        .layout-cell {
+            border: 1px solid #5a5a5a;
+            background: #3a3a3a;
+            border-radius: 2px;
+            padding: 0;
+            cursor: pointer;
+        }
+        .layout-cell:hover {
+            background: #0d6efd;
+            border-color: #6ea8fe;
+        }
+        .desktop-snap-assist {
+            position: absolute;
+            z-index: 10055;
+            background: rgba(32, 32, 32, 0.92);
+            border: 1px solid #555;
+            display: none;
+            overflow: auto;
+        }
+        .desktop-snap-assist-inner {
+            padding: 12px;
+            height: 100%;
+            box-sizing: border-box;
+        }
+        .desktop-snap-assist-title {
+            color: #ddd;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+        .desktop-snap-assist-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .desktop-snap-assist-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            text-align: left;
+            border: 1px solid #555;
+            background: #3a3a3a;
+            color: #eee;
+            border-radius: 4px;
+            padding: 8px 10px;
+            cursor: pointer;
+        }
+        .desktop-snap-assist-item:hover {
+            background: #0d6efd;
+            border-color: #6ea8fe;
+        }
+        .desktop-snap-assist-item .assist-kind {
+            flex: 0 0 auto;
+            font-size: 11px;
+            opacity: 0.85;
+        }
+        .desktop-snap-assist-item .assist-title {
+            flex: 1 1 auto;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
 
         .folder-win.docked {
             position: relative !important;
@@ -709,6 +820,8 @@
             <div id="desktopDockStrip" class="desktop-dock-strip" style="display:none" aria-hidden="true"></div>
             <div id="desktopSessionLayer" class="session-win-layer"></div>
             <div id="desktopSnapPreview" class="desktop-snap-preview" style="display:none"></div>
+            <div id="desktopLayoutPicker" class="desktop-layout-picker" style="display:none"></div>
+            <div id="desktopSnapAssist" class="desktop-snap-assist" style="display:none"></div>
             <div id="desktopTaskbar" class="folder-taskbar" style="display:none"></div>
         </div>
     </div>
@@ -840,7 +953,8 @@
 <script src="../js/sessions.js?v=10" charset="utf-8"></script>
 <script src="../js/commands-ui.js?v=1" charset="utf-8"></script>
 <script src="../js/split-pane.js?v=5" charset="utf-8"></script>
-<script src="../js/session-windows.js?v=5" charset="utf-8"></script>
+<script src="../js/session-windows.js?v=6" charset="utf-8"></script>
+<script src="../js/session-layout.js?v=1" charset="utf-8"></script>
 <script src="../js/folder-windows.js?v=6" charset="utf-8"></script>
 <script>
     function loadSsh(query, route) {

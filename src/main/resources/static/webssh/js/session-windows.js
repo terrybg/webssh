@@ -242,7 +242,8 @@
         if ($win.hasClass('maximized')) {
             $win.removeClass('maximized');
         }
-        if ($win.hasClass('docked')) {
+        var wasDocked = $win.hasClass('docked');
+        if (wasDocked) {
             $win.removeClass('docked');
             $win[0].style.cssText = '';
             syncDockButton($win);
@@ -253,7 +254,8 @@
                 relayoutDock();
             }
         }
-        if (!$win.hasClass('snapped')) {
+        // Do not overwrite a valid float-rect with empty CSS after undock
+        if (!$win.hasClass('snapped') && !wasDocked) {
             captureFloatRect($win);
         }
         clearSnap($win);
@@ -629,7 +631,37 @@
         });
         $win.find('.sw-max').on('click', function (e) {
             e.stopPropagation();
+            if (w.SessionLayout && typeof w.SessionLayout.hidePicker === 'function') {
+                w.SessionLayout.hidePicker();
+            }
             maximizeWindow($win);
+        });
+        $win.find('.sw-max').on('mouseenter', function () {
+            if ($win.hasClass('docked')) {
+                return;
+            }
+            if (w.SessionLayout && typeof w.SessionLayout.onMaxEnter === 'function') {
+                w.SessionLayout.onMaxEnter($(this), $win);
+            } else if (w.SessionLayout && typeof w.SessionLayout.showPicker === 'function') {
+                var $btn = $(this);
+                setTimeout(function () {
+                    if ($btn.is(':hover')) {
+                        w.SessionLayout.showPicker($btn, $win);
+                    }
+                }, 300);
+            }
+        });
+        $win.find('.sw-max').on('mouseleave', function () {
+            if (w.SessionLayout && typeof w.SessionLayout.onMaxLeave === 'function') {
+                w.SessionLayout.onMaxLeave();
+            } else if (w.SessionLayout && typeof w.SessionLayout.hidePicker === 'function') {
+                setTimeout(function () {
+                    var $p = $('#desktopLayoutPicker');
+                    if ($p.length && !$p.is(':hover')) {
+                        w.SessionLayout.hidePicker();
+                    }
+                }, 180);
+            }
         });
         $win.find('.session-win-title').on('dblclick', function (e) {
             if ($(e.target).closest('.fw-btn').length || $win.hasClass('docked')) {
