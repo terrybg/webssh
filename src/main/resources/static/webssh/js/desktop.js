@@ -5,7 +5,6 @@
   'use strict';
 
   var bound = false;
-  var menuMode = null; // 'open' | 'ctx' | null
   var activeSessionId = null;
   var selectedIconId = null;
 
@@ -56,7 +55,6 @@
 
   function hideMenus() {
     $('#desktopMenu').hide().empty();
-    menuMode = null;
     activeSessionId = null;
   }
 
@@ -92,7 +90,7 @@
     $menu.css({ left: left + 'px', top: top + 'px', visibility: 'visible' });
   }
 
-  function showMenu(items, pageX, pageY, sessionId, mode) {
+  function showMenu(items, pageX, pageY, sessionId) {
     var $menu = $('#desktopMenu').empty();
     items.forEach(function (item) {
       $menu.append(
@@ -101,7 +99,6 @@
       );
     });
     activeSessionId = sessionId;
-    menuMode = mode;
     positionMenu(pageX, pageY);
   }
 
@@ -193,8 +190,7 @@
         ],
         e.pageX,
         e.pageY,
-        sid,
-        'open'
+        sid
       );
     });
 
@@ -216,8 +212,7 @@
         ],
         e.pageX,
         e.pageY,
-        sid,
-        'ctx'
+        sid
       );
     });
 
@@ -263,6 +258,7 @@
         return;
       }
       hideMenus();
+      clearSelection();
     });
 
     $(document).on('keydown.desktopMenu', function (e) {

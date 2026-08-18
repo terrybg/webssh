@@ -82,8 +82,8 @@
     }
 
     function syncHostSessionsClass(has) {
+        // Only #tabPanes.has-desktop-sessions is used by CSS (layer bottom inset for taskbar)
         $('#tabPanes').toggleClass('has-desktop-sessions', !!has);
-        $('#appShell').toggleClass('has-desktop-sessions', !!has);
     }
 
     function open(opts) {
@@ -174,8 +174,8 @@
             return;
         }
         $win.removeClass('minimized');
+        // focusWindow already refreshes the taskbar
         focusWindow($win);
-        updateTaskbar();
     }
 
     function maximizeWindow($win) {

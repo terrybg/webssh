@@ -481,20 +481,13 @@ function uploadFilesToShellCwd(fileList) {
     });
 })();
 
-function setFilesButtonVisible(visible) {
+function setFilesButtonVisible(/* visible */) {
     var $btn = $('#btnToggleFiles');
     if (!$btn.length) {
         return;
     }
     // v1: keep toolbar「文件」hidden; open files from desktop icon → 文件
     $btn.hide().attr('aria-hidden', 'true');
-    if (visible) {
-        $btn.addClass('active btn-primary').removeClass('btn-secondary');
-        $btn.attr('title', '再开一个文件窗口');
-    } else {
-        $btn.removeClass('active btn-primary').addClass('btn-secondary');
-        $btn.attr('title', '打开文件窗口');
-    }
 }
 
 window.addEventListener('message', function (e) {

@@ -158,7 +158,8 @@
             top: 0;
             right: 0;
             bottom: 0;
-            z-index: 9000;
+            /* Above SessionWindows z-index (starts ~3000 and climbs on focus) */
+            z-index: 100000;
             background: rgba(10, 10, 12, 0.96);
             flex-direction: column;
         }
@@ -753,11 +754,11 @@
 <script src="../js/bootstrap/popper.min.js" charset="utf-8"></script>
 <script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
 <script src="../js/index.js?v=10" charset="utf-8"></script>
-<script src="../js/desktop.js?v=1" charset="utf-8"></script>
-<script src="../js/sessions.js?v=8" charset="utf-8"></script>
+<script src="../js/desktop.js?v=2" charset="utf-8"></script>
+<script src="../js/sessions.js?v=9" charset="utf-8"></script>
 <script src="../js/commands-ui.js?v=1" charset="utf-8"></script>
 <script src="../js/split-pane.js?v=5" charset="utf-8"></script>
-<script src="../js/session-windows.js?v=1" charset="utf-8"></script>
+<script src="../js/session-windows.js?v=2" charset="utf-8"></script>
 <script src="../js/folder-windows.js?v=6" charset="utf-8"></script>
 <script>
     function loadSsh(query, route) {
@@ -967,14 +968,12 @@ function notifyFilesVisible($pane, targetWin) {
                 var cache = window.sessionsCache || {};
                 if (sid && cache[sid]) {
                     window.openFileWindow(cache[sid]);
-                } else if (window.SessionWindows) {
-                    SessionWindows.open({
-                        kind: 'sftp',
-                        sessionId: sid,
-                        port: $frame.closest('.session-win').data('session-port') || window.currentSessionPort,
-                        query: typeof window.workspaceIframeQuery === 'function'
-                            ? window.workspaceIframeQuery({ id: sid })
-                            : ('?sessionId=' + encodeURIComponent(sid || ''))
+                } else if (sid && typeof window.resolveSession === 'function') {
+                    window.resolveSession(sid, window.openFileWindow);
+                } else if (sid) {
+                    window.openFileWindow({
+                        id: sid,
+                        port: $frame.closest('.session-win').data('session-port') || window.currentSessionPort || 22
                     });
                 }
             } else if (window.FolderWindows) {

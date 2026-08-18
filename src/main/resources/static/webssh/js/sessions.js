@@ -480,6 +480,7 @@
   window.openFileWindow = openFileWindow;
   window.ensureLoggedIn = ensureLoggedIn;
   window.ensureSshSession = ensureSshSession;
+  window.resolveSession = resolveSession;
   window.showSessionList = showSessionList;
   window.workspaceIframeQuery = workspaceIframeQuery;
   window.copySessionTab = copySessionTab;
