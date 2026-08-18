@@ -251,6 +251,9 @@ function setEncode(encode){
 }
 function logout(){
     window.localStorage.setItem("tagId" + port, null);
+    try {
+        window.localStorage.removeItem("tagOwner" + port);
+    } catch (e) { /* ignore */ }
     parent.location.reload();
 }
 

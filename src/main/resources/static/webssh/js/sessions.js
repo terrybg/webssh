@@ -165,6 +165,9 @@
           return;
         }
         window.localStorage.setItem('tagId' + session.port, res.result);
+        try {
+          window.localStorage.setItem('tagOwner' + session.port, String(session.id || ''));
+        } catch (eOwner) { /* ignore */ }
         window.currentSessionId = session.id;
         window.currentSessionPort = session.port;
         var route = window.ensureRemoteTab(session, { forceNew: true });
@@ -229,22 +232,53 @@
     }
   }
 
+  function sessionOwnerKey(session) {
+    if (!session) {
+      return '';
+    }
+    if (session.id != null && String(session.id) !== '') {
+      return String(session.id);
+    }
+    return [session.ip || '', session.userName || '', session.port != null ? session.port : 22].join('|');
+  }
+
+  function readTagOwner(port) {
+    try {
+      return window.localStorage.getItem('tagOwner' + port) || '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function writeTagOwner(port, ownerKey) {
+    try {
+      window.localStorage.setItem('tagOwner' + port, ownerKey || '');
+    } catch (e) { /* ignore */ }
+  }
+
   /**
    * Ensure SSH login tagId for session.port.
-   * Reuses localStorage tagId when still present (window close does not clear it).
+   * Reuses localStorage tagId only when still present AND owned by the same session
+   * (window close does not clear tagId; switching another host on the same port must re-login).
    */
   function ensureLoggedIn(session) {
     if (!session) {
       return $.Deferred().reject('无效会话').promise();
     }
     var port = session.port != null ? session.port : 22;
+    var ownerKey = sessionOwnerKey(session);
     var existing = '';
+    var owner = '';
     try {
       existing = window.localStorage.getItem('tagId' + port) || '';
+      if (existing === 'null') {
+        existing = '';
+      }
     } catch (e) {
       existing = '';
     }
-    if (existing) {
+    owner = readTagOwner(port);
+    if (existing && owner && owner === ownerKey) {
       window.currentSessionId = session.id;
       window.currentSessionPort = port;
       return $.Deferred().resolve(existing).promise();
@@ -259,6 +293,7 @@
         return $.Deferred().reject((res && res.message) || '登录失败').promise();
       }
       window.localStorage.setItem('tagId' + port, res.result);
+      writeTagOwner(port, ownerKey);
       window.currentSessionId = session.id;
       window.currentSessionPort = port;
       return res.result;
