@@ -1,5 +1,5 @@
 /**
- * Session list inside the first tab; open remotes as additional tabs.
+ * Session list / desktop launcher wiring; open remotes as tabs or (later) windows.
  */
 (function ($) {
   'use strict';
@@ -7,13 +7,18 @@
   var sessionsCache = {};
   var contextSessionId = null;
 
-  function escapeHtml(value) {
-    return String(value == null ? '' : value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+  function sessionsArray() {
+    var out = [];
+    Object.keys(sessionsCache).forEach(function (id) {
+      out.push(sessionsCache[id]);
+    });
+    return out;
+  }
+
+  function renderDesktop() {
+    if (window.Desktop && typeof window.Desktop.render === 'function') {
+      window.Desktop.render(sessionsArray());
+    }
   }
 
   function loadSessions() {
@@ -24,47 +29,16 @@
           return;
         }
         var items = (res.result && res.result.items) || [];
-        renderSessionTable(items);
+        sessionsCache = {};
+        items.forEach(function (item) {
+          sessionsCache[item.id] = item;
+        });
+        window.sessionsCache = sessionsCache;
+        renderDesktop();
       })
       .fail(function () {
         alert('加载会话失败');
       });
-  }
-
-  function renderSessionTable(items) {
-    sessionsCache = {};
-    var $tbody = $('#sessionTableBody');
-    $tbody.empty();
-
-    if (!items.length) {
-      $('#sessionEmptyState').show();
-      $('#sessionTable').hide();
-      return;
-    }
-
-    $('#sessionEmptyState').hide();
-    $('#sessionTable').show();
-
-    items.forEach(function (item) {
-      sessionsCache[item.id] = item;
-      var name = escapeHtml(item.name);
-      var ip = escapeHtml(item.ip);
-      var port = escapeHtml(item.port);
-      var id = escapeHtml(item.id);
-      $tbody.append(
-        '<tr data-id="' + id + '">' +
-          '<td>' + name + '</td>' +
-          '<td>' + ip + '</td>' +
-          '<td>' + port + '</td>' +
-          '<td class="session-actions">' +
-            '<button type="button" class="btn btn-sm btn-outline-light btn-edit-session">修改</button> ' +
-            '<button type="button" class="btn btn-sm btn-outline-danger btn-delete-session">删除</button> ' +
-            '<button type="button" class="btn btn-sm btn-outline-info btn-session-commands">常用命令</button> ' +
-            '<button type="button" class="btn btn-sm btn-primary btn-remote-session">远程</button>' +
-          '</td>' +
-        '</tr>'
-      );
-    });
   }
 
   function resetSessionForm() {
@@ -311,12 +285,53 @@
     connectSession(session);
   }
 
+  function wireDesktopCallbacks() {
+    if (!window.Desktop) {
+      return;
+    }
+    var D = window.Desktop;
+    D.onAddServer = openAddModal;
+    D.onGlobalCommands = openGlobalCommands;
+    D.onEdit = function (session) {
+      if (session && session.id && sessionsCache[session.id]) {
+        openEditModal(sessionsCache[session.id]);
+      } else if (session && session.id) {
+        resolveSession(session.id, openEditModal);
+      }
+    };
+    D.onDelete = function (id) {
+      if (id) {
+        deleteSession(id);
+      }
+    };
+    D.onSessionCommands = function (session) {
+      if (session && session.id && sessionsCache[session.id]) {
+        openSessionCommands(sessionsCache[session.id]);
+      } else if (session && session.id) {
+        resolveSession(session.id, openSessionCommands);
+      }
+    };
+    // Task 3 will replace these with openSshWindow / openFileWindow
+    D.onOpenRemote = function (session) {
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('[Desktop] onOpenRemote stub until Task 3', session);
+      }
+    };
+    D.onOpenFiles = function (session) {
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('[Desktop] onOpenFiles stub until Task 3', session);
+      }
+    };
+    if (typeof D.bind === 'function') {
+      D.bind();
+    }
+  }
+
   $(function () {
+    wireDesktopCallbacks();
     loadSessions();
     showSessionList();
 
-    $('#btnAddSession').on('click', openAddModal);
-    $('#btnGlobalCommands').on('click', openGlobalCommands);
     $('#sessionSubmitBtn').on('click', saveSession);
 
     $('#sessionForm').on('keydown', 'input', function (event) {
@@ -324,31 +339,6 @@
         event.preventDefault();
         saveSession();
       }
-    });
-
-    $('#sessionTableBody').on('click', '.btn-edit-session', function () {
-      var id = $(this).closest('tr').attr('data-id');
-      var session = sessionsCache[id];
-      if (session) {
-        openEditModal(session);
-      }
-    });
-
-    $('#sessionTableBody').on('click', '.btn-delete-session', function () {
-      var id = $(this).closest('tr').attr('data-id');
-      if (id) {
-        deleteSession(id);
-      }
-    });
-
-    $('#sessionTableBody').on('click', '.btn-session-commands', function () {
-      var id = $(this).closest('tr').attr('data-id');
-      openSessionCommands(sessionsCache[id]);
-    });
-
-    $('#sessionTableBody').on('click', '.btn-remote-session', function () {
-      var id = $(this).closest('tr').attr('data-id');
-      connectRemote(sessionsCache[id]);
     });
 
     // Tabs 右键：远程会话 Tab 可复制会话（会话列表 Tab 除外）
@@ -405,6 +395,7 @@
             found = item;
           }
         });
+        window.sessionsCache = sessionsCache;
         if (!found) {
           alert('未找到该会话配置');
           return;
@@ -416,7 +407,11 @@
       });
   }
 
+  window.sessionsCache = sessionsCache;
   window.loadSessions = loadSessions;
+  window.openAddModal = openAddModal;
+  window.openEditModal = openEditModal;
+  window.deleteSession = deleteSession;
   window.openGlobalCommands = openGlobalCommands;
   window.openSessionCommands = openSessionCommands;
   window.connectSession = connectSession;

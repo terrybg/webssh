@@ -22,7 +22,9 @@
             background: #212529;
             position: relative;
         }
+        /* v1: hide remote-tab chrome; desktop is primary entry */
         .remote-tabs {
+            display: none !important;
             flex: 0 0 auto;
             background: #1b1e21;
             padding: 4px 8px 0;
@@ -49,9 +51,11 @@
             height: 100%;
             display: none;
         }
+        .shell-tab-pane.desktop-pane,
         .shell-tab-pane[route="list"] {
             position: relative;
             overflow: hidden;
+            height: 100%;
         }
         .shell-tab-pane.active.show {
             display: block;
@@ -255,10 +259,94 @@
         #tabPanes.has-desktop-sessions #desktopSessionLayer {
             bottom: 36px;
         }
-        #desktopRoot {
+        #desktopRoot,
+        .webssh-desktop {
             height: 100%;
             position: relative;
             z-index: 1;
+        }
+        .webssh-desktop {
+            overflow: auto;
+            background:
+                radial-gradient(ellipse at 20% 10%, rgba(70, 110, 90, 0.35), transparent 50%),
+                radial-gradient(ellipse at 85% 70%, rgba(40, 70, 95, 0.4), transparent 45%),
+                linear-gradient(165deg, #1a2a28 0%, #1e2834 45%, #162028 100%);
+            background-color: #1a242c;
+        }
+        .desktop-icon-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+            gap: 12px 8px;
+            padding: 20px 16px 48px;
+            align-content: start;
+            justify-items: center;
+            min-height: 100%;
+            box-sizing: border-box;
+        }
+        .desktop-icon {
+            width: 96px;
+            border: 0;
+            background: transparent;
+            color: #eef3f0;
+            padding: 8px 4px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            user-select: none;
+        }
+        .desktop-icon:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .desktop-icon.selected {
+            background: rgba(90, 160, 130, 0.28);
+            outline: 1px solid rgba(140, 200, 170, 0.45);
+        }
+        .desktop-icon-face {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .desktop-icon-svg {
+            width: 48px;
+            height: 48px;
+            display: block;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
+        }
+        .desktop-icon-label {
+            font-size: 12px;
+            line-height: 1.3;
+            text-align: center;
+            max-width: 88px;
+            word-break: break-word;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+        }
+        #desktopMenu {
+            display: none;
+            position: fixed;
+            z-index: 3200;
+            min-width: 140px;
+            background: #2b3035;
+            border: 1px solid #495057;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+            padding: 4px 0;
+        }
+        #desktopMenu .desktop-menu-item {
+            display: block;
+            padding: 8px 16px;
+            color: #f8f9fa;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        #desktopMenu .desktop-menu-item:hover {
+            background: #3d7a62;
+            color: #fff;
         }
         #desktopTaskbar.folder-taskbar {
             z-index: 1600;
@@ -464,31 +552,6 @@
         .folder-task-btn.minimized {
             opacity: 0.78;
         }
-        #sessionListView {
-            height: 100%;
-            overflow: auto;
-            color: #fff;
-        }
-        #sessionListView .session-list-toolbar {
-            padding: 12px 20px 0;
-        }
-        #sessionListView .session-list-toolbar .btn {
-            margin-right: 8px;
-        }
-        #sessionListView .session-list-body {
-            padding: 12px 20px 24px;
-        }
-        #sessionEmptyState {
-            padding: 48px 16px;
-            text-align: center;
-            color: #adb5bd;
-        }
-        #sessionTable .session-actions .btn {
-            margin: 2px 2px;
-        }
-        #sessionTable tbody tr {
-            cursor: default;
-        }
         #sessionContextMenu {
             display: none;
             position: fixed;
@@ -550,30 +613,9 @@
         </li>
     </ul>
     <div id="tabPanes">
-        <div class="shell-tab-pane active show" route="list">
-            <div id="desktopRoot">
-                <div id="sessionListView">
-                    <div class="session-list-toolbar">
-                        <button type="button" class="btn btn-primary btn-sm" id="btnAddSession">添加会话</button>
-                        <button type="button" class="btn btn-outline-light btn-sm" id="btnGlobalCommands">通用命令</button>
-                    </div>
-                    <div class="session-list-body">
-                        <div id="sessionEmptyState" style="display: none;">
-                            暂无会话，点击「添加会话」创建
-                        </div>
-                        <table class="table table-dark table-hover" id="sessionTable" style="display: none;">
-                            <thead>
-                            <tr>
-                                <th>会话名称</th>
-                                <th>IP</th>
-                                <th>端口</th>
-                                <th>操作</th>
-                            </tr>
-                            </thead>
-                            <tbody id="sessionTableBody"></tbody>
-                        </table>
-                    </div>
-                </div>
+        <div class="shell-tab-pane active show desktop-pane" route="list">
+            <div id="desktopRoot" class="webssh-desktop">
+                <div id="desktopIconGrid" class="desktop-icon-grid"></div>
             </div>
             <div id="desktopSessionLayer" class="session-win-layer"></div>
             <div id="desktopTaskbar" class="folder-taskbar" style="display:none"></div>
@@ -593,6 +635,7 @@
 <div id="sessionContextMenu">
     <a class="ctx-item" href="javascript:void(0)" data-action="copy">复制会话</a>
 </div>
+<div id="desktopMenu" aria-hidden="true"></div>
 
 <!-- 添加 / 修改会话 -->
 <div class="modal fade" id="sessionModal" tabindex="-1" aria-labelledby="sessionModalTitle" aria-hidden="true">
@@ -702,7 +745,8 @@
 <script src="../js/bootstrap/popper.min.js" charset="utf-8"></script>
 <script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
 <script src="../js/index.js?v=9" charset="utf-8"></script>
-<script src="../js/sessions.js?v=6" charset="utf-8"></script>
+<script src="../js/desktop.js?v=1" charset="utf-8"></script>
+<script src="../js/sessions.js?v=7" charset="utf-8"></script>
 <script src="../js/commands-ui.js?v=1" charset="utf-8"></script>
 <script src="../js/split-pane.js?v=5" charset="utf-8"></script>
 <script src="../js/session-windows.js?v=1" charset="utf-8"></script>
