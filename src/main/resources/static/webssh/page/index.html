@@ -991,7 +991,7 @@
 <script src="../js/sessions.js?v=11" charset="utf-8"></script>
 <script src="../js/commands-ui.js?v=1" charset="utf-8"></script>
 <script src="../js/split-pane.js?v=5" charset="utf-8"></script>
-<script src="../js/session-windows.js?v=10" charset="utf-8"></script>
+<script src="../js/session-windows.js?v=12" charset="utf-8"></script>
 <script src="../js/session-layout.js?v=4" charset="utf-8"></script>
 <script src="../js/folder-windows.js?v=6" charset="utf-8"></script>
 <script>
@@ -1043,7 +1043,7 @@ function notifyFilesVisible($pane, targetWin) {
         // 注入当前 tagId，避免 iframe 读到空的 localStorage
         var port = $pane.data('session-port') || window.currentSessionPort || 22;
         var tid = window.localStorage.getItem('tagId' + port) || '';
-        var next = 'sftp.html' + q + sep + 'v=37&tagId=' + encodeURIComponent(tid);
+        var next = 'sftp.html' + q + sep + 'v=38&tagId=' + encodeURIComponent(tid);
         if (src === next) {
             // 已加载：仍通知同步到 shell 目录
             try {

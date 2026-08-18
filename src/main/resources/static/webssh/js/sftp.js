@@ -1375,39 +1375,120 @@ function uploadOneFile(file, path, fileName, onProgress) {
     var fileSize = (file && file.size) ? file.size : 0;
     var dfd = $.Deferred();
     var xhr = new XMLHttpRequest();
+    var responseOffset = 0;
+    var finalResult = null;
+    var finalError = null;
+
+    function emitProgress(phase, loaded, total) {
+        if (typeof onProgress === 'function') {
+            onProgress(phase, loaded, total > 0 ? total : fileSize);
+        }
+    }
+
+    function consumeNdjson() {
+        var text = xhr.responseText || '';
+        if (text.length <= responseOffset) {
+            return;
+        }
+        var chunk = text.slice(responseOffset);
+        var lastNl = chunk.lastIndexOf('\n');
+        if (lastNl < 0) {
+            return;
+        }
+        var complete = chunk.slice(0, lastNl + 1);
+        responseOffset += complete.length;
+        var lines = complete.split('\n');
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (!line) {
+                continue;
+            }
+            var ev = null;
+            try {
+                ev = JSON.parse(line);
+            } catch (err) {
+                continue;
+            }
+            if (!ev || !ev.phase) {
+                continue;
+            }
+            if (ev.phase === 'remote') {
+                emitProgress('remote', ev.loaded || 0, ev.total != null ? ev.total : fileSize);
+            } else if (ev.phase === 'done') {
+                finalResult = {
+                    status: ev.status != null ? ev.status : 200,
+                    message: ev.message || '操作成功！',
+                    result: ev.result != null ? ev.result : fileName
+                };
+            } else if (ev.phase === 'error') {
+                finalError = {
+                    status: ev.status != null ? ev.status : 500,
+                    message: ev.message || '上传失败'
+                };
+            }
+        }
+    }
+
     xhr.open('POST', baseUrl + '/upload?tagId=' + encodeURIComponent(currentTagId()));
     xhr.responseType = 'text';
-    if (xhr.upload && typeof onProgress === 'function') {
+    if (xhr.upload) {
         xhr.upload.onprogress = function (e) {
-            // Always prefer file.size as denominator. e.total can be 0 / multipart /
-            // non-computable and would make any loaded bytes look like 100%.
             var loaded = e && e.loaded != null ? e.loaded : 0;
             if (fileSize > 0) {
                 loaded = Math.min(loaded, fileSize);
-                onProgress(loaded, fileSize);
+                emitProgress('local', loaded, fileSize);
             } else if (e && e.lengthComputable && e.total > 0) {
-                onProgress(Math.min(loaded, e.total), e.total);
+                emitProgress('local', Math.min(loaded, e.total), e.total);
             } else {
-                onProgress(loaded, 0);
+                emitProgress('local', loaded, 0);
             }
         };
+        xhr.upload.onload = function () {
+            // HTTP body finished → waiting / starting remote write
+            emitProgress('remote', 0, fileSize);
+        };
     }
+    xhr.onprogress = function () {
+        consumeNdjson();
+    };
     xhr.onload = function () {
-        var raw = xhr.responseText || '';
-        var data = null;
-        try {
-            data = raw ? JSON.parse(raw) : null;
-        } catch (err) {
-            dfd.reject(err);
+        consumeNdjson();
+        if (finalError) {
+            dfd.reject(finalError);
             return;
         }
-        if (xhr.status >= 200 && xhr.status < 300) {
-            if (typeof onProgress === 'function' && fileSize > 0) {
-                onProgress(fileSize, fileSize);
+        if (finalResult) {
+            if (fileSize > 0) {
+                emitProgress('remote', fileSize, fileSize);
             }
-            dfd.resolve(data);
+            dfd.resolve(finalResult);
+            return;
+        }
+        // Fallback: old JSON body (compat)
+        var raw = xhr.responseText || '';
+        try {
+            var data = raw ? JSON.parse(raw.trim().split('\n').pop()) : null;
+            if (data && data.phase === 'done') {
+                dfd.resolve({
+                    status: 200,
+                    message: data.message,
+                    result: data.result
+                });
+                return;
+            }
+            if (data && data.status === 200) {
+                dfd.resolve(data);
+                return;
+            }
+            if (data && data.phase === 'error') {
+                dfd.reject(data);
+                return;
+            }
+        } catch (err) { /* ignore */ }
+        if (xhr.status >= 200 && xhr.status < 300) {
+            dfd.resolve({ status: 200, result: fileName, message: '操作成功！' });
         } else {
-            dfd.reject(data || { status: xhr.status, message: '上传失败' });
+            dfd.reject({ status: xhr.status, message: '上传失败' });
         }
     };
     xhr.onerror = function () {
@@ -1416,6 +1497,7 @@ function uploadOneFile(file, path, fileName, onProgress) {
     xhr.onabort = function () {
         dfd.reject({ status: 0, message: '已取消' });
     };
+    emitProgress('local', 0, fileSize);
     xhr.send(formData);
     return dfd.promise();
 }
@@ -1579,25 +1661,27 @@ function uploadFilesToPath(fileList, path, opts) {
     });
     var batchDone = 0;
 
-    function updateUi(fileIndex, fileName, fileLoaded, fileTotal) {
+    function updateUi(fileIndex, fileName, phase, fileLoaded, fileTotal) {
         var n = files.length;
         var ft = fileTotal > 0 ? fileTotal : 0;
         var fl = fileLoaded > 0 ? fileLoaded : 0;
         if (ft > 0) {
             fl = Math.min(fl, ft);
         }
-        // Never treat "unknown total + any loaded" as 100%
         var filePct = ft > 0 ? (fl / ft) * 100 : 0;
         var overallLoaded = batchDone + fl;
         var overallPct = batchTotal > 0 ? (overallLoaded / batchTotal) * 100 : 0;
-        $('#uploadMessage').text('正在上传 ' + fileName + '（' + fileIndex + ' / ' + n + '）');
+        var phaseLabel = phase === 'remote' ? '写入远程' : '传到本机';
+        $('#uploadMessage').text(
+            phaseLabel + ' ' + fileName + '（' + fileIndex + ' / ' + n + '）'
+        );
         if (ft > 0) {
             $('#uploadSizeCurrent').text(
-                '当前 ' + formatByteSize(fl) + ' / ' + formatByteSize(ft)
+                '当前(' + phaseLabel + ') ' + formatByteSize(fl) + ' / ' + formatByteSize(ft)
             );
         } else {
             $('#uploadSizeCurrent').text(
-                '当前已传 ' + formatByteSize(fl) + '（大小未知）'
+                '当前(' + phaseLabel + ') 已传 ' + formatByteSize(fl) + '（大小未知）'
             );
         }
         $('#uploadSizeTotal').text(
@@ -1606,6 +1690,12 @@ function uploadFilesToPath(fileList, path, opts) {
         );
         setProgressBar($('#progressBar'), filePct);
         setProgressBar($('#progressBarTotal'), overallPct);
+        var $bar = $('#progressBar');
+        if (phase === 'remote') {
+            $bar.addClass('bg-info');
+        } else {
+            $bar.removeClass('bg-info');
+        }
     }
 
     $('#load').modal({ keyboard: false });
@@ -1683,7 +1773,7 @@ function uploadFilesToPath(fileList, path, opts) {
         }
         var file = files[i];
         i += 1;
-        updateUi(i, file.name, 0, file.size || 0);
+        updateUi(i, file.name, 'local', 0, file.size || 0);
 
         ensureNames().then(function (set) {
             var finalName = file.name;
@@ -1699,7 +1789,7 @@ function uploadFilesToPath(fileList, path, opts) {
                             resumeUploadModal();
                         }
                         batchTotal = Math.max(0, batchTotal - (file.size || 0));
-                        updateUi(i, file.name, 0, file.size || 0);
+                        updateUi(i, file.name, 'local', 0, file.size || 0);
                         return false;
                     }
                     resumeUploadModal();
@@ -1719,9 +1809,9 @@ function uploadFilesToPath(fileList, path, opts) {
                     next();
                     return;
                 }
-                updateUi(i, finalName, 0, file.size || 0);
-                return uploadOneFile(file, path, finalName, function (loaded, total) {
-                    updateUi(i, finalName, loaded, total || file.size || 0);
+                updateUi(i, finalName, 'local', 0, file.size || 0);
+                return uploadOneFile(file, path, finalName, function (phase, loaded, total) {
+                    updateUi(i, finalName, phase || 'local', loaded, total || file.size || 0);
                 }).then(function (res) {
                     if (res && res.status !== 200) {
                         $('#uploadMessage').text('失败：' + (res.message || finalName));
@@ -1732,10 +1822,10 @@ function uploadFilesToPath(fileList, path, opts) {
                     uploadedNames.push(saved);
                     set[saved] = true;
                     batchDone += (file.size || 0);
-                    updateUi(i, finalName, file.size || 0, file.size || 0);
+                    updateUi(i, finalName, 'remote', file.size || 0, file.size || 0);
                     next();
-                }, function () {
-                    $('#uploadMessage').text('上传失败：' + finalName);
+                }, function (err) {
+                    $('#uploadMessage').text('上传失败：' + ((err && err.message) || finalName));
                     finish(false);
                 });
             });

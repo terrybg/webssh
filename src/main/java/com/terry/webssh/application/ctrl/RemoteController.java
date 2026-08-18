@@ -12,6 +12,7 @@ import com.terry.webssh.application.pojo.Server;
 import com.terry.webssh.application.pojo.StatusContent;
 import com.terry.webssh.application.service.WebSSHService;
 import com.terry.webssh.application.pojo.SftpFile;
+import com.terry.webssh.util.ProgressInputStream;
 import lombok.extern.java.Log;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -21,6 +22,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -53,19 +55,29 @@ public class RemoteController {
     }
 
     /**
-     * 上传
-     * @return 新增结果
+     * 上传：响应为 NDJSON 流。
+     * 浏览器侧 xhr.upload 只能反映「发到本机」；本接口在收到文件后推送 remote 写入进度，
+     * 最后一行 phase=done / error。
      */
     @PostMapping("/upload")
-    public StatusContent<String> upload(String path, String tagId,
-                                        @RequestParam(value = "fileName", required = false) String fileName,
-                                        @RequestPart MultipartFile file) {
+    public void upload(String path, String tagId,
+                       @RequestParam(value = "fileName", required = false) String fileName,
+                       @RequestPart MultipartFile file,
+                       HttpServletResponse response) throws IOException {
+        response.setCharacterEncoding("UTF-8");
+        response.setContentType("application/x-ndjson;charset=UTF-8");
+        response.setHeader("Cache-Control", "no-cache, no-store");
+        response.setHeader("X-Accel-Buffering", "no");
+        PrintWriter writer = response.getWriter();
+
         Server server = WebSSHService.webLoginMap.get(tagId);
         if (server == null) {
-            return StatusContent.error("未登录或会话已过期");
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"未登录或会话已过期\"}");
+            return;
         }
         if (file == null || file.isEmpty()) {
-            return StatusContent.error("未选择文件");
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"未选择文件\"}");
+            return;
         }
         if (StrUtil.isBlank(path)) {
             path = "/";
@@ -73,17 +85,30 @@ public class RemoteController {
         String name = StrUtil.isNotBlank(fileName) ? fileName.trim() : file.getOriginalFilename();
         if (StrUtil.isBlank(name) || name.contains("/") || name.contains("\\")
                 || ".".equals(name) || "..".equals(name)) {
-            return StatusContent.error("文件名不合法");
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"文件名不合法\"}");
+            return;
         }
         SSHConnectInfo cacheSsh = getCacheSsh(server);
         if (!path.endsWith("/")) {
             path = path + "/";
         }
+        long total = file.getSize();
+        writeUploadEvent(writer, "{\"phase\":\"remote\",\"loaded\":0,\"total\":" + total + "}");
         try {
             synchronized (cacheSsh) {
                 Sftp sftp = cacheSsh.getSftp();
-                if (sftp.upload(path, name, file.getInputStream())) {
-                    return StatusContent.ok("操作成功！", name);
+                ProgressInputStream pin = new ProgressInputStream(file.getInputStream(), total, (loaded, tot) -> {
+                    writeUploadEvent(writer, "{\"phase\":\"remote\",\"loaded\":" + loaded + ",\"total\":" + tot + "}");
+                });
+                boolean ok;
+                try (InputStream in = pin) {
+                    ok = sftp.upload(path, name, in);
+                }
+                if (ok) {
+                    writeUploadEvent(writer, "{\"phase\":\"done\",\"status\":200,\"message\":\"操作成功！\",\"result\":"
+                            + jsonQuote(name) + "}");
+                } else {
+                    writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"操作失败！\"}");
                 }
             }
         } catch (Exception e) {
@@ -93,9 +118,23 @@ public class RemoteController {
             } catch (Exception ignored) {
                 // ignore
             }
-            return StatusContent.error("上传失败: " + e.getMessage());
+            String msg = e.getMessage() == null ? "上传失败" : e.getMessage();
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":" + jsonQuote("上传失败: " + msg) + "}");
         }
-        return StatusContent.error("操作失败！");
+    }
+
+    private static String jsonQuote(String s) {
+        if (s == null) {
+            return "null";
+        }
+        return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"")
+                .replace("\n", "\\n").replace("\r", "\\r") + "\"";
+    }
+
+    private static void writeUploadEvent(PrintWriter writer, String jsonLine) {
+        writer.write(jsonLine);
+        writer.write('\n');
+        writer.flush();
     }
 
     /**
