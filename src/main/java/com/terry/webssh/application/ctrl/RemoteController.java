@@ -785,6 +785,106 @@ public class RemoteController {
         return batchTransfer(sources, destDir, tagId, true);
     }
 
+    /**
+     * 跨会话/跨服务器复制（服务端 SFTP 流式中转，始终复制不删除源）。
+     */
+    @PostMapping("/crossCopy")
+    public StatusContent<String> crossCopy(@RequestParam("sourceTagId") String sourceTagId,
+                                           @RequestParam("destTagId") String destTagId,
+                                           @RequestParam("sources") String sources,
+                                           @RequestParam("destDir") String destDir) {
+        if (StrUtil.isBlank(sourceTagId) || StrUtil.isBlank(destTagId)) {
+            return StatusContent.error("参数无效");
+        }
+        if (sourceTagId.equals(destTagId)) {
+            return batchTransfer(sources, destDir, destTagId, false);
+        }
+        Server srcServer = WebSSHService.webLoginMap.get(sourceTagId);
+        Server dstServer = WebSSHService.webLoginMap.get(destTagId);
+        if (srcServer == null || dstServer == null) {
+            return StatusContent.error("源或目标会话未登录或已过期");
+        }
+        if (StrUtil.isBlank(sources) || StrUtil.isBlank(destDir)) {
+            return StatusContent.error("参数无效");
+        }
+        String[] parts = sources.split("\n");
+        List<String> list = new ArrayList<>();
+        for (String p : parts) {
+            if (StrUtil.isNotBlank(p)) {
+                list.add(p.trim());
+            }
+        }
+        if (list.isEmpty()) {
+            return StatusContent.error("未选择文件");
+        }
+        String destDirNorm = destDir.endsWith("/") ? destDir : destDir + "/";
+        SSHConnectInfo srcCache = getCacheSsh(srcServer);
+        SSHConnectInfo dstCache = getCacheSsh(dstServer);
+        ChannelSftp srcCh = null;
+        ChannelSftp dstCh = null;
+        List<String> resultNames = new ArrayList<>();
+        try {
+            srcCh = openTempSftp(srcCache.getSession());
+            dstCh = openTempSftp(dstCache.getSession());
+            for (String src : list) {
+                if (!isSafeRemotePath(src) || src.equals("/")) {
+                    return StatusContent.error("非法路径: " + src);
+                }
+                String base = src.substring(src.lastIndexOf('/') + 1);
+                if (remoteExists(dstCh, destDirNorm + base)) {
+                    base = uniqueCopyBaseName(dstCh, destDirNorm, base);
+                }
+                String dest = destDirNorm + base;
+                copyRemoteRecursive(srcCh, dstCh, src, dest);
+                resultNames.add(base);
+            }
+            return StatusContent.ok("复制成功", String.join("\n", resultNames));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return StatusContent.error("跨服务器复制失败: " + e.getMessage());
+        } finally {
+            closeQuietly(srcCh);
+            closeQuietly(dstCh);
+        }
+    }
+
+    private void copyRemoteRecursive(ChannelSftp src, ChannelSftp dst, String srcPath, String destPath)
+            throws SftpException, IOException {
+        SftpATTRS attrs = src.stat(srcPath);
+        if (attrs.isDir()) {
+            try {
+                dst.mkdir(destPath);
+            } catch (SftpException e) {
+                // may already exist
+                if (!remoteExists(dst, destPath)) {
+                    throw e;
+                }
+            }
+            @SuppressWarnings("unchecked")
+            Vector<ChannelSftp.LsEntry> entries = src.ls(srcPath);
+            for (ChannelSftp.LsEntry entry : entries) {
+                String name = entry.getFilename();
+                if (".".equals(name) || "..".equals(name)) {
+                    continue;
+                }
+                String childSrc = srcPath.endsWith("/") ? srcPath + name : srcPath + "/" + name;
+                String childDst = destPath.endsWith("/") ? destPath + name : destPath + "/" + name;
+                copyRemoteRecursive(src, dst, childSrc, childDst);
+            }
+            return;
+        }
+        try (InputStream in = src.get(srcPath); OutputStream out = dst.put(destPath)) {
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) >= 0) {
+                if (n > 0) {
+                    out.write(buf, 0, n);
+                }
+            }
+            out.flush();
+        }
+    }
+
     private StatusContent<String> batchTransfer(String sources, String destDir, String tagId, boolean move) {
         Server server = WebSSHService.webLoginMap.get(tagId);
         if (server == null) {

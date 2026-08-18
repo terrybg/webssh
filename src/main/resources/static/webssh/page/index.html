@@ -1043,7 +1043,7 @@ function notifyFilesVisible($pane, targetWin) {
         // 注入当前 tagId，避免 iframe 读到空的 localStorage
         var port = $pane.data('session-port') || window.currentSessionPort || 22;
         var tid = window.localStorage.getItem('tagId' + port) || '';
-        var next = 'sftp.html' + q + sep + 'v=38&tagId=' + encodeURIComponent(tid);
+        var next = 'sftp.html' + q + sep + 'v=39&tagId=' + encodeURIComponent(tid);
         if (src === next) {
             // 已加载：仍通知同步到 shell 目录
             try {

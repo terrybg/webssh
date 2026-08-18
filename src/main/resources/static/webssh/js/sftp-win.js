@@ -199,14 +199,17 @@
         return $('#sftpAddress').hasClass('editing');
     }
 
+    var addressEditBasePath = null;
+
     function enterAddressEdit() {
         var $addr = $('#sftpAddress');
         if (!$addr.length) {
             return;
         }
+        addressEditBasePath = normalizeDirPath(curDir());
         $addr.addClass('editing');
         var $inp = $('#currentPath');
-        $inp.val(normalizeDirPath(curDir()));
+        $inp.val(addressEditBasePath);
         setTimeout(function () {
             $inp.trigger('focus');
             try {
@@ -221,15 +224,22 @@
             return;
         }
         var typed = ($('#currentPath').val() || '').trim() || '/';
+        var base = addressEditBasePath != null
+            ? normalizeDirPath(addressEditBasePath)
+            : normalizeDirPath(curDir());
         $addr.removeClass('editing');
+        addressEditBasePath = null;
         if (commit) {
             var next = normalizeDirPath(typed);
-            if (next !== normalizeDirPath(curDir())) {
+            if (next !== base) {
                 navigateTo(next);
                 return;
             }
+            // same path: still reload so Enter feels responsive
+            navigateTo(next);
+            return;
         }
-        $('#currentPath').val(curDir());
+        $('#currentPath').val(base);
         renderBreadcrumbs();
     }
 
@@ -893,7 +903,159 @@
 
     function bindInternalDrag() {
         var dragRels = null;
+        var DND_MIME = 'application/x-webssh-sftp';
         var folderDropSel = '#fileView tr.folder, #fileView .icon-tile.folder, #fileView .content-row.folder, #fileView [data-dir="1"]';
+
+        function buildDndPayload(rels) {
+            return {
+                v: 1,
+                tagId: currentTagId(),
+                paths: (rels || []).map(absOf),
+                fromDir: normalizeDirPath(curDir())
+            };
+        }
+
+        function parseDndPayload(dt) {
+            if (!dt) {
+                return null;
+            }
+            var raw = '';
+            try {
+                raw = dt.getData(DND_MIME) || '';
+            } catch (e1) { /* ignore */ }
+            if (!raw) {
+                try {
+                    raw = dt.getData('text/plain') || '';
+                } catch (e2) { /* ignore */ }
+            }
+            if (!raw) {
+                return null;
+            }
+            var t = String(raw).trim();
+            if (t.charAt(0) === '{') {
+                try {
+                    var obj = JSON.parse(t);
+                    if (obj && obj.v === 1 && obj.tagId && Array.isArray(obj.paths)) {
+                        return obj;
+                    }
+                } catch (e3) { /* ignore */ }
+            }
+            // legacy: relative names
+            var rels = t.split('\n').filter(Boolean);
+            if (!rels.length) {
+                return null;
+            }
+            return {
+                v: 1,
+                tagId: currentTagId(),
+                paths: rels.map(absOf),
+                legacy: true
+            };
+        }
+
+        function wantCopyFromEvent(e) {
+            // A: default copy; Shift = move (same server only)
+            return !e.shiftKey;
+        }
+
+        function setDropEffect(e) {
+            try {
+                e.originalEvent.dataTransfer.dropEffect = wantCopyFromEvent(e) ? 'copy' : 'move';
+            } catch (err) { /* ignore */ }
+        }
+
+        function transferAbsToDir(destDir, absPaths, copy) {
+            if (!absPaths || !absPaths.length) {
+                return;
+            }
+            var action = copy ? 'copy' : 'move';
+            sftpApi(action, {
+                sources: absPaths.join('\n'),
+                destDir: destDir
+            }).then(function (res) {
+                if (!res || res.status !== 200) {
+                    alert((res && res.message) || (copy ? '复制失败' : '移动失败'));
+                    return;
+                }
+                showSftpToast(copy ? '已复制' : '已移动');
+                var names = res.result ? String(res.result).split('\n').filter(Boolean) : null;
+                if (normalizeDirPath(destDir) === normalizeDirPath(curDir())) {
+                    reload({ selectNames: names });
+                } else {
+                    reload();
+                }
+            }, function (xhr) {
+                alert((xhr.responseJSON && xhr.responseJSON.message) || (copy ? '复制失败' : '移动失败'));
+            });
+        }
+
+        function crossCopyToDir(sourceTagId, absPaths, destDir) {
+            showSftpToast('正在跨服务器复制…');
+            return $.ajax({
+                url: baseUrl + '/crossCopy',
+                method: 'POST',
+                data: {
+                    sourceTagId: sourceTagId,
+                    destTagId: currentTagId(),
+                    sources: absPaths.join('\n'),
+                    destDir: destDir
+                }
+            }).then(function (res) {
+                if (!res || res.status !== 200) {
+                    alert((res && res.message) || '跨服务器复制失败');
+                    return;
+                }
+                showSftpToast('已复制到本机目录');
+                var names = res.result ? String(res.result).split('\n').filter(Boolean) : null;
+                if (normalizeDirPath(destDir) === normalizeDirPath(curDir())) {
+                    reload({ selectNames: names });
+                } else {
+                    reload();
+                }
+            }, function (xhr) {
+                alert((xhr.responseJSON && xhr.responseJSON.message) || '跨服务器复制失败');
+            });
+        }
+
+        function handleInternalDrop(e, destDir) {
+            if (!destDir) {
+                return;
+            }
+            var dt = e.originalEvent && e.originalEvent.dataTransfer;
+            var localFiles = dt && dt.files;
+            if (localFiles && localFiles.length) {
+                uploadFilesToPath(localFiles, destDir);
+                return;
+            }
+            var payload = parseDndPayload(dt);
+            if (!payload || !payload.paths || !payload.paths.length) {
+                // same-window fallback via dragRels
+                if (dragRels && dragRels.length) {
+                    payload = buildDndPayload(dragRels);
+                } else {
+                    return;
+                }
+            }
+            var destAbs = normalizeDirPath(destDir);
+            var blocked = payload.paths.some(function (p) {
+                return normalizeDirPath(p) === destAbs;
+            });
+            if (blocked) {
+                return;
+            }
+            var sameServer = String(payload.tagId) === String(currentTagId());
+            var copy = wantCopyFromEvent(e);
+            if (!sameServer) {
+                if (!copy) {
+                    showSftpToast('跨服务器仅支持复制');
+                }
+                crossCopyToDir(payload.tagId, payload.paths, destDir);
+                dragRels = null;
+                return;
+            }
+            transferAbsToDir(destDir, payload.paths, copy);
+            dragRels = null;
+        }
 
         $(document).on('dragstart.windrag', '#fileView tr, #fileView .icon-tile, #fileView .content-row', function (e) {
             var $row = $(this);
@@ -908,7 +1070,9 @@
             dragRels = getSelectedRels();
             try {
                 var dt = e.originalEvent.dataTransfer;
-                dt.setData('text/plain', dragRels.join('\n'));
+                var payload = JSON.stringify(buildDndPayload(dragRels));
+                dt.setData(DND_MIME, payload);
+                dt.setData('text/plain', payload);
                 dt.setData('application/x-webssh-items', dragRels.join('\n'));
                 dt.effectAllowed = 'copyMove';
             } catch (err) { /* ignore */ }
@@ -941,9 +1105,7 @@
         $view.on('dragover.windragfolder', folderDropSel.replace(/#fileView /g, ''), function (e) {
             e.preventDefault();
             e.stopPropagation();
-            try {
-                e.originalEvent.dataTransfer.dropEffect = e.ctrlKey ? 'copy' : 'move';
-            } catch (err) { /* ignore */ }
+            setDropEffect(e);
             $view.find('.drop-hover').removeClass('drop-hover');
             $(this).addClass('drop-hover');
         });
@@ -954,45 +1116,30 @@
             e.preventDefault();
             e.stopPropagation();
             $(this).removeClass('drop-hover');
-            var destDir = resolveDropDir($(this));
-            if (!destDir) {
+            handleInternalDrop(e, resolveDropDir($(this)));
+        });
+        // 空白处：放到当前目录（跨窗互拖）
+        $view.on('dragover.windragfolder', function (e) {
+            if ($(e.target).closest(folderDropSel.replace(/#fileView /g, '')).length) {
                 return;
             }
-            var dt = e.originalEvent && e.originalEvent.dataTransfer;
-            var localFiles = dt && dt.files;
-            if (localFiles && localFiles.length) {
-                uploadFilesToPath(localFiles, destDir);
+            e.preventDefault();
+            e.stopPropagation();
+            setDropEffect(e);
+        });
+        $view.on('drop.windragfolder', function (e) {
+            if ($(e.target).closest(folderDropSel.replace(/#fileView /g, '')).length) {
                 return;
             }
-            var rels = dragRels;
-            if ((!rels || !rels.length) && dt) {
-                try {
-                    var raw = dt.getData('application/x-webssh-items') || dt.getData('text/plain') || '';
-                    rels = raw.split('\n').filter(Boolean);
-                } catch (err2) {
-                    rels = [];
-                }
-            }
-            if (!rels || !rels.length) {
-                return;
-            }
-            var destAbs = normalizeDirPath(destDir);
-            var blocked = rels.some(function (rel) {
-                return normalizeDirPath(absOf(rel)) === destAbs;
-            });
-            if (blocked) {
-                return;
-            }
-            transferToDir(destDir, rels, !!(e.ctrlKey || e.metaKey));
-            dragRels = null;
+            e.preventDefault();
+            e.stopPropagation();
+            handleInternalDrop(e, curDir());
         });
 
         $(document).on('dragover.windrag', folderDropSel, function (e) {
             e.preventDefault();
             e.stopPropagation();
-            try {
-                e.originalEvent.dataTransfer.dropEffect = e.ctrlKey ? 'copy' : 'move';
-            } catch (err) { /* ignore */ }
+            setDropEffect(e);
             $(folderDropSel).removeClass('drop-hover');
             $(this).addClass('drop-hover');
         });
@@ -1003,43 +1150,14 @@
             e.preventDefault();
             e.stopPropagation();
             $(this).removeClass('drop-hover');
-            var destDir = resolveDropDir($(this));
-            if (!destDir) {
-                return;
-            }
-            var dt = e.originalEvent && e.originalEvent.dataTransfer;
-            var localFiles = dt && dt.files;
-            if (localFiles && localFiles.length) {
-                uploadFilesToPath(localFiles, destDir);
-                return;
-            }
-            var rels = dragRels;
-            if ((!rels || !rels.length) && dt) {
-                try {
-                    var raw = dt.getData('application/x-webssh-items') || dt.getData('text/plain') || '';
-                    rels = raw.split('\n').filter(Boolean);
-                } catch (err2) {
-                    rels = [];
-                }
-            }
-            if (!rels || !rels.length) {
-                return;
-            }
-            var destAbs = normalizeDirPath(destDir);
-            var blocked = rels.some(function (rel) {
-                return normalizeDirPath(absOf(rel)) === destAbs;
-            });
-            if (blocked) {
-                return;
-            }
-            transferToDir(destDir, rels, !!(e.ctrlKey || e.metaKey));
-            dragRels = null;
+            handleInternalDrop(e, resolveDropDir($(this)));
         });
 
         // 左侧目录树也可拖入
         $(document).on('dragover.windrag', '#sftpTree .tree-row', function (e) {
             e.preventDefault();
             e.stopPropagation();
+            setDropEffect(e);
             $('#sftpTree .tree-row').removeClass('drop-hover');
             $(this).addClass('drop-hover');
         });
@@ -1051,36 +1169,14 @@
             e.stopPropagation();
             $(this).removeClass('drop-hover');
             var destDir = String($(this).data('path') || '');
-            if (!destDir) {
-                return;
-            }
-            var dt = e.originalEvent && e.originalEvent.dataTransfer;
-            var localFiles = dt && dt.files;
-            if (localFiles && localFiles.length) {
-                uploadFilesToPath(localFiles, destDir);
-                return;
-            }
-            var rels = dragRels;
-            if ((!rels || !rels.length) && dt) {
-                try {
-                    var raw = dt.getData('application/x-webssh-items') || dt.getData('text/plain') || '';
-                    rels = raw.split('\n').filter(Boolean);
-                } catch (err3) {
-                    rels = [];
-                }
-            }
-            if (!rels || !rels.length) {
-                return;
-            }
-            transferToDir(destDir, rels, !!(e.ctrlKey || e.metaKey));
-            dragRels = null;
+            handleInternalDrop(e, destDir || null);
         });
     }
 
     function transferToDir(destDir, rels, copy) {
-        var sources = rels.map(absOf).join('\n');
+        var sources = rels.map(absOf);
         var action = copy ? 'copy' : 'move';
-        sftpApi(action, { sources: sources, destDir: destDir }).then(function (res) {
+        sftpApi(action, { sources: sources.join('\n'), destDir: destDir }).then(function (res) {
             if (!res || res.status !== 200) {
                 alert((res && res.message) || (copy ? '复制失败' : '移动失败'));
                 return;
