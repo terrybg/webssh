@@ -63,7 +63,7 @@
         try {
             tid = w.localStorage.getItem('tagId' + port) || '';
         } catch (e) { /* ignore */ }
-        var url = 'sftp.html' + q + sep + 'v=35&tagId=' + encodeURIComponent(tid) + '&folderWin=1';
+        var url = 'sftp.html' + q + sep + 'v=37&tagId=' + encodeURIComponent(tid) + '&folderWin=1';
         try {
             var cache = w.__websshShellPwdCache;
             if (cache && cache.path) {

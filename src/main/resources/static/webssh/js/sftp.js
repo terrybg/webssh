@@ -1372,27 +1372,52 @@ function uploadOneFile(file, path, fileName, onProgress) {
     if (fileName) {
         formData.append('fileName', fileName);
     }
-    return $.ajax({
-        url: baseUrl + '/upload?tagId=' + encodeURIComponent(currentTagId()),
-        method: 'POST',
-        data: formData,
-        processData: false,
-        contentType: false,
-        xhr: function () {
-            var xhr = $.ajaxSettings.xhr();
-            if (xhr && xhr.upload && typeof onProgress === 'function') {
-                xhr.upload.addEventListener('progress', function (e) {
-                    if (!e) {
-                        return;
-                    }
-                    var loaded = e.loaded || 0;
-                    var total = e.lengthComputable ? e.total : (file && file.size) || 0;
-                    onProgress(loaded, total);
-                });
+    var fileSize = (file && file.size) ? file.size : 0;
+    var dfd = $.Deferred();
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', baseUrl + '/upload?tagId=' + encodeURIComponent(currentTagId()));
+    xhr.responseType = 'text';
+    if (xhr.upload && typeof onProgress === 'function') {
+        xhr.upload.onprogress = function (e) {
+            // Always prefer file.size as denominator. e.total can be 0 / multipart /
+            // non-computable and would make any loaded bytes look like 100%.
+            var loaded = e && e.loaded != null ? e.loaded : 0;
+            if (fileSize > 0) {
+                loaded = Math.min(loaded, fileSize);
+                onProgress(loaded, fileSize);
+            } else if (e && e.lengthComputable && e.total > 0) {
+                onProgress(Math.min(loaded, e.total), e.total);
+            } else {
+                onProgress(loaded, 0);
             }
-            return xhr;
+        };
+    }
+    xhr.onload = function () {
+        var raw = xhr.responseText || '';
+        var data = null;
+        try {
+            data = raw ? JSON.parse(raw) : null;
+        } catch (err) {
+            dfd.reject(err);
+            return;
         }
-    });
+        if (xhr.status >= 200 && xhr.status < 300) {
+            if (typeof onProgress === 'function' && fileSize > 0) {
+                onProgress(fileSize, fileSize);
+            }
+            dfd.resolve(data);
+        } else {
+            dfd.reject(data || { status: xhr.status, message: '上传失败' });
+        }
+    };
+    xhr.onerror = function () {
+        dfd.reject({ status: 0, message: '网络错误' });
+    };
+    xhr.onabort = function () {
+        dfd.reject({ status: 0, message: '已取消' });
+    };
+    xhr.send(formData);
+    return dfd.promise();
 }
 
 function normalizeDirPath(p) {
@@ -1556,15 +1581,25 @@ function uploadFilesToPath(fileList, path, opts) {
 
     function updateUi(fileIndex, fileName, fileLoaded, fileTotal) {
         var n = files.length;
-        var ft = fileTotal || 0;
-        var fl = Math.min(fileLoaded || 0, ft || fileLoaded || 0);
-        var filePct = ft > 0 ? (fl / ft) * 100 : (fl > 0 ? 100 : 0);
+        var ft = fileTotal > 0 ? fileTotal : 0;
+        var fl = fileLoaded > 0 ? fileLoaded : 0;
+        if (ft > 0) {
+            fl = Math.min(fl, ft);
+        }
+        // Never treat "unknown total + any loaded" as 100%
+        var filePct = ft > 0 ? (fl / ft) * 100 : 0;
         var overallLoaded = batchDone + fl;
-        var overallPct = batchTotal > 0 ? (overallLoaded / batchTotal) * 100 : ((fileIndex / n) * 100);
+        var overallPct = batchTotal > 0 ? (overallLoaded / batchTotal) * 100 : 0;
         $('#uploadMessage').text('正在上传 ' + fileName + '（' + fileIndex + ' / ' + n + '）');
-        $('#uploadSizeCurrent').text(
-            '当前 ' + formatByteSize(fl) + ' / ' + formatByteSize(ft)
-        );
+        if (ft > 0) {
+            $('#uploadSizeCurrent').text(
+                '当前 ' + formatByteSize(fl) + ' / ' + formatByteSize(ft)
+            );
+        } else {
+            $('#uploadSizeCurrent').text(
+                '当前已传 ' + formatByteSize(fl) + '（大小未知）'
+            );
+        }
         $('#uploadSizeTotal').text(
             '合计 ' + formatByteSize(overallLoaded) + ' / ' + formatByteSize(batchTotal)
             + '（' + n + ' 个文件）'
@@ -1663,8 +1698,8 @@ function uploadFilesToPath(fileList, path, opts) {
                         if (i < files.length) {
                             resumeUploadModal();
                         }
-                        batchDone += (file.size || 0);
-                        updateUi(i, file.name, file.size || 0, file.size || 0);
+                        batchTotal = Math.max(0, batchTotal - (file.size || 0));
+                        updateUi(i, file.name, 0, file.size || 0);
                         return false;
                     }
                     resumeUploadModal();

@@ -450,7 +450,7 @@
         .desktop-layout-picker {
             position: absolute;
             z-index: 10060;
-            min-width: 268px;
+            min-width: 340px;
             padding: 10px 12px;
             background: #2b2b2b;
             border: 1px solid #4a4a4a;
@@ -1043,7 +1043,7 @@ function notifyFilesVisible($pane, targetWin) {
         // 注入当前 tagId，避免 iframe 读到空的 localStorage
         var port = $pane.data('session-port') || window.currentSessionPort || 22;
         var tid = window.localStorage.getItem('tagId' + port) || '';
-        var next = 'sftp.html' + q + sep + 'v=35&tagId=' + encodeURIComponent(tid);
+        var next = 'sftp.html' + q + sep + 'v=37&tagId=' + encodeURIComponent(tid);
         if (src === next) {
             // 已加载：仍通知同步到 shell 目录
             try {
