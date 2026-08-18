@@ -249,14 +249,6 @@ function setEncode(encode){
     $('.linux-encode').text(encode);
     client.send({"operate": "encoded", "tagId": tagId, "command": encode});
 }
-function logout(){
-    window.localStorage.setItem("tagId" + port, null);
-    try {
-        window.localStorage.removeItem("tagOwner" + port);
-    } catch (e) { /* ignore */ }
-    parent.location.reload();
-}
-
 /** 打开浮动文件窗口（可多开）；按钮高亮表示已有窗口或侧栏停靠 */
 function toggleFilesModule() {
     if (!window.parent || window.parent === window) {
