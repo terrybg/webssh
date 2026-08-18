@@ -49,6 +49,10 @@
             height: 100%;
             display: none;
         }
+        .shell-tab-pane[route="list"] {
+            position: relative;
+            overflow: hidden;
+        }
         .shell-tab-pane.active.show {
             display: block;
         }
@@ -236,7 +240,8 @@
         body.folder-win-dragging {
             user-select: none !important;
         }
-        .folder-win-layer {
+        .folder-win-layer,
+        .session-win-layer {
             position: absolute;
             left: 0;
             top: 0;
@@ -246,8 +251,24 @@
             pointer-events: none;
             overflow: hidden;
         }
-        .remote-pane.has-folder-sessions .folder-win-layer {
+        .remote-pane.has-folder-sessions .folder-win-layer,
+        #tabPanes.has-desktop-sessions #desktopSessionLayer {
             bottom: 36px;
+        }
+        #desktopRoot {
+            height: 100%;
+            position: relative;
+            z-index: 1;
+        }
+        #desktopTaskbar.folder-taskbar {
+            z-index: 1600;
+        }
+        .sw-term-ico {
+            flex: 0 0 16px;
+            display: block;
+        }
+        .folder-task-btn .sw-term-ico {
+            flex: 0 0 16px;
         }
 
         .folder-win.docked {
@@ -282,7 +303,8 @@
         .folder-task-btn.docked {
             border-style: dashed;
         }
-        .folder-win {
+        .folder-win,
+        .session-win {
             position: absolute;
             pointer-events: auto;
             display: flex;
@@ -295,21 +317,25 @@
             box-shadow: 0 12px 40px rgba(0,0,0,.45);
             overflow: hidden;
         }
-        .folder-win.focused {
+        .folder-win.focused,
+        .session-win.focused {
             border-color: #0d6efd;
             box-shadow: 0 14px 44px rgba(0,0,0,.5);
         }
-        .folder-win.minimized {
+        .folder-win.minimized,
+        .session-win.minimized {
             display: none !important;
         }
-        .folder-win.maximized {
+        .folder-win.maximized,
+        .session-win.maximized {
             left: 0 !important;
             top: 0 !important;
             width: 100% !important;
             height: 100% !important;
             border-radius: 0;
         }
-        .folder-win-title {
+        .folder-win-title,
+        .session-win-title {
             flex: 0 0 34px;
             display: flex;
             align-items: center;
@@ -320,14 +346,17 @@
             cursor: move;
             user-select: none;
         }
-        .folder-win.focused .folder-win-title {
+        .folder-win.focused .folder-win-title,
+        .session-win.focused .session-win-title,
+        .session-win.focused .folder-win-title {
             background: linear-gradient(180deg, #1f6feb, #0d47a1);
         }
         .folder-win-icon {
             font-size: 14px;
             line-height: 1;
         }
-        .folder-win-title-text {
+        .folder-win-title-text,
+        .session-win-title-text {
             flex: 1 1 auto;
             min-width: 0;
             overflow: hidden;
@@ -335,11 +364,13 @@
             white-space: nowrap;
             font-size: 13px;
         }
-        .folder-win-actions {
+        .folder-win-actions,
+        .session-win-actions {
             display: flex;
             gap: 2px;
         }
-        .folder-win-actions .fw-btn {
+        .folder-win-actions .fw-btn,
+        .session-win-actions .fw-btn {
             width: 36px;
             height: 26px;
             border: 0;
@@ -350,25 +381,30 @@
             line-height: 1;
             border-radius: 3px;
         }
-        .folder-win-actions .fw-btn:hover {
+        .folder-win-actions .fw-btn:hover,
+        .session-win-actions .fw-btn:hover {
             background: rgba(255,255,255,.18);
         }
-        .folder-win-actions .fw-close:hover {
+        .folder-win-actions .fw-close:hover,
+        .session-win-actions .fw-close:hover {
             background: #e81123;
             color: #fff;
         }
-        .folder-win-body {
+        .folder-win-body,
+        .session-win-body {
             flex: 1 1 auto;
             min-height: 0;
             background: #fff;
         }
-        .folder-win-frame {
+        .folder-win-frame,
+        .session-win-frame {
             width: 100%;
             height: 100%;
             border: 0;
             display: block;
         }
-        .folder-win-resize {
+        .folder-win-resize,
+        .session-win-resize {
             position: absolute;
             right: 0;
             bottom: 0;
@@ -515,28 +551,32 @@
     </ul>
     <div id="tabPanes">
         <div class="shell-tab-pane active show" route="list">
-            <div id="sessionListView">
-                <div class="session-list-toolbar">
-                    <button type="button" class="btn btn-primary btn-sm" id="btnAddSession">添加会话</button>
-                    <button type="button" class="btn btn-outline-light btn-sm" id="btnGlobalCommands">通用命令</button>
-                </div>
-                <div class="session-list-body">
-                    <div id="sessionEmptyState" style="display: none;">
-                        暂无会话，点击「添加会话」创建
+            <div id="desktopRoot">
+                <div id="sessionListView">
+                    <div class="session-list-toolbar">
+                        <button type="button" class="btn btn-primary btn-sm" id="btnAddSession">添加会话</button>
+                        <button type="button" class="btn btn-outline-light btn-sm" id="btnGlobalCommands">通用命令</button>
                     </div>
-                    <table class="table table-dark table-hover" id="sessionTable" style="display: none;">
-                        <thead>
-                        <tr>
-                            <th>会话名称</th>
-                            <th>IP</th>
-                            <th>端口</th>
-                            <th>操作</th>
-                        </tr>
-                        </thead>
-                        <tbody id="sessionTableBody"></tbody>
-                    </table>
+                    <div class="session-list-body">
+                        <div id="sessionEmptyState" style="display: none;">
+                            暂无会话，点击「添加会话」创建
+                        </div>
+                        <table class="table table-dark table-hover" id="sessionTable" style="display: none;">
+                            <thead>
+                            <tr>
+                                <th>会话名称</th>
+                                <th>IP</th>
+                                <th>端口</th>
+                                <th>操作</th>
+                            </tr>
+                            </thead>
+                            <tbody id="sessionTableBody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
+            <div id="desktopSessionLayer" class="session-win-layer"></div>
+            <div id="desktopTaskbar" class="folder-taskbar" style="display:none"></div>
         </div>
     </div>
     <div id="sessionPreviewOverlay" aria-hidden="true">
@@ -665,7 +705,8 @@
 <script src="../js/sessions.js?v=6" charset="utf-8"></script>
 <script src="../js/commands-ui.js?v=1" charset="utf-8"></script>
 <script src="../js/split-pane.js?v=5" charset="utf-8"></script>
-<script src="../js/folder-windows.js?v=5" charset="utf-8"></script>
+<script src="../js/session-windows.js?v=1" charset="utf-8"></script>
+<script src="../js/folder-windows.js?v=6" charset="utf-8"></script>
 <script>
     function loadSsh(query, route) {
         var q = query;

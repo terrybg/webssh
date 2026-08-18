@@ -145,6 +145,33 @@
 
     function openFolderWindow($pane, opts) {
         opts = opts || {};
+        // 桌面路径优先走 SessionWindows（无停靠）；停靠仍走 pane 内 FolderWindows
+        if (w.SessionWindows && !opts.forcePane && !opts.dock) {
+            var src = opts.src;
+            if (!src) {
+                if ($pane && $pane.length) {
+                    src = sftpUrlForPane($pane);
+                } else {
+                    var $active = getActivePane();
+                    if ($active.length) {
+                        src = sftpUrlForPane($active);
+                    }
+                }
+            }
+            var port = opts.port;
+            if (port == null && $pane && $pane.length) {
+                port = $pane.data('session-port') || w.currentSessionPort || 22;
+            }
+            return w.SessionWindows.open({
+                kind: 'sftp',
+                title: opts.title,
+                src: src,
+                sessionId: opts.sessionId || ($pane && $pane.data('session-id')),
+                port: port,
+                width: opts.width,
+                height: opts.height
+            });
+        }
         if (!$pane || !$pane.length) {
             $pane = getActivePane();
         }
