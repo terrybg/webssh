@@ -160,6 +160,12 @@
         if (nearR) {
             return 'right';
         }
+        if (nearT) {
+            return 'top';
+        }
+        if (nearB) {
+            return 'bottom';
+        }
         return null;
     }
 
@@ -176,6 +182,10 @@
                 return { left: 0, top: 0, width: hw, height: h };
             case 'right':
                 return { left: w - hw, top: 0, width: hw, height: h };
+            case 'top':
+                return { left: 0, top: 0, width: w, height: hh };
+            case 'bottom':
+                return { left: 0, top: h - hh, width: w, height: hh };
             case 'top-left':
                 return { left: 0, top: 0, width: hw, height: hh };
             case 'top-right':

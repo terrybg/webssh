@@ -8,6 +8,11 @@
             cells: ['left', 'right'],
             glyph: 'cols-2'
         },
+        'two-top-bottom': {
+            label: '上下',
+            cells: ['top', 'bottom'],
+            glyph: 'rows-2'
+        },
         'quad': {
             label: '四格',
             cells: ['top-left', 'top-right', 'bottom-left', 'bottom-right'],
@@ -23,6 +28,8 @@
     var SLOT_TO_TEMPLATE = {
         left: 'two-left-right',
         right: 'two-left-right',
+        top: 'two-top-bottom',
+        bottom: 'two-top-bottom',
         'top-left': 'quad',
         'top-right': 'quad',
         'bottom-left': 'quad',
@@ -85,6 +92,10 @@
                 return { left: 0, top: 0, width: hw, height: h0 };
             case 'right':
                 return { left: w0 - hw, top: 0, width: hw, height: h0 };
+            case 'top':
+                return { left: 0, top: 0, width: w0, height: hh };
+            case 'bottom':
+                return { left: 0, top: h0 - hh, width: w0, height: hh };
             case 'top-left':
                 return { left: 0, top: 0, width: hw, height: hh };
             case 'top-right':
