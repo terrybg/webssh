@@ -279,9 +279,7 @@
         if (w.SessionLayout && typeof w.SessionLayout.onAfterSnap === 'function') {
             w.SessionLayout.onAfterSnap($win, slot);
         }
-        if (w.SessionLayout && typeof w.SessionLayout.save === 'function') {
-            w.SessionLayout.save();
-        }
+        notifyLayoutSave();
     }
 
     function setDockPanelWidth($win, width) {
@@ -406,9 +404,7 @@
         relayoutDock();
         focusWindow($win);
         updateTaskbar();
-        if (w.SessionLayout && typeof w.SessionLayout.save === 'function') {
-            w.SessionLayout.save();
-        }
+        notifyLayoutSave();
     }
 
     function undock($win) {
@@ -446,9 +442,7 @@
         }
         focusWindow($win);
         updateTaskbar();
-        if (w.SessionLayout && typeof w.SessionLayout.save === 'function') {
-            w.SessionLayout.save();
-        }
+        notifyLayoutSave();
     }
 
     function dockFromFrame(iframeWindow) {
@@ -591,6 +585,12 @@
         focusWindow($win);
     }
 
+    function notifyLayoutSave() {
+        if (w.SessionLayout && typeof w.SessionLayout.save === 'function') {
+            w.SessionLayout.save();
+        }
+    }
+
     function closeWindow($win) {
         if (!$win || !$win.length) {
             return;
@@ -606,6 +606,7 @@
             syncDockStripVisible();
         }
         updateTaskbar();
+        notifyLayoutSave();
     }
 
     function bindWindowChrome($win) {
@@ -751,6 +752,7 @@
             if (!$win.hasClass('snapped')) {
                 captureFloatRect($win);
             }
+            notifyLayoutSave();
         });
 
         var resizing = false;
@@ -783,6 +785,8 @@
             }
             resizing = false;
             $('body').removeClass('folder-win-dragging');
+            captureFloatRect($win);
+            notifyLayoutSave();
         });
     }
 
@@ -853,6 +857,134 @@
         $win.find('.session-win-title-text').text(name);
         $win.data('title', name);
         updateTaskbar();
+        notifyLayoutSave();
+    }
+
+    function resolveSessionForRestore(openFns, sessionId) {
+        var dfd = $.Deferred();
+        if (!sessionId || !openFns || typeof openFns.resolveSession !== 'function') {
+            dfd.resolve(null);
+            return dfd.promise();
+        }
+        try {
+            if (openFns.resolveSession.length <= 1) {
+                var r = openFns.resolveSession(sessionId);
+                if (r && typeof r.then === 'function') {
+                    r.then(function (s) {
+                        dfd.resolve(s || null);
+                    }, function () {
+                        dfd.resolve(null);
+                    });
+                    return dfd.promise();
+                }
+                dfd.resolve(r || null);
+                return dfd.promise();
+            }
+            openFns.resolveSession(sessionId, function (session) {
+                dfd.resolve(session || null);
+            });
+        } catch (e) {
+            dfd.resolve(null);
+        }
+        return dfd.promise();
+    }
+
+    function findRestoredWindow(entry) {
+        var sid = String(entry.sessionId || '');
+        var kind = entry.kind === 'sftp' ? 'sftp' : 'ssh';
+        var $match = $();
+        $allWindows().each(function () {
+            var $w = $(this);
+            if (String($w.data('session-id') || $w.attr('data-session-id') || '') === sid
+                && ($w.attr('data-kind') || $w.data('kind') || 'ssh') === kind) {
+                $match = $w;
+            }
+        });
+        return $match;
+    }
+
+    function applyRestoredEntry($win, entry) {
+        if (!$win || !$win.length || !entry) {
+            return;
+        }
+        if (entry.title) {
+            $win.find('.session-win-title-text').text(entry.title);
+            $win.data('title', entry.title);
+        }
+        if (entry.dockWidth != null) {
+            $win.data('dock-width', Number(entry.dockWidth));
+        }
+        if (entry.mode === 'dock') {
+            dock($win);
+        } else if (entry.mode === 'snap' && entry.snapSlot) {
+            snap($win, entry.snapSlot);
+        } else if (entry.geometry) {
+            var g = entry.geometry;
+            $win.css({
+                left: (g.left || 0) + 'px',
+                top: (g.top || 0) + 'px',
+                width: (g.width || 800) + 'px',
+                height: (g.height || 520) + 'px',
+                zIndex: entry.z || (++zCounter)
+            });
+            captureFloatRect($win);
+        }
+        if (entry.z != null && !isNaN(Number(entry.z))) {
+            var z = Number(entry.z);
+            $win.css('z-index', z);
+            if (z >= zCounter) {
+                zCounter = z;
+            }
+        }
+        updateTaskbar();
+    }
+
+    function openForRestoreEntry(entry, openFns, session) {
+        var opener = entry.kind === 'sftp' ? openFns.openSftp : openFns.openSsh;
+        if (typeof opener !== 'function') {
+            return $.Deferred().reject('missing opener').promise();
+        }
+        var ret = opener(session);
+        if (ret && typeof ret.then === 'function') {
+            return ret;
+        }
+        var dfd = $.Deferred();
+        setTimeout(function () {
+            dfd.resolve(findRestoredWindow(entry));
+        }, 280);
+        return dfd.promise();
+    }
+
+    /**
+     * Restore saved layout entries sequentially via openers, then apply mode/geometry.
+     * @param {Array} entries
+     * @param {{ openSsh: Function, openSftp: Function, resolveSession: Function }} openFns
+     */
+    function restoreLayout(entries, openFns) {
+        openFns = openFns || {};
+        var list = entries || [];
+        var chain = $.Deferred().resolve().promise();
+        list.forEach(function (entry) {
+            chain = chain.then(function () {
+                if (!entry || !entry.sessionId) {
+                    return;
+                }
+                return resolveSessionForRestore(openFns, entry.sessionId).then(function (session) {
+                    if (!session) {
+                        return;
+                    }
+                    return openForRestoreEntry(entry, openFns, session).then(function ($win) {
+                        if (!$win || !$win.length) {
+                            $win = findRestoredWindow(entry);
+                        }
+                        if ($win && $win.length) {
+                            applyRestoredEntry($win, entry);
+                        }
+                    }, function () { /* skip failed open */ });
+                });
+            });
+        });
+        return chain;
     }
 
     w.SessionWindows = {
@@ -867,6 +999,7 @@
         setDockPanelWidth: setDockPanelWidth,
         snap: snap,
         clearSnap: clearSnap,
+        restoreLayout: restoreLayout,
         updateTaskbar: updateTaskbar,
         setTitle: setTitle,
         MIN_DOCK_W: MIN_DOCK_W
@@ -888,6 +1021,7 @@
         splitRight = null;
         $('body').removeClass('split-dragging');
         notifyDockedResize();
+        notifyLayoutSave();
     }
 
     $(document).on('mousedown.swdocksplit', '#desktopDockStrip .desktop-dock-bar', function (e) {

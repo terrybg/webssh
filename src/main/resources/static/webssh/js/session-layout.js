@@ -41,6 +41,12 @@
     var suppressAssist = false;
     var pendingTemplateId = null;
 
+    var STORAGE_KEY = 'webssh.sessionLayout.v1';
+    var currentTemplate = null;
+    var saveTimer = null;
+    var restoring = false;
+    var restoreStarted = false;
+
     function $picker() {
         return $('#desktopLayoutPicker');
     }
@@ -397,6 +403,7 @@
             return;
         }
         var slot = tpl.cells[idx];
+        currentTemplate = templateId;
         pendingTemplateId = templateId;
         if (w.SessionWindows && typeof w.SessionWindows.snap === 'function') {
             w.SessionWindows.snap($win, slot);
@@ -404,8 +411,149 @@
         // onAfterSnap handles Assist via pendingTemplateId
     }
 
+    function parsePx(v) {
+        if (v == null || v === '') {
+            return 0;
+        }
+        if (typeof v === 'number') {
+            return v;
+        }
+        var n = parseFloat(String(v).replace('px', ''));
+        return isNaN(n) ? 0 : n;
+    }
+
+    function windowMode($w) {
+        if ($w.hasClass('docked')) {
+            return 'dock';
+        }
+        if ($w.hasClass('snapped')) {
+            return 'snap';
+        }
+        return 'float';
+    }
+
+    /**
+     * Serialize one .session-win — layout only (never passwords).
+     */
+    function serializeWindow($w) {
+        var kind = $w.attr('data-kind') || $w.data('kind') || 'ssh';
+        var mode = windowMode($w);
+        var z = parseInt($w.css('z-index'), 10);
+        if (isNaN(z)) {
+            z = 0;
+        }
+        var geom = {
+            left: parsePx($w.css('left')),
+            top: parsePx($w.css('top')),
+            width: parsePx($w.css('width')) || $w.outerWidth() || 0,
+            height: parsePx($w.css('height')) || $w.outerHeight() || 0
+        };
+        var dockWidth = $w.data('dock-width');
+        if (dockWidth != null) {
+            dockWidth = Number(dockWidth);
+            if (isNaN(dockWidth)) {
+                dockWidth = null;
+            }
+        } else {
+            dockWidth = null;
+        }
+        var snapSlot = $w.data('snap-slot') || null;
+        return {
+            sessionId: String($w.data('session-id') || $w.attr('data-session-id') || ''),
+            kind: kind === 'sftp' ? 'sftp' : 'ssh',
+            mode: mode,
+            title: String($w.data('title') || $w.find('.session-win-title-text').text() || ''),
+            geometry: geom,
+            dockWidth: mode === 'dock' ? (dockWidth != null ? dockWidth : geom.width || null) : dockWidth,
+            snapSlot: mode === 'snap' ? snapSlot : null,
+            z: z
+        };
+    }
+
+    function saveNow() {
+        if (restoring) {
+            return;
+        }
+        try {
+            var windows = [];
+            $allWindows().each(function () {
+                windows.push(serializeWindow($(this)));
+            });
+            w.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                version: 1,
+                windows: windows,
+                layoutTemplate: currentTemplate || null
+            }));
+        } catch (e) { /* quota / private mode */ }
+    }
+
+    /** Debounced (~200ms) persist of current desktop session layout. */
+    function save() {
+        if (restoring) {
+            return;
+        }
+        if (saveTimer) {
+            clearTimeout(saveTimer);
+        }
+        saveTimer = setTimeout(function () {
+            saveTimer = null;
+            saveNow();
+        }, 200);
+    }
+
+    function load() {
+        try {
+            var raw = w.localStorage.getItem(STORAGE_KEY);
+            if (!raw) {
+                return null;
+            }
+            var data = JSON.parse(raw);
+            if (!data || data.version !== 1 || !Array.isArray(data.windows)) {
+                return null;
+            }
+            return data;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
+     * Restore saved layout once per page load.
+     * @param {{ openSsh: Function, openSftp: Function, resolveSession: Function }} opts
+     */
+    function restore(opts) {
+        if (restoreStarted) {
+            return $.Deferred().resolve().promise();
+        }
+        restoreStarted = true;
+        opts = opts || {};
+        var data = load();
+        if (!data || !data.windows || !data.windows.length) {
+            return $.Deferred().resolve().promise();
+        }
+        if (data.layoutTemplate) {
+            currentTemplate = data.layoutTemplate;
+        }
+        restoring = true;
+        suppressAssist = true;
+        var finish = function () {
+            restoring = false;
+            suppressAssist = false;
+            if (saveTimer) {
+                clearTimeout(saveTimer);
+                saveTimer = null;
+            }
+            saveNow();
+        };
+        if (w.SessionWindows && typeof w.SessionWindows.restoreLayout === 'function') {
+            return $.when(w.SessionWindows.restoreLayout(data.windows, opts)).always(finish);
+        }
+        finish();
+        return $.Deferred().resolve().promise();
+    }
+
     function onAfterSnap($win, slot) {
-        if (suppressAssist) {
+        if (restoring || suppressAssist) {
             return;
         }
         var templateId = pendingTemplateId || SLOT_TO_TEMPLATE[slot] || null;
@@ -452,6 +600,10 @@
         onAfterSnap: onAfterSnap,
         onMaxEnter: onMaxEnter,
         onMaxLeave: onMaxLeave,
+        save: save,
+        load: load,
+        restore: restore,
+        STORAGE_KEY: STORAGE_KEY,
         TEMPLATES: TEMPLATES
     };
 })(window);

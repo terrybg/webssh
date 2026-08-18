@@ -35,6 +35,15 @@
         });
         window.sessionsCache = sessionsCache;
         renderDesktop();
+        if (window.SessionLayout && typeof SessionLayout.restore === 'function') {
+          SessionLayout.restore({
+            openSsh: openSshWindow,
+            openSftp: openFileWindow,
+            resolveSession: function (id) {
+              return sessionsCache[id] || null;
+            }
+          });
+        }
       })
       .fail(function () {
         alert('加载会话失败');
@@ -308,18 +317,19 @@
   }
 
   function openSshWindow(session) {
+    var dfd = $.Deferred();
     if (!session) {
-      return;
+      return dfd.reject('无效会话').promise();
     }
     if (!window.SessionWindows || typeof window.SessionWindows.open !== 'function') {
       alert('会话窗口未加载');
-      return;
+      return dfd.reject('会话窗口未加载').promise();
     }
     $('#loadingIndicator').show();
     ensureLoggedIn(session)
       .done(function (tagId) {
         var q = workspaceIframeQuery(session);
-        SessionWindows.open({
+        var $win = SessionWindows.open({
           kind: 'ssh',
           sessionId: session.id,
           port: session.port,
@@ -327,28 +337,32 @@
           query: q,
           tagId: tagId
         });
+        dfd.resolve($win);
       })
       .fail(function (msg) {
         alert(msg || '登录失败');
+        dfd.reject(msg || '登录失败');
       })
       .always(function () {
         $('#loadingIndicator').hide();
       });
+    return dfd.promise();
   }
 
   function openFileWindow(session) {
+    var dfd = $.Deferred();
     if (!session) {
-      return;
+      return dfd.reject('无效会话').promise();
     }
     if (!window.SessionWindows || typeof window.SessionWindows.open !== 'function') {
       alert('会话窗口未加载');
-      return;
+      return dfd.reject('会话窗口未加载').promise();
     }
     $('#loadingIndicator').show();
     ensureLoggedIn(session)
       .done(function (tagId) {
         var q = workspaceIframeQuery(session);
-        SessionWindows.open({
+        var $win = SessionWindows.open({
           kind: 'sftp',
           sessionId: session.id,
           port: session.port,
@@ -356,13 +370,16 @@
           query: q,
           tagId: tagId
         });
+        dfd.resolve($win);
       })
       .fail(function (msg) {
         alert(msg || '登录失败');
+        dfd.reject(msg || '登录失败');
       })
       .always(function () {
         $('#loadingIndicator').hide();
       });
+    return dfd.promise();
   }
 
   function connectSession(session) {
