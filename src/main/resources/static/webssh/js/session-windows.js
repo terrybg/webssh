@@ -832,9 +832,110 @@
         });
     }
 
+    function hideTaskbarMenu() {
+        var $menu = $('#desktopTaskbarMenu');
+        if ($menu.length) {
+            $menu.hide().empty().attr('aria-hidden', 'true').removeData('win-id');
+        }
+        $(document).off('.swTaskbarMenu');
+    }
+
+    function restoreFromTaskbarMenu($win) {
+        if (!$win || !$win.length) {
+            return;
+        }
+        if ($win.hasClass('minimized')) {
+            restoreWindow($win);
+            return;
+        }
+        if ($win.hasClass('maximized')) {
+            maximizeWindow($win);
+        }
+    }
+
+    function showTaskbarMenu(pageX, pageY, $win) {
+        var $menu = $('#desktopTaskbarMenu');
+        if (!$menu.length || !$win || !$win.length) {
+            return;
+        }
+        hideTaskbarMenu();
+        var minimized = $win.hasClass('minimized');
+        var maximized = $win.hasClass('maximized');
+        var docked = $win.hasClass('docked');
+        var canRestore = minimized || maximized;
+        var canMinimize = !minimized;
+        var canMaximize = !minimized && !maximized && !docked;
+        var html =
+            '<a class="ctx-item' + (canRestore ? '' : ' disabled') + '" href="javascript:void(0)" data-action="restore">还原</a>' +
+            '<a class="ctx-item' + (canMinimize ? '' : ' disabled') + '" href="javascript:void(0)" data-action="minimize">最小化</a>' +
+            '<a class="ctx-item' + (canMaximize ? '' : ' disabled') + '" href="javascript:void(0)" data-action="maximize">最大化</a>' +
+            '<div class="ctx-sep"></div>' +
+            '<a class="ctx-item" href="javascript:void(0)" data-action="close">关闭</a>';
+        $menu.html(html).data('win-id', $win.data('win-id'));
+        $menu.css({ left: pageX + 'px', top: pageY + 'px' }).show().attr('aria-hidden', 'false');
+
+        var mw = $menu.outerWidth() || 148;
+        var mh = $menu.outerHeight() || 120;
+        var left = pageX;
+        var top = pageY;
+        if (left + mw > window.innerWidth - 8) {
+            left = Math.max(8, window.innerWidth - mw - 8);
+        }
+        if (top + mh > window.innerHeight - 8) {
+            top = Math.max(8, window.innerHeight - mh - 8);
+        }
+        $menu.css({ left: left + 'px', top: top + 'px' });
+
+        $menu.off('click.swTaskbarMenu').on('click.swTaskbarMenu', '.ctx-item', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if ($(this).hasClass('disabled')) {
+                return;
+            }
+            var action = $(this).data('action');
+            var sid = $menu.data('win-id');
+            var $target = $allWindows().filter('[data-win-id="' + sid + '"]');
+            hideTaskbarMenu();
+            if (!$target.length) {
+                return;
+            }
+            if (action === 'restore') {
+                restoreFromTaskbarMenu($target);
+            } else if (action === 'minimize') {
+                minimizeWindow($target);
+            } else if (action === 'maximize') {
+                maximizeWindow($target);
+            } else if (action === 'close') {
+                closeWindow($target);
+            }
+        });
+
+        setTimeout(function () {
+            $(document).on('mousedown.swTaskbarMenu', function (e) {
+                if ($(e.target).closest('#desktopTaskbarMenu').length) {
+                    return;
+                }
+                hideTaskbarMenu();
+            });
+            $(document).on('keydown.swTaskbarMenu', function (e) {
+                if (e.key === 'Escape' || e.keyCode === 27) {
+                    hideTaskbarMenu();
+                }
+            });
+            $(document).on('contextmenu.swTaskbarMenu', function (e) {
+                if ($(e.target).closest('#desktopTaskbarMenu').length) {
+                    return;
+                }
+                if ($(e.target).closest('#desktopTaskbar .session-task-btn').length) {
+                    return;
+                }
+                hideTaskbarMenu();
+            });
+        }, 0);
+    }
+
     function updateTaskbar() {
         var $bar = $taskbar();
-        var $host = $layer();
         if (!$bar.length) {
             return;
         }
@@ -851,6 +952,7 @@
             });
         });
         if (!sessions.length) {
+            hideTaskbarMenu();
             syncHostSessionsClass(false);
             $bar.hide().empty();
             return;
@@ -868,7 +970,9 @@
                 + '</button>';
         });
         $bar.html(html).show();
-        $bar.off('click').on('click', '.folder-task-btn', function () {
+        $bar.off('click contextmenu');
+        $bar.on('click', '.folder-task-btn', function () {
+            hideTaskbarMenu();
             var sid = $(this).data('sess-id');
             var $win = $allWindows().filter('[data-win-id="' + sid + '"]');
             if (!$win.length) {
@@ -881,6 +985,16 @@
             } else {
                 focusWindow($win);
             }
+        });
+        $bar.on('contextmenu', '.folder-task-btn', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var sid = $(this).data('sess-id');
+            var $win = $allWindows().filter('[data-win-id="' + sid + '"]');
+            if (!$win.length) {
+                return;
+            }
+            showTaskbarMenu(e.pageX, e.pageY, $win);
         });
     }
 

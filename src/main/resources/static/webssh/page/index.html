@@ -775,6 +775,39 @@
             background: #0d6efd;
             color: #fff;
         }
+        #desktopTaskbarMenu {
+            display: none;
+            position: fixed;
+            z-index: 10100;
+            min-width: 148px;
+            background: #2b3035;
+            border: 1px solid #495057;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,.45);
+            padding: 4px 0;
+        }
+        #desktopTaskbarMenu .ctx-item {
+            display: block;
+            padding: 8px 16px;
+            color: #f8f9fa;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        #desktopTaskbarMenu .ctx-item:hover:not(.disabled) {
+            background: #0d6efd;
+            color: #fff;
+        }
+        #desktopTaskbarMenu .ctx-item.disabled {
+            color: #868e96;
+            cursor: default;
+            pointer-events: none;
+        }
+        #desktopTaskbarMenu .ctx-sep {
+            height: 1px;
+            margin: 4px 0;
+            background: #495057;
+        }
         #loadingIndicator {
             display: none;
             position: fixed;
@@ -839,6 +872,7 @@
 <div id="sessionContextMenu">
     <a class="ctx-item" href="javascript:void(0)" data-action="copy">复制会话</a>
 </div>
+<div id="desktopTaskbarMenu" aria-hidden="true"></div>
 <div id="desktopMenu" aria-hidden="true"></div>
 
 <!-- 添加 / 修改会话 -->
@@ -953,7 +987,7 @@
 <script src="../js/sessions.js?v=11" charset="utf-8"></script>
 <script src="../js/commands-ui.js?v=1" charset="utf-8"></script>
 <script src="../js/split-pane.js?v=5" charset="utf-8"></script>
-<script src="../js/session-windows.js?v=8" charset="utf-8"></script>
+<script src="../js/session-windows.js?v=9" charset="utf-8"></script>
 <script src="../js/session-layout.js?v=3" charset="utf-8"></script>
 <script src="../js/folder-windows.js?v=6" charset="utf-8"></script>
 <script>
