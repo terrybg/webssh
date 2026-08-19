@@ -175,7 +175,7 @@
         }
         window.localStorage.setItem('tagId' + session.port, res.result);
         try {
-          window.localStorage.setItem('tagOwner' + session.port, String(session.id || ''));
+          window.localStorage.setItem('tagOwner' + session.port, sessionOwnerKey(session));
         } catch (eOwner) { /* ignore */ }
         window.currentSessionId = session.id;
         window.currentSessionPort = session.port;
@@ -232,7 +232,16 @@
     var p = session && session.port != null
       ? session.port
       : (window.currentSessionPort != null ? window.currentSessionPort : 22);
-    return '?sessionId=' + encodeURIComponent(sid) + '&port=' + encodeURIComponent(p);
+    var q = '?sessionId=' + encodeURIComponent(sid) + '&port=' + encodeURIComponent(p);
+    if (session) {
+      if (session.name) {
+        q += '&sessionName=' + encodeURIComponent(session.name);
+      }
+      if (session.ip) {
+        q += '&ip=' + encodeURIComponent(session.ip);
+      }
+    }
+    return q;
   }
 
   function showSessionList() {
@@ -265,10 +274,52 @@
     } catch (e) { /* ignore */ }
   }
 
+  function clearStoredTag(port) {
+    try {
+      window.localStorage.removeItem('tagId' + port);
+    } catch (e0) { /* ignore */ }
+    try {
+      window.localStorage.removeItem('tagOwner' + port);
+    } catch (e1) { /* ignore */ }
+  }
+
+  function loginSshForSession(session, port, ownerKey) {
+    return $.post(baseUrl + '/loginSsh', {
+      ip: session.ip,
+      userName: session.userName,
+      password: session.password,
+      port: port
+    }).then(function (res) {
+      if (!res || res.status !== 200) {
+        return $.Deferred().reject((res && res.message) || '登录失败').promise();
+      }
+      window.localStorage.setItem('tagId' + port, res.result);
+      writeTagOwner(port, ownerKey);
+      window.currentSessionId = session.id;
+      window.currentSessionPort = port;
+      return res.result;
+    }, function () {
+      return $.Deferred().reject('登录失败').promise();
+    });
+  }
+
+  /** Probe whether server still has this tagId (in-memory map is cleared on restart). */
+  function probeTagAlive(tag) {
+    return $.ajax({
+      url: baseUrl + '/checkLogin',
+      method: 'GET',
+      data: { tagId: tag }
+    }).then(function (res) {
+      return !!(res && res.status === 200);
+    }, function () {
+      return false;
+    });
+  }
+
   /**
    * Ensure SSH login tagId for session.port.
-   * Reuses localStorage tagId only when still present AND owned by the same session
-   * (window close does not clear tagId; switching another host on the same port must re-login).
+   * Reuses localStorage tagId only when still present, owned by the same session,
+   * AND still valid on the server (restart clears webLoginMap but leaves localStorage).
    */
   function ensureLoggedIn(session) {
     if (!session) {
@@ -288,27 +339,17 @@
     }
     owner = readTagOwner(port);
     if (existing && owner && owner === ownerKey) {
-      window.currentSessionId = session.id;
-      window.currentSessionPort = port;
-      return $.Deferred().resolve(existing).promise();
+      return probeTagAlive(existing).then(function (alive) {
+        if (alive) {
+          window.currentSessionId = session.id;
+          window.currentSessionPort = port;
+          return existing;
+        }
+        clearStoredTag(port);
+        return loginSshForSession(session, port, ownerKey);
+      });
     }
-    return $.post(baseUrl + '/loginSsh', {
-      ip: session.ip,
-      userName: session.userName,
-      password: session.password,
-      port: port
-    }).then(function (res) {
-      if (!res || res.status !== 200) {
-        return $.Deferred().reject((res && res.message) || '登录失败').promise();
-      }
-      window.localStorage.setItem('tagId' + port, res.result);
-      writeTagOwner(port, ownerKey);
-      window.currentSessionId = session.id;
-      window.currentSessionPort = port;
-      return res.result;
-    }, function () {
-      return $.Deferred().reject('登录失败').promise();
-    });
+    return loginSshForSession(session, port, ownerKey);
   }
 
   /** Alias used by brief / callers expecting ensureSshSession */
@@ -349,8 +390,32 @@
     return dfd.promise();
   }
 
-  function openFileWindow(session) {
+  function openHelpWindow() {
+    if (!window.SessionWindows || typeof window.SessionWindows.open !== 'function') {
+      window.open('help.html', '_blank');
+      return null;
+    }
+    var $existing = $('#desktopSessionLayer .session-win[data-kind="help"], #desktopDockStrip .session-win[data-kind="help"]');
+    if ($existing.length) {
+      if ($existing.hasClass('minimized') && typeof SessionWindows.minimize === 'function') {
+        // focus restores minimized
+      }
+      SessionWindows.focus($existing.first());
+      return $existing.first();
+    }
+    return SessionWindows.open({
+      kind: 'help',
+      sessionId: '__help__',
+      title: '帮助',
+      src: 'help.html?v=2',
+      width: 860,
+      height: 580
+    });
+  }
+
+  function openFileWindow(session, openOpts) {
     var dfd = $.Deferred();
+    openOpts = openOpts || {};
     if (!session) {
       return dfd.reject('无效会话').promise();
     }
@@ -362,13 +427,19 @@
     ensureLoggedIn(session)
       .done(function (tagId) {
         var q = workspaceIframeQuery(session);
+        if (openOpts.cwd) {
+          q += (q.indexOf('?') >= 0 ? '&' : '?') + 'cwd=' + encodeURIComponent(openOpts.cwd);
+        }
         var $win = SessionWindows.open({
           kind: 'sftp',
           sessionId: session.id,
           port: session.port,
-          title: (session.name || session.ip || '文件') + ' 文件',
+          title: (session.name && session.ip)
+            ? (session.name + ' (' + session.ip + ')')
+            : (session.name || session.ip || '文件'),
           query: q,
-          tagId: tagId
+          tagId: tagId,
+          cwd: openOpts.cwd || null
         });
         dfd.resolve($win);
       })
@@ -397,6 +468,7 @@
     var D = window.Desktop;
     D.onAddServer = openAddModal;
     D.onGlobalCommands = openGlobalCommands;
+    D.onHelp = openHelpWindow;
     D.onEdit = function (session) {
       if (session && session.id && sessionsCache[session.id]) {
         openEditModal(sessionsCache[session.id]);
@@ -530,6 +602,7 @@
   window.connectRemote = connectRemote;
   window.openSshWindow = openSshWindow;
   window.openFileWindow = openFileWindow;
+  window.openHelpWindow = openHelpWindow;
   window.ensureLoggedIn = ensureLoggedIn;
   window.ensureSshSession = ensureSshSession;
   window.resolveSession = resolveSession;

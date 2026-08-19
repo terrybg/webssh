@@ -24,6 +24,38 @@
         '<path fill="#adb5bd" d="M7.5 10.2h5v1.2h-5z"/>' +
         '</svg>';
 
+    var HELP_ICO =
+        '<svg class="sw-help-ico" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">' +
+        '<circle cx="8" cy="8" r="6.5" fill="#6b5b95" stroke="#d9d0ef" stroke-width="1"/>' +
+        '<path fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round" d="M6.2 6.2c0-1.1.9-1.8 1.9-1.8s1.8.6 1.8 1.6c0 .7-.4 1.1-1 1.5-.7.4-.9.7-.9 1.3"/>' +
+        '<circle cx="8" cy="11.4" r="0.85" fill="#fff"/>' +
+        '</svg>';
+
+    var CAPTION_MIN =
+        '<svg class="caption-ico caption-min" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8"/></svg>';
+    var CAPTION_MAX =
+        '<svg class="caption-ico caption-max" viewBox="0 0 10 10" aria-hidden="true"><rect x="1.2" y="1.2" width="7.6" height="7.6" rx="0.4"/></svg>';
+    var CAPTION_RESTORE =
+        '<svg class="caption-ico caption-restore" viewBox="0 0 10 10" aria-hidden="true">' +
+        '<path d="M3 3.2h5.2v5.2H3z"/><path d="M2 6.2V2h4.2"/></svg>';
+    var CAPTION_CLOSE =
+        '<svg class="caption-ico caption-close" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2L2 8"/></svg>';
+
+    function syncCaptionButtons($win) {
+        if (!$win || !$win.length) {
+            return;
+        }
+        var $max = $win.find('.sw-max');
+        if (!$max.length) {
+            return;
+        }
+        if ($win.hasClass('maximized')) {
+            $max.attr('title', '向下还原').html(CAPTION_RESTORE);
+        } else {
+            $max.attr('title', '最大化').html(CAPTION_MAX);
+        }
+    }
+
     function $layer() {
         return $('#desktopSessionLayer');
     }
@@ -45,11 +77,23 @@
     }
 
     function iconForKind(kind) {
-        return kind === 'sftp' ? FOLDER_ICO : TERM_ICO;
+        if (kind === 'sftp') {
+            return FOLDER_ICO;
+        }
+        if (kind === 'help') {
+            return HELP_ICO;
+        }
+        return TERM_ICO;
     }
 
     function defaultTitle(kind) {
-        return kind === 'sftp' ? '文件资源管理器' : '终端';
+        if (kind === 'sftp') {
+            return '文件资源管理器';
+        }
+        if (kind === 'help') {
+            return '帮助';
+        }
+        return '终端';
     }
 
     function resolveSrc(opts) {
@@ -75,16 +119,28 @@
         }
         var sep = q.indexOf('?') >= 0 ? '&' : '?';
         if (kind === 'sftp') {
-            var url = 'sftp.html' + q + sep + 'folderWin=1&v=39';
+            var url = 'sftp.html' + q + sep + 'folderWin=1&v=43';
             if (tid) {
                 url += '&tagId=' + encodeURIComponent(tid);
             }
+            var hasCwd = false;
             try {
-                var cache = w.__websshShellPwdCache;
-                if (cache && cache.path) {
-                    url += '&cwd=' + encodeURIComponent(cache.path);
-                }
-            } catch (e2) { /* ignore */ }
+                hasCwd = /[?&]cwd=/.test(q);
+            } catch (eHas) {
+                hasCwd = false;
+            }
+            if (!hasCwd && opts.cwd) {
+                url += '&cwd=' + encodeURIComponent(opts.cwd);
+                hasCwd = true;
+            }
+            if (!hasCwd) {
+                try {
+                    var cache = w.__websshShellPwdCache;
+                    if (cache && cache.path) {
+                        url += '&cwd=' + encodeURIComponent(cache.path);
+                    }
+                } catch (e2) { /* ignore */ }
+            }
             return url;
         }
         var sshUrl = 'ssh.html' + q;
@@ -473,7 +529,7 @@
         if (!$host.length) {
             return null;
         }
-        var kind = opts.kind === 'sftp' ? 'sftp' : 'ssh';
+        var kind = opts.kind === 'sftp' ? 'sftp' : (opts.kind === 'help' ? 'help' : 'ssh');
         var id = 'sw' + (++winSeq);
         var off = cascadeOffset($host.find('.session-win').length);
         var title = opts.title || defaultTitle(kind);
@@ -486,16 +542,19 @@
             port = opts.session.port;
         }
 
+        var dockBtn = kind === 'help'
+            ? ''
+            : '<button type="button" class="fw-btn sw-dock" title="停靠到左侧（从左到右排列）">▤</button>';
         var $win = $(
             '<div class="session-win folder-win" data-win-id="' + id + '" data-kind="' + kind + '">' +
               '<div class="session-win-title folder-win-title">' +
                 iconForKind(kind) +
                 '<span class="session-win-title-text folder-win-title-text"></span>' +
                 '<div class="session-win-actions folder-win-actions">' +
-                  '<button type="button" class="fw-btn sw-dock" title="停靠到左侧（从左到右排列）">▤</button>' +
-                  '<button type="button" class="fw-btn sw-min fw-min" title="最小化">—</button>' +
-                  '<button type="button" class="fw-btn sw-max fw-max" title="最大化">□</button>' +
-                  '<button type="button" class="fw-btn sw-close fw-close" title="关闭">×</button>' +
+                  dockBtn +
+                  '<button type="button" class="fw-btn sw-min fw-min" title="最小化">' + CAPTION_MIN + '</button>' +
+                  '<button type="button" class="fw-btn sw-max fw-max" title="最大化">' + CAPTION_MAX + '</button>' +
+                  '<button type="button" class="fw-btn sw-close fw-close" title="关闭">' + CAPTION_CLOSE + '</button>' +
                 '</div>' +
               '</div>' +
               '<div class="session-win-body folder-win-body">' +
@@ -513,6 +572,9 @@
         }
         if (port != null) {
             $win.data('session-port', port);
+        }
+        if (kind === 'sftp' && opts.cwd) {
+            $win.data('cwd', opts.cwd);
         }
         $win.css({
             left: off.left + 'px',
@@ -593,6 +655,7 @@
             });
             $win.addClass('maximized').removeClass('minimized');
         }
+        syncCaptionButtons($win);
         focusWindow($win);
     }
 
@@ -1110,7 +1173,11 @@
         if (typeof opener !== 'function') {
             return $.Deferred().reject('missing opener').promise();
         }
-        var ret = opener(session);
+        var openOpts = null;
+        if (entry.kind === 'sftp' && entry.cwd) {
+            openOpts = { cwd: entry.cwd };
+        }
+        var ret = openOpts ? opener(session, openOpts) : opener(session);
         if (ret && typeof ret.then === 'function') {
             return ret;
         }

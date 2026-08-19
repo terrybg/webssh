@@ -182,7 +182,9 @@
         if (!$bc.length) {
             return;
         }
-        var html = '<a href="javascript:void(0)" class="bc-root" data-path="/">此电脑</a>';
+        var html = '<a href="javascript:void(0)" class="bc-root" data-path="/">'
+            + escapeHtml(typeof sessionDisplayLabel === 'function' ? sessionDisplayLabel() : '此电脑')
+            + '</a>';
         if (p !== '/') {
             var parts = p.split('/').filter(Boolean);
             var acc = '';
@@ -430,7 +432,9 @@
         }
 
         $tree.html(
-            '<div class="tree-group-label">此电脑</div>' + walk('/', 0)
+            '<div class="tree-group-label">'
+            + escapeHtml(typeof sessionDisplayLabel === 'function' ? sessionDisplayLabel() : '此电脑')
+            + '</div>' + walk('/', 0)
         );
     }
 
@@ -990,17 +994,154 @@
         }
 
         function crossCopyToDir(sourceTagId, absPaths, destDir) {
-            showSftpToast('正在跨服务器复制…');
-            return $.ajax({
-                url: baseUrl + '/crossCopy',
-                method: 'POST',
-                data: {
-                    sourceTagId: sourceTagId,
-                    destTagId: currentTagId(),
-                    sources: absPaths.join('\n'),
-                    destDir: destDir
+            var dfd = $.Deferred();
+            var xhr = new XMLHttpRequest();
+            var responseOffset = 0;
+            var finalResult = null;
+            var finalError = null;
+            var batchTotal = 0;
+            var fileCount = absPaths.length;
+            var currentName = '';
+
+            function updateUi(fileLoaded, fileTotal, batchLoaded, batchTot, name) {
+                if (typeof formatByteSize !== 'function' || typeof setProgressBar !== 'function') {
+                    return;
                 }
-            }).then(function (res) {
+                var fl = fileLoaded || 0;
+                var ft = fileTotal || 0;
+                var bl = batchLoaded || 0;
+                var bt = batchTot != null ? batchTot : batchTotal;
+                var filePct = ft > 0 ? (fl / ft) * 100 : 0;
+                var overallPct = bt > 0 ? (bl / bt) * 100 : 0;
+                $('#uploadMessage').text('跨服务器复制 ' + (name || currentName || '…'));
+                if (ft > 0) {
+                    $('#uploadSizeCurrent').text(
+                        '当前 ' + formatByteSize(fl) + ' / ' + formatByteSize(ft)
+                    );
+                } else {
+                    $('#uploadSizeCurrent').text('当前 —');
+                }
+                $('#uploadSizeTotal').text(
+                    '合计 ' + formatByteSize(bl) + ' / ' + formatByteSize(bt)
+                    + (fileCount ? '（约 ' + fileCount + ' 个文件）' : '')
+                );
+                setProgressBar($('#progressBar'), filePct);
+                setProgressBar($('#progressBarTotal'), overallPct);
+            }
+
+            function consumeNdjson() {
+                var text = xhr.responseText || '';
+                if (text.length <= responseOffset) {
+                    return;
+                }
+                var chunk = text.slice(responseOffset);
+                var lastNl = chunk.lastIndexOf('\n');
+                if (lastNl < 0) {
+                    return;
+                }
+                var complete = chunk.slice(0, lastNl + 1);
+                responseOffset += complete.length;
+                var lines = complete.split('\n');
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i].trim();
+                    if (!line) {
+                        continue;
+                    }
+                    var ev = null;
+                    try {
+                        ev = JSON.parse(line);
+                    } catch (err) {
+                        continue;
+                    }
+                    if (!ev || !ev.phase) {
+                        continue;
+                    }
+                    if (ev.phase === 'start') {
+                        batchTotal = ev.total || 0;
+                        if (ev.fileCount != null) {
+                            fileCount = ev.fileCount;
+                        }
+                        updateUi(0, 0, 0, batchTotal, '');
+                    } else if (ev.phase === 'file') {
+                        currentName = ev.name || '';
+                        updateUi(0, ev.fileTotal || 0, ev.batchLoaded || 0,
+                            ev.batchTotal != null ? ev.batchTotal : batchTotal, currentName);
+                    } else if (ev.phase === 'progress') {
+                        if (ev.name) {
+                            currentName = ev.name;
+                        }
+                        updateUi(ev.fileLoaded || 0, ev.fileTotal || 0, ev.batchLoaded || 0,
+                            ev.batchTotal != null ? ev.batchTotal : batchTotal, currentName);
+                    } else if (ev.phase === 'done') {
+                        finalResult = {
+                            status: ev.status != null ? ev.status : 200,
+                            message: ev.message || '复制成功',
+                            result: ev.result
+                        };
+                    } else if (ev.phase === 'error') {
+                        finalError = {
+                            status: ev.status != null ? ev.status : 500,
+                            message: ev.message || '跨服务器复制失败'
+                        };
+                    }
+                }
+            }
+
+            $('#uploadMessage').text('跨服务器复制…');
+            $('#uploadSizeCurrent').text('当前 —');
+            $('#uploadSizeTotal').text('合计 —');
+            if (typeof setProgressBar === 'function') {
+                setProgressBar($('#progressBar'), 0);
+                setProgressBar($('#progressBarTotal'), 0);
+            }
+            $('#load').modal({ backdrop: 'static', keyboard: false });
+
+            xhr.open('POST', baseUrl + '/crossCopy');
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+            xhr.responseType = 'text';
+            xhr.onprogress = function () {
+                consumeNdjson();
+            };
+            xhr.onload = function () {
+                consumeNdjson();
+                if (finalError) {
+                    dfd.reject(finalError);
+                    return;
+                }
+                if (finalResult) {
+                    dfd.resolve(finalResult);
+                    return;
+                }
+                // compat: plain JSON body
+                try {
+                    var data = JSON.parse((xhr.responseText || '').trim().split('\n').pop());
+                    if (data && data.status === 200) {
+                        dfd.resolve(data);
+                        return;
+                    }
+                    dfd.reject(data || { message: '跨服务器复制失败' });
+                } catch (e) {
+                    dfd.reject({ message: '跨服务器复制失败' });
+                }
+            };
+            xhr.onerror = function () {
+                dfd.reject({ message: '跨服务器复制失败' });
+            };
+            var body = 'sourceTagId=' + encodeURIComponent(sourceTagId)
+                + '&destTagId=' + encodeURIComponent(currentTagId())
+                + '&sources=' + encodeURIComponent(absPaths.join('\n'))
+                + '&destDir=' + encodeURIComponent(destDir);
+            xhr.send(body);
+
+            return dfd.promise().then(function (res) {
+                if (typeof setProgressBar === 'function') {
+                    setProgressBar($('#progressBar'), 100);
+                    setProgressBar($('#progressBarTotal'), 100);
+                }
+                $('#uploadMessage').text('复制完成！');
+                setTimeout(function () {
+                    $('#load').modal('hide');
+                }, 400);
                 if (!res || res.status !== 200) {
                     alert((res && res.message) || '跨服务器复制失败');
                     return;
@@ -1012,8 +1153,9 @@
                 } else {
                     reload();
                 }
-            }, function (xhr) {
-                alert((xhr.responseJSON && xhr.responseJSON.message) || '跨服务器复制失败');
+            }, function (err) {
+                $('#load').modal('hide');
+                alert((err && err.message) || '跨服务器复制失败');
             });
         }
 

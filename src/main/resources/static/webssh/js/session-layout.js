@@ -469,6 +469,13 @@
             dockWidth = null;
         }
         var snapSlot = $w.data('snap-slot') || null;
+        var cwd = null;
+        if (kind === 'sftp') {
+            cwd = $w.data('cwd') || null;
+            if (cwd) {
+                cwd = String(cwd);
+            }
+        }
         return {
             sessionId: String($w.data('session-id') || $w.attr('data-session-id') || ''),
             kind: kind === 'sftp' ? 'sftp' : 'ssh',
@@ -477,7 +484,8 @@
             geometry: geom,
             dockWidth: mode === 'dock' ? (dockWidth != null ? dockWidth : geom.width || null) : dockWidth,
             snapSlot: mode === 'snap' ? snapSlot : null,
-            z: z
+            z: z,
+            cwd: cwd
         };
     }
 
@@ -493,7 +501,11 @@
         try {
             var windows = [];
             $allWindows().each(function () {
-                windows.push(serializeWindow($(this)));
+                var $w = $(this);
+                if (($w.attr('data-kind') || $w.data('kind')) === 'help') {
+                    return;
+                }
+                windows.push(serializeWindow($w));
             });
             w.localStorage.setItem(STORAGE_KEY, JSON.stringify({
                 version: 1,

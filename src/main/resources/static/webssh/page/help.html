@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSSH 帮助</title>
+    <style>
+        :root {
+            --bg: #f6f7f9;
+            --card: #ffffff;
+            --text: #1f2933;
+            --muted: #5c6b7a;
+            --border: #e2e8f0;
+            --accent: #2f5f8a;
+            --code-bg: #eef2f6;
+        }
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            height: 100%;
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 14px;
+            line-height: 1.55;
+        }
+        .help-shell {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .help-top {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: linear-gradient(180deg, #2f5f8a, #254e72);
+            color: #fff;
+        }
+        .help-top h1 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .help-top .sub {
+            opacity: 0.85;
+            font-size: 12px;
+        }
+        .help-body {
+            flex: 1 1 auto;
+            overflow: auto;
+            padding: 16px 18px 28px;
+        }
+        .help-status {
+            color: var(--muted);
+            padding: 24px 8px;
+        }
+        .help-md h1 {
+            font-size: 1.45rem;
+            margin: 0 0 0.75rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .help-md h2 {
+            font-size: 1.15rem;
+            margin: 1.4rem 0 0.55rem;
+            color: var(--accent);
+        }
+        .help-md h3 {
+            font-size: 1.02rem;
+            margin: 1rem 0 0.4rem;
+        }
+        .help-md p { margin: 0.45rem 0; }
+        .help-md ul, .help-md ol {
+            margin: 0.35rem 0 0.6rem;
+            padding-left: 1.35rem;
+        }
+        .help-md li { margin: 0.2rem 0; }
+        .help-md hr {
+            border: 0;
+            border-top: 1px solid var(--border);
+            margin: 1.1rem 0;
+        }
+        .help-md code {
+            font-family: Consolas, "Courier New", monospace;
+            background: var(--code-bg);
+            padding: 0.1em 0.35em;
+            border-radius: 3px;
+            font-size: 0.92em;
+        }
+        .help-md pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 10px 12px;
+            border-radius: 6px;
+            overflow: auto;
+            font-size: 12.5px;
+        }
+        .help-md pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
+        .help-md table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0.5rem 0 0.85rem;
+            background: var(--card);
+            box-shadow: 0 1px 2px rgba(0,0,0,.04);
+        }
+        .help-md th, .help-md td {
+            border: 1px solid var(--border);
+            padding: 7px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+        .help-md th {
+            background: #edf2f7;
+            font-weight: 600;
+        }
+        .help-md strong { font-weight: 600; }
+        .help-md a { color: var(--accent); }
+        .help-md img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin: 0.55rem 0 0.85rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,.06);
+            background: #fff;
+        }
+    </style>
+</head>
+<body>
+<div class="help-shell">
+    <div class="help-top">
+        <h1>WebSSH 帮助</h1>
+        <span class="sub">来自 README · 功能与快捷键</span>
+    </div>
+    <div class="help-body">
+        <div id="helpStatus" class="help-status">正在加载帮助文档…</div>
+        <div id="helpContent" class="help-md" hidden></div>
+    </div>
+</div>
+<script>
+(function () {
+    function escapeHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function resolveAssetUrl(url) {
+        if (!url) return url;
+        if (/^https?:\/\//i.test(url) || url.charAt(0) === '/' || url.indexOf('../') === 0) {
+            return url;
+        }
+        // README 相对路径 img/... → 相对 help.html 为 ../img/...
+        return '../' + url.replace(/^\.\//, '');
+    }
+
+    function inlineFormat(text) {
+        var s = escapeHtml(text);
+        s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function (_, alt, url) {
+            return '<img src="' + escapeHtml(resolveAssetUrl(url)) + '" alt="' + escapeHtml(alt) + '">';
+        });
+        s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+        s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function (_, label, url) {
+            if (url.charAt(0) === '#') {
+                return '<a href="' + escapeHtml(url) + '">' + label + '</a>';
+            }
+            return '<a href="' + escapeHtml(resolveAssetUrl(url)) + '" target="_blank" rel="noopener">' + label + '</a>';
+        });
+        return s;
+    }
+
+    function renderMarkdown(md) {
+        var lines = String(md || '').replace(/\r\n/g, '\n').split('\n');
+        var html = [];
+        var i = 0;
+        var inUl = false;
+        var inOl = false;
+        var inCode = false;
+        var codeBuf = [];
+
+        function closeLists() {
+            if (inUl) { html.push('</ul>'); inUl = false; }
+            if (inOl) { html.push('</ol>'); inOl = false; }
+        }
+
+        while (i < lines.length) {
+            var line = lines[i];
+
+            if (inCode) {
+                if (/^```/.test(line)) {
+                    html.push('<pre><code>' + escapeHtml(codeBuf.join('\n')) + '</code></pre>');
+                    codeBuf = [];
+                    inCode = false;
+                } else {
+                    codeBuf.push(line);
+                }
+                i += 1;
+                continue;
+            }
+
+            if (/^```/.test(line)) {
+                closeLists();
+                inCode = true;
+                codeBuf = [];
+                i += 1;
+                continue;
+            }
+
+            if (/^\|/.test(line) && i + 1 < lines.length && /^\|?\s*[-:| ]+\s*$/.test(lines[i + 1])) {
+                closeLists();
+                var header = lines[i].replace(/^\|/, '').replace(/\|$/, '').split('|').map(function (c) {
+                    return c.trim();
+                });
+                i += 2;
+                var body = [];
+                while (i < lines.length && /^\|/.test(lines[i])) {
+                    body.push(lines[i].replace(/^\|/, '').replace(/\|$/, '').split('|').map(function (c) {
+                        return c.trim();
+                    }));
+                    i += 1;
+                }
+                html.push('<table><thead><tr>');
+                header.forEach(function (c) {
+                    html.push('<th>' + inlineFormat(c) + '</th>');
+                });
+                html.push('</tr></thead><tbody>');
+                body.forEach(function (row) {
+                    html.push('<tr>');
+                    row.forEach(function (c) {
+                        html.push('<td>' + inlineFormat(c) + '</td>');
+                    });
+                    html.push('</tr>');
+                });
+                html.push('</tbody></table>');
+                continue;
+            }
+
+            if (/^\s*</.test(line)) {
+                closeLists();
+                html.push(line);
+                i += 1;
+                continue;
+            }
+
+            var imgOnly = /^!\[([^\]]*)\]\(([^)]+)\)$/.exec(line.trim());
+            if (imgOnly) {
+                closeLists();
+                html.push('<p>' + inlineFormat(line.trim()) + '</p>');
+                i += 1;
+                continue;
+            }
+
+            if (/^---+$/.test(line.trim())) {
+                closeLists();
+                html.push('<hr>');
+                i += 1;
+                continue;
+            }
+
+            var hm = /^(#{1,3})\s+(.+)$/.exec(line);
+            if (hm) {
+                closeLists();
+                var level = hm[1].length;
+                html.push('<h' + level + '>' + inlineFormat(hm[2]) + '</h' + level + '>');
+                i += 1;
+                continue;
+            }
+
+            var ul = /^[-*]\s+(.+)$/.exec(line);
+            if (ul) {
+                if (inOl) { html.push('</ol>'); inOl = false; }
+                if (!inUl) { html.push('<ul>'); inUl = true; }
+                html.push('<li>' + inlineFormat(ul[1]) + '</li>');
+                i += 1;
+                continue;
+            }
+
+            var ol = /^(\d+)\.\s+(.+)$/.exec(line);
+            if (ol) {
+                if (inUl) { html.push('</ul>'); inUl = false; }
+                if (!inOl) { html.push('<ol>'); inOl = true; }
+                html.push('<li>' + inlineFormat(ol[2]) + '</li>');
+                i += 1;
+                continue;
+            }
+
+            if (/^>\s?/.test(line)) {
+                closeLists();
+                html.push('<blockquote><p>' + inlineFormat(line.replace(/^>\s?/, '')) + '</p></blockquote>');
+                i += 1;
+                continue;
+            }
+
+            if (!line.trim()) {
+                closeLists();
+                i += 1;
+                continue;
+            }
+
+            closeLists();
+            html.push('<p>' + inlineFormat(line) + '</p>');
+            i += 1;
+        }
+        closeLists();
+        if (inCode) {
+            html.push('<pre><code>' + escapeHtml(codeBuf.join('\n')) + '</code></pre>');
+        }
+        return html.join('\n');
+    }
+
+    var status = document.getElementById('helpStatus');
+    var content = document.getElementById('helpContent');
+    var urls = ['../README.md?v=6', '/webssh/README.md?v=6'];
+
+    function load(idx) {
+        if (idx >= urls.length) {
+            status.textContent = '无法加载 help.md，请确认静态资源已部署。';
+            return;
+        }
+        fetch(urls[idx], { cache: 'no-cache' })
+            .then(function (res) {
+                if (!res.ok) {
+                    throw new Error('http ' + res.status);
+                }
+                return res.text();
+            })
+            .then(function (text) {
+                content.innerHTML = renderMarkdown(text);
+                content.hidden = false;
+                status.hidden = true;
+            })
+            .catch(function () {
+                load(idx + 1);
+            });
+    }
+
+    load(0);
+})();
+</script>
+</body>
+</html>

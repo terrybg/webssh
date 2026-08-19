@@ -55,6 +55,93 @@ function currentTagId() {
       && window.parent.localStorage.getItem("tagId" + port));
 }
 
+/** Update module tagId + localStorage + URL query so currentTagId() stops using a stale URL value. */
+function applyTagId(newId) {
+  newId = normalizeTagId(newId);
+  if (!newId) {
+    return false;
+  }
+  tagId = newId;
+  try {
+    window.localStorage.setItem('tagId' + port, newId);
+  } catch (e0) { /* ignore */ }
+  try {
+    var u = new URL(window.location.href);
+    u.searchParams.set('tagId', newId);
+    window.history.replaceState(null, '', u.pathname + u.search + u.hash);
+  } catch (e1) { /* ignore */ }
+  return true;
+}
+
+function isSessionExpiredMessage(msg) {
+  if (!msg) {
+    return false;
+  }
+  var s = String(msg);
+  return s.indexOf('未登录') >= 0 || s.indexOf('过期') >= 0;
+}
+
+/** Display label: 会话名(ip) for SFTP chrome / breadcrumbs */
+function sessionDisplayLabel() {
+  var name = '';
+  var ip = '';
+  try {
+    name = normalizeTagId(getQueryParam('sessionName') || getUrlParameter('sessionName') || '');
+  } catch (e0) { /* ignore */ }
+  try {
+    ip = normalizeTagId(getQueryParam('ip') || getUrlParameter('ip') || '');
+  } catch (e1) { /* ignore */ }
+  if (!name && !ip) {
+    try {
+      var sid = getQueryParam('sessionId') || sessionId;
+      var cache = window.parent && window.parent.sessionsCache;
+      if (sid && cache && cache[sid]) {
+        name = cache[sid].name || '';
+        ip = cache[sid].ip || '';
+      }
+    } catch (e2) { /* ignore */ }
+  }
+  if (name && ip) {
+    return name + '(' + ip + ')';
+  }
+  return name || ip || '此电脑';
+}
+
+/** Window title: root = 名 (ip); child = 名 (ip) · leaf */
+function sessionWindowTitleForPath(path) {
+  var name = '';
+  var ip = '';
+  try {
+    name = normalizeTagId(getQueryParam('sessionName') || getUrlParameter('sessionName') || '');
+  } catch (e0) { /* ignore */ }
+  try {
+    ip = normalizeTagId(getQueryParam('ip') || getUrlParameter('ip') || '');
+  } catch (e1) { /* ignore */ }
+  if (!name && !ip) {
+    try {
+      var sid = getQueryParam('sessionId') || sessionId;
+      var cache = window.parent && window.parent.sessionsCache;
+      if (sid && cache && cache[sid]) {
+        name = cache[sid].name || '';
+        ip = cache[sid].ip || '';
+      }
+    } catch (e2) { /* ignore */ }
+  }
+  var host = '';
+  if (name && ip) {
+    host = name + ' (' + ip + ')';
+  } else {
+    host = name || ip || '文件';
+  }
+  var p = path == null ? '/' : String(path);
+  if (!p || p === '/') {
+    return host;
+  }
+  var parts = p.split('/').filter(Boolean);
+  var leaf = parts.length ? parts[parts.length - 1] : p;
+  return host + ' · ' + leaf;
+}
+
 let sessionId = getQueryParam('sessionId')
   || (window.parent && window.parent.currentSessionId)
   || null;

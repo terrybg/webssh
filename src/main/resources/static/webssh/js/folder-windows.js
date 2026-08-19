@@ -18,11 +18,28 @@
     }
 
     function titleFromPath(path) {
+        var name = '';
+        var ip = '';
+        try {
+            if (typeof getQueryParam === 'function') {
+                name = getQueryParam('sessionName') || '';
+                ip = getQueryParam('ip') || '';
+            }
+        } catch (e) { /* ignore */ }
+        var host;
+        if (name && ip) {
+            host = name + ' (' + ip + ')';
+        } else if (typeof sessionDisplayLabel === 'function') {
+            host = sessionDisplayLabel();
+        } else {
+            host = name || ip || '此电脑';
+        }
         if (!path || path === '/') {
-            return '此电脑 (/)';
+            return host;
         }
         var parts = String(path).split('/').filter(Boolean);
-        return parts.length ? parts[parts.length - 1] : String(path);
+        var leaf = parts.length ? parts[parts.length - 1] : String(path);
+        return host + ' · ' + leaf;
     }
 
     function ensureShell($pane) {
@@ -189,9 +206,12 @@
                 '<span class="folder-win-title-text"></span>' +
                 '<div class="folder-win-actions">' +
                   '<button type="button" class="fw-btn fw-dock" title="停靠到左侧（从左到右排列）">▤</button>' +
-                  '<button type="button" class="fw-btn fw-min" title="最小化">—</button>' +
-                  '<button type="button" class="fw-btn fw-max" title="最大化">□</button>' +
-                  '<button type="button" class="fw-btn fw-close" title="关闭">×</button>' +
+                  '<button type="button" class="fw-btn fw-min" title="最小化">' +
+                    '<svg class="caption-ico caption-min" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8"/></svg></button>' +
+                  '<button type="button" class="fw-btn fw-max" title="最大化">' +
+                    '<svg class="caption-ico caption-max" viewBox="0 0 10 10" aria-hidden="true"><rect x="1.2" y="1.2" width="7.6" height="7.6" rx="0.4"/></svg></button>' +
+                  '<button type="button" class="fw-btn fw-close" title="关闭">' +
+                    '<svg class="caption-ico caption-close" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2L2 8"/></svg></button>' +
                 '</div>' +
               '</div>' +
               '<div class="folder-win-body">' +

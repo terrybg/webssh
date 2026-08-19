@@ -81,7 +81,7 @@
             display: none !important;
         }
         .remote-pane.has-folder-sessions .rightDiv {
-            height: calc(100% - 36px);
+            height: calc(100% - 48px);
         }
         .folder-dock-strip {
             flex: 0 0 auto;
@@ -96,7 +96,7 @@
         }
         .remote-pane.has-folder-sessions .folder-dock-strip,
         .remote-pane.has-folder-sessions .folder-dock-edge {
-            height: calc(100% - 36px);
+            height: calc(100% - 48px);
         }
         .remote-pane.has-dock-panels .folder-dock-strip {
             display: flex !important;
@@ -189,6 +189,26 @@
             font-size: 12px;
             white-space: nowrap;
         }
+        #sessionPreviewOverlay .session-preview-bar .img-zoom-tools {
+            display: none;
+            align-items: center;
+            gap: 6px;
+            flex: 0 0 auto;
+        }
+        #sessionPreviewOverlay.image-mode .session-preview-bar .img-zoom-tools {
+            display: inline-flex;
+        }
+        #sessionPreviewOverlay .img-zoom-tools .zoom-label {
+            min-width: 44px;
+            text-align: center;
+            font-size: 12px;
+            color: #ccc;
+            font-variant-numeric: tabular-nums;
+        }
+        #sessionPreviewOverlay .img-zoom-tools .btn {
+            padding: 2px 8px;
+            line-height: 1.4;
+        }
         #sessionPreviewOverlay .session-preview-body {
             flex: 1 1 auto;
             min-height: 0;
@@ -198,11 +218,31 @@
             justify-content: center;
             padding: 12px;
         }
+        #sessionPreviewOverlay .session-preview-body.image-mode {
+            overflow: hidden;
+            cursor: grab;
+            padding: 0;
+            position: relative;
+        }
+        #sessionPreviewOverlay .session-preview-body.image-mode.dragging {
+            cursor: grabbing;
+            user-select: none;
+        }
         #sessionPreviewOverlay .session-preview-body img {
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
             box-shadow: 0 8px 32px rgba(0,0,0,.45);
+        }
+        #sessionPreviewOverlay .session-preview-body.image-mode img {
+            max-width: none;
+            max-height: none;
+            width: auto;
+            height: auto;
+            transform-origin: center center;
+            will-change: transform;
+            box-shadow: 0 8px 32px rgba(0,0,0,.45);
+            pointer-events: none;
         }
         #sessionPreviewOverlay .session-preview-body video {
             max-width: 100%;
@@ -225,6 +265,98 @@
             font: 13px/1.5 Consolas, Monaco, monospace;
             white-space: pre-wrap;
             word-break: break-word;
+        }
+        #sessionPreviewOverlay .session-preview-body.excel-mode {
+            align-items: stretch;
+            justify-content: stretch;
+            padding: 0;
+        }
+        #sessionPreviewOverlay .excel-preview {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            min-height: 0;
+            background: #121212;
+            color: #ddd;
+        }
+        #sessionPreviewOverlay .excel-tabs {
+            flex: 0 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            padding: 8px 10px;
+            border-bottom: 1px solid #343a40;
+            background: #1b1e21;
+        }
+        #sessionPreviewOverlay .excel-tab {
+            border: 1px solid #495057;
+            background: #2b3035;
+            color: #ddd;
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            max-width: 160px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        #sessionPreviewOverlay .excel-tab.active {
+            background: #0d6efd;
+            border-color: #0d6efd;
+            color: #fff;
+        }
+        #sessionPreviewOverlay .excel-meta {
+            flex: 0 0 auto;
+            padding: 6px 12px;
+            font-size: 12px;
+            color: #888;
+            border-bottom: 1px solid #2a2e33;
+        }
+        #sessionPreviewOverlay .excel-table-wrap {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: auto;
+            padding: 0;
+        }
+        #sessionPreviewOverlay .excel-table {
+            border-collapse: collapse;
+            width: max-content;
+            min-width: 100%;
+            font: 12px/1.35 Consolas, Monaco, monospace;
+            background: #fff;
+            color: #212529;
+        }
+        #sessionPreviewOverlay .excel-table th,
+        #sessionPreviewOverlay .excel-table td {
+            border: 1px solid #ced4da;
+            padding: 4px 8px;
+            white-space: pre;
+            vertical-align: top;
+            max-width: 280px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #sessionPreviewOverlay .excel-table th {
+            background: #e9ecef;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            font-weight: 600;
+        }
+        #sessionPreviewOverlay .excel-table .row-head {
+            background: #f1f3f5;
+            position: sticky;
+            left: 0;
+            z-index: 2;
+            text-align: right;
+            color: #6c757d;
+            min-width: 40px;
+        }
+        #sessionPreviewOverlay .excel-table th.row-head {
+            z-index: 3;
+            left: 0;
         }
         #sessionPreviewOverlay .preview-msg {
             color: #aaa;
@@ -266,14 +398,14 @@
         }
         .remote-pane.has-folder-sessions .folder-win-layer,
         #tabPanes.has-desktop-sessions #desktopSessionLayer {
-            bottom: 36px;
+            bottom: 48px;
         }
         #tabPanes.has-desktop-dock {
             /* strip + floating layer share horizontal space */
         }
         #tabPanes.has-desktop-dock #desktopSessionLayer,
         #tabPanes.has-desktop-dock .desktop-dock-strip {
-            bottom: 36px;
+            bottom: 48px;
         }
         .desktop-dock-strip {
             position: absolute;
@@ -435,8 +567,10 @@
             position: absolute;
             pointer-events: none;
             z-index: 10050;
-            background: rgba(13, 110, 253, 0.25);
-            border: 2px solid rgba(13, 110, 253, 0.8);
+            background: rgba(0, 103, 192, 0.28);
+            border: 2px solid rgba(0, 120, 212, 0.95);
+            border-radius: 8px;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,.25);
             display: none;
         }
         .session-win.snapped {
@@ -451,11 +585,13 @@
             position: absolute;
             z-index: 10060;
             min-width: 340px;
-            padding: 10px 12px;
-            background: #2b2b2b;
-            border: 1px solid #4a4a4a;
+            padding: 12px 14px;
+            background: rgba(249, 249, 249, 0.94);
+            border: 1px solid rgba(0, 0, 0, 0.08);
             border-radius: 8px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18), 0 0 1px rgba(0,0,0,.08);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             display: none;
         }
         .desktop-layout-picker-inner {
@@ -468,7 +604,7 @@
             min-width: 72px;
         }
         .layout-tpl-label {
-            color: #cfcfcf;
+            color: #5c5c5c;
             font-size: 11px;
             margin-bottom: 6px;
             text-align: center;
@@ -477,9 +613,10 @@
             display: grid;
             gap: 3px;
             height: 52px;
-            background: #1f1f1f;
-            border-radius: 4px;
-            padding: 3px;
+            background: #efefef;
+            border-radius: 6px;
+            padding: 4px;
+            border: 1px solid rgba(0,0,0,.06);
         }
         .layout-tpl-cells-cols-2 {
             grid-template-columns: 1fr 1fr;
@@ -501,21 +638,24 @@
             grid-row: 1 / span 2;
         }
         .layout-cell {
-            border: 1px solid #5a5a5a;
-            background: #3a3a3a;
-            border-radius: 2px;
+            border: 1px solid #bdbdbd;
+            background: #fff;
+            border-radius: 3px;
             padding: 0;
             cursor: pointer;
         }
         .layout-cell:hover {
-            background: #0d6efd;
-            border-color: #6ea8fe;
+            background: rgba(0, 103, 192, 0.18);
+            border-color: #0078d4;
         }
         .desktop-snap-assist {
             position: absolute;
             z-index: 10055;
-            background: rgba(32, 32, 32, 0.92);
-            border: 1px solid #555;
+            background: rgba(243, 243, 243, 0.92);
+            border: 1px solid rgba(0,0,0,.08);
+            border-radius: 8px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             display: none;
             overflow: auto;
         }
@@ -525,7 +665,7 @@
             box-sizing: border-box;
         }
         .desktop-snap-assist-title {
-            color: #ddd;
+            color: #1a1a1a;
             font-size: 13px;
             margin-bottom: 10px;
         }
@@ -540,16 +680,16 @@
             gap: 8px;
             width: 100%;
             text-align: left;
-            border: 1px solid #555;
-            background: #3a3a3a;
-            color: #eee;
-            border-radius: 4px;
+            border: 1px solid rgba(0,0,0,.08);
+            background: rgba(255,255,255,.85);
+            color: #1a1a1a;
+            border-radius: 6px;
             padding: 8px 10px;
             cursor: pointer;
         }
         .desktop-snap-assist-item:hover {
-            background: #0d6efd;
-            border-color: #6ea8fe;
+            background: rgba(0, 103, 192, 0.14);
+            border-color: #0078d4;
         }
         .desktop-snap-assist-item .assist-kind {
             flex: 0 0 auto;
@@ -581,7 +721,7 @@
             border-radius: 0 !important;
             box-shadow: none !important;
             border: 0 !important;
-            border-right: 1px solid #333 !important;
+            border-right: 1px solid rgba(0,0,0,.08) !important;
             z-index: auto !important;
             transform: none !important;
             margin: 0 !important;
@@ -595,6 +735,7 @@
         .folder-task-btn.docked {
             border-style: dashed;
         }
+        /* Win11-like floating session windows */
         .folder-win,
         .session-win {
             position: absolute;
@@ -603,16 +744,22 @@
             flex-direction: column;
             min-width: 420px;
             min-height: 280px;
-            background: #f0f0f0;
-            border: 1px solid #555;
-            border-radius: 6px;
-            box-shadow: 0 12px 40px rgba(0,0,0,.45);
+            background: #fff;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            border-radius: 8px;
+            box-shadow:
+                0 0 0 1px rgba(0, 0, 0, 0.04),
+                0 2px 4px rgba(0, 0, 0, 0.04),
+                0 12px 28px rgba(0, 0, 0, 0.18);
             overflow: hidden;
         }
         .folder-win.focused,
         .session-win.focused {
-            border-color: #0d6efd;
-            box-shadow: 0 14px 44px rgba(0,0,0,.5);
+            border-color: rgba(0, 0, 0, 0.1);
+            box-shadow:
+                0 0 0 1px rgba(0, 0, 0, 0.06),
+                0 4px 8px rgba(0, 0, 0, 0.06),
+                0 18px 40px rgba(0, 0, 0, 0.22);
         }
         .folder-win.minimized,
         .session-win.minimized {
@@ -625,27 +772,36 @@
             width: 100% !important;
             height: 100% !important;
             border-radius: 0;
+            box-shadow: none;
         }
         .folder-win-title,
         .session-win-title {
-            flex: 0 0 34px;
+            flex: 0 0 32px;
+            height: 32px;
             display: flex;
             align-items: center;
-            gap: 6px;
-            padding: 0 6px 0 10px;
-            background: linear-gradient(180deg, #3a3a3a, #2a2a2a);
-            color: #f2f2f2;
+            gap: 8px;
+            padding: 0 0 0 12px;
+            background: #f3f3f3;
+            color: #1a1a1a;
             cursor: move;
             user-select: none;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
         }
         .folder-win.focused .folder-win-title,
         .session-win.focused .session-win-title,
         .session-win.focused .folder-win-title {
-            background: linear-gradient(180deg, #1f6feb, #0d47a1);
+            background: #ffffff;
         }
-        .folder-win-icon {
-            font-size: 14px;
-            line-height: 1;
+        .folder-win:not(.focused) .folder-win-title,
+        .session-win:not(.focused) .session-win-title {
+            color: #6e6e6e;
+        }
+        .folder-win-icon,
+        .fw-folder-ico,
+        .sw-term-ico,
+        .sw-help-ico {
+            flex: 0 0 auto;
         }
         .folder-win-title-text,
         .session-win-title-text {
@@ -654,33 +810,74 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            font-size: 13px;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.01em;
         }
         .folder-win-actions,
         .session-win-actions {
             display: flex;
-            gap: 2px;
+            align-items: stretch;
+            gap: 0;
+            height: 100%;
+            margin-left: 4px;
         }
         .folder-win-actions .fw-btn,
         .session-win-actions .fw-btn {
-            width: 36px;
-            height: 26px;
+            width: 46px;
+            height: 32px;
             border: 0;
             background: transparent;
-            color: #eee;
+            color: #1a1a1a;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 10px;
             line-height: 1;
-            border-radius: 3px;
+            border-radius: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
         }
         .folder-win-actions .fw-btn:hover,
         .session-win-actions .fw-btn:hover {
-            background: rgba(255,255,255,.18);
+            background: rgba(0, 0, 0, 0.06);
+        }
+        .folder-win-actions .fw-btn:active,
+        .session-win-actions .fw-btn:active {
+            background: rgba(0, 0, 0, 0.1);
+        }
+        .folder-win-actions .sw-dock,
+        .session-win-actions .sw-dock {
+            width: 40px;
+            font-size: 13px;
+            color: #5c5c5c;
         }
         .folder-win-actions .fw-close:hover,
         .session-win-actions .fw-close:hover {
-            background: #e81123;
-            color: #fff;
+            background: #c42b1c !important;
+            color: #fff !important;
+        }
+        .folder-win-actions .fw-close:hover .caption-ico,
+        .session-win-actions .fw-close:hover .caption-ico {
+            stroke: #fff;
+        }
+        .caption-ico {
+            width: 10px;
+            height: 10px;
+            display: block;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.15;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .caption-ico.caption-max {
+            width: 9px;
+            height: 9px;
+        }
+        .caption-ico.caption-restore {
+            width: 10px;
+            height: 10px;
         }
         .folder-win-body,
         .session-win-body {
@@ -703,7 +900,8 @@
             width: 14px;
             height: 14px;
             cursor: nwse-resize;
-            background: linear-gradient(135deg, transparent 50%, #888 50%);
+            background: linear-gradient(135deg, transparent 55%, rgba(0,0,0,.22) 55%);
+            opacity: 0.55;
         }
         .folder-taskbar {
             position: absolute;
@@ -711,27 +909,29 @@
             right: 0;
             bottom: 0;
             z-index: 1600;
-            height: 36px;
+            height: 48px;
             display: flex;
             align-items: center;
-            gap: 4px;
-            padding: 0 8px;
-            background: linear-gradient(180deg, #2d2d30, #1e1e1e);
-            border-top: 1px solid #3f3f46;
+            gap: 6px;
+            padding: 0 10px;
+            background: rgba(32, 32, 32, 0.72);
+            border-top: 1px solid rgba(255,255,255,.08);
+            backdrop-filter: blur(30px) saturate(140%);
+            -webkit-backdrop-filter: blur(30px) saturate(140%);
             pointer-events: auto;
         }
         .folder-task-btn {
-            max-width: 200px;
-            height: 28px;
+            max-width: 220px;
+            height: 36px;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             overflow: hidden;
             border: 1px solid transparent;
-            background: rgba(255,255,255,.06);
+            background: transparent;
             color: #eee;
-            border-radius: 4px;
-            padding: 0 10px 0 8px;
+            border-radius: 6px;
+            padding: 0 12px 0 10px;
             font-size: 12px;
             cursor: pointer;
         }
@@ -745,13 +945,12 @@
             white-space: nowrap;
         }
         .folder-task-btn:hover {
-            background: rgba(255,255,255,.12);
-            border-color: #555;
+            background: rgba(255,255,255,.08);
         }
         .folder-task-btn.active {
-            background: rgba(13, 110, 253, 0.35);
-            border-color: #0d6efd;
-            box-shadow: inset 0 -2px 0 #0d6efd;
+            background: rgba(255,255,255,.12);
+            border-color: transparent;
+            box-shadow: inset 0 -2px 0 #60cdff;
         }
         .folder-task-btn.minimized {
             opacity: 0.78;
@@ -865,7 +1064,14 @@
     <div id="sessionPreviewOverlay" aria-hidden="true">
         <div class="session-preview-bar">
             <span class="title" id="sessionPreviewTitle">预览</span>
-            <span class="hint">Esc 关闭 · 视频时空格暂停/播放</span>
+            <span class="img-zoom-tools" id="sessionPreviewZoomTools" aria-label="图片缩放">
+                <button type="button" class="btn btn-sm btn-outline-light" id="sessionPreviewZoomOut" title="缩小">−</button>
+                <span class="zoom-label" id="sessionPreviewZoomLabel">100%</span>
+                <button type="button" class="btn btn-sm btn-outline-light" id="sessionPreviewZoomIn" title="放大">+</button>
+                <button type="button" class="btn btn-sm btn-outline-light" id="sessionPreviewZoomFit" title="适应窗口">适应</button>
+                <button type="button" class="btn btn-sm btn-outline-light" id="sessionPreviewZoom100" title="原始大小">1:1</button>
+            </span>
+            <span class="hint" id="sessionPreviewHint">Esc 关闭 · 视频时空格暂停/播放</span>
             <button type="button" class="btn btn-sm btn-outline-light" id="sessionPreviewClose">关闭</button>
         </div>
         <div class="session-preview-body" id="sessionPreviewBody">
@@ -982,18 +1188,19 @@
 </div>
 
 <script src="../js/jquery-3.4.1.min.js"></script>
-<script src="../js/common.js"></script>
+<script src="../js/vendor/xlsx.full.min.js"></script>
+<script src="../js/common.js?v=3"></script>
 <script src="../js/jquery-ui.js"></script>
 <script src="../js/bootstrap/popper.min.js" charset="utf-8"></script>
 <script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
 <script src="../js/index.js?v=10" charset="utf-8"></script>
-<script src="../js/desktop.js?v=2" charset="utf-8"></script>
-<script src="../js/sessions.js?v=11" charset="utf-8"></script>
+<script src="../js/desktop.js?v=3" charset="utf-8"></script>
+<script src="../js/sessions.js?v=17" charset="utf-8"></script>
 <script src="../js/commands-ui.js?v=1" charset="utf-8"></script>
 <script src="../js/split-pane.js?v=5" charset="utf-8"></script>
-<script src="../js/session-windows.js?v=12" charset="utf-8"></script>
-<script src="../js/session-layout.js?v=4" charset="utf-8"></script>
-<script src="../js/folder-windows.js?v=6" charset="utf-8"></script>
+<script src="../js/session-windows.js?v=18" charset="utf-8"></script>
+<script src="../js/session-layout.js?v=6" charset="utf-8"></script>
+<script src="../js/folder-windows.js?v=8" charset="utf-8"></script>
 <script>
     function loadSsh(query, route) {
         var q = query;
@@ -1059,12 +1266,245 @@ function notifyFilesVisible($pane, targetWin) {
     window.ensureSftpLoaded = ensureSftpLoaded;
 
     var previewSeq = 0;
+    var EXCEL_PREVIEW_MAX_ROWS = 500;
+    var EXCEL_PREVIEW_MAX_COLS = 50;
+    var imageZoom = {
+        scale: 1,
+        tx: 0,
+        ty: 0,
+        fitScale: 1,
+        natW: 0,
+        natH: 0,
+        dragging: false,
+        lastX: 0,
+        lastY: 0,
+        img: null
+    };
+
+    function setPreviewHint(kind) {
+        var $hint = $('#sessionPreviewHint');
+        if (kind === 'image') {
+            $hint.text('滚轮缩放 · 拖拽移动 · 双击适应/1:1 · Esc 关闭');
+        } else if (kind === 'video') {
+            $hint.text('Esc 关闭 · 空格暂停/播放');
+        } else if (kind === 'excel') {
+            $hint.text('Esc 关闭 · 切换工作表');
+        } else {
+            $hint.text('Esc 关闭');
+        }
+    }
+
+    function resetImageZoomState() {
+        imageZoom.scale = 1;
+        imageZoom.tx = 0;
+        imageZoom.ty = 0;
+        imageZoom.fitScale = 1;
+        imageZoom.natW = 0;
+        imageZoom.natH = 0;
+        imageZoom.dragging = false;
+        imageZoom.img = null;
+        $('#sessionPreviewOverlay').removeClass('image-mode');
+        $('#sessionPreviewBody').removeClass('image-mode dragging');
+        $('#sessionPreviewZoomLabel').text('100%');
+    }
+
+    function applyImageTransform() {
+        var img = imageZoom.img;
+        if (!img) {
+            return;
+        }
+        img.style.transform = 'translate(' + imageZoom.tx + 'px,' + imageZoom.ty + 'px) scale(' + imageZoom.scale + ')';
+        $('#sessionPreviewZoomLabel').text(Math.round(imageZoom.scale * 100) + '%');
+    }
+
+    function computeFitScale() {
+        var $body = $('#sessionPreviewBody');
+        var bw = $body.innerWidth() || 1;
+        var bh = $body.innerHeight() || 1;
+        var pad = 24;
+        var sx = (bw - pad) / Math.max(imageZoom.natW, 1);
+        var sy = (bh - pad) / Math.max(imageZoom.natH, 1);
+        return Math.min(1, sx, sy);
+    }
+
+    function setImageZoom(scale, cx, cy) {
+        var $body = $('#sessionPreviewBody');
+        var bodyEl = $body[0];
+        if (!bodyEl || !imageZoom.img) {
+            return;
+        }
+        var next = Math.max(0.1, Math.min(8, scale));
+        var rect = bodyEl.getBoundingClientRect();
+        var pivotX = (cx != null ? cx : (rect.left + rect.width / 2)) - rect.left - rect.width / 2;
+        var pivotY = (cy != null ? cy : (rect.top + rect.height / 2)) - rect.top - rect.height / 2;
+        var ratio = next / imageZoom.scale;
+        imageZoom.tx = pivotX - (pivotX - imageZoom.tx) * ratio;
+        imageZoom.ty = pivotY - (pivotY - imageZoom.ty) * ratio;
+        imageZoom.scale = next;
+        applyImageTransform();
+    }
+
+    function fitImageZoom() {
+        imageZoom.fitScale = computeFitScale();
+        imageZoom.scale = imageZoom.fitScale;
+        imageZoom.tx = 0;
+        imageZoom.ty = 0;
+        applyImageTransform();
+    }
+
+    function actualImageZoom() {
+        imageZoom.scale = 1;
+        imageZoom.tx = 0;
+        imageZoom.ty = 0;
+        applyImageTransform();
+    }
+
+    function mountImagePreview($body, img) {
+        resetImageZoomState();
+        imageZoom.img = img;
+        imageZoom.natW = img.naturalWidth || img.width || 1;
+        imageZoom.natH = img.naturalHeight || img.height || 1;
+        img.draggable = false;
+        img.alt = '';
+        $('#sessionPreviewOverlay').addClass('image-mode');
+        $body.addClass('image-mode').empty().append(img);
+        setPreviewHint('image');
+        // 等布局稳定后再 fit
+        setTimeout(function () {
+            if (imageZoom.img !== img) {
+                return;
+            }
+            fitImageZoom();
+        }, 0);
+    }
 
     function closeSessionPreview() {
         previewSeq += 1;
         var $ov = $('#sessionPreviewOverlay');
-        $ov.removeClass('show').attr('aria-hidden', 'true');
-        $('#sessionPreviewBody').empty();
+        $ov.removeClass('show image-mode').attr('aria-hidden', 'true');
+        $('#sessionPreviewBody').removeClass('excel-mode image-mode dragging').empty();
+        resetImageZoomState();
+        setPreviewHint('');
+    }
+
+    function escapePreviewHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function excelColLabel(index) {
+        var n = index + 1;
+        var s = '';
+        while (n > 0) {
+            n -= 1;
+            s = String.fromCharCode(65 + (n % 26)) + s;
+            n = Math.floor(n / 26);
+        }
+        return s;
+    }
+
+    function formatExcelCell(value) {
+        if (value == null) {
+            return '';
+        }
+        if (value instanceof Date && !isNaN(value.getTime())) {
+            var y = value.getFullYear();
+            var m = String(value.getMonth() + 1).padStart(2, '0');
+            var d = String(value.getDate()).padStart(2, '0');
+            var hh = String(value.getHours()).padStart(2, '0');
+            var mm = String(value.getMinutes()).padStart(2, '0');
+            var ss = String(value.getSeconds()).padStart(2, '0');
+            if (hh === '00' && mm === '00' && ss === '00') {
+                return y + '-' + m + '-' + d;
+            }
+            return y + '-' + m + '-' + d + ' ' + hh + ':' + mm + ':' + ss;
+        }
+        return String(value);
+    }
+
+    function renderExcelSheet($root, workbook, sheetName) {
+        var sheet = workbook.Sheets[sheetName];
+        if (!sheet) {
+            $root.find('.excel-table-wrap').html('<div class="preview-msg error">工作表不存在</div>');
+            return;
+        }
+        var rows = XLSX.utils.sheet_to_json(sheet, {
+            header: 1,
+            raw: false,
+            defval: '',
+            blankrows: true
+        });
+        var totalRows = rows.length;
+        var totalCols = 0;
+        var r;
+        for (r = 0; r < rows.length; r++) {
+            if (rows[r] && rows[r].length > totalCols) {
+                totalCols = rows[r].length;
+            }
+        }
+        var showRows = Math.min(totalRows, EXCEL_PREVIEW_MAX_ROWS);
+        var showCols = Math.min(totalCols, EXCEL_PREVIEW_MAX_COLS);
+        var truncated = totalRows > showRows || totalCols > showCols;
+        var meta = '工作表「' + sheetName + '」· 显示 '
+            + showRows + ' / ' + totalRows + ' 行 · '
+            + showCols + ' / ' + totalCols + ' 列'
+            + (truncated ? '（已截断，仅预览）' : '');
+        $root.find('.excel-meta').text(meta);
+
+        var html = ['<table class="excel-table"><thead><tr><th class="row-head"></th>'];
+        var c;
+        for (c = 0; c < showCols; c++) {
+            html.push('<th>' + escapePreviewHtml(excelColLabel(c)) + '</th>');
+        }
+        html.push('</tr></thead><tbody>');
+        for (r = 0; r < showRows; r++) {
+            html.push('<tr><th class="row-head">' + (r + 1) + '</th>');
+            var row = rows[r] || [];
+            for (c = 0; c < showCols; c++) {
+                html.push('<td title="' + escapePreviewHtml(formatExcelCell(row[c])) + '">'
+                    + escapePreviewHtml(formatExcelCell(row[c])) + '</td>');
+            }
+            html.push('</tr>');
+        }
+        html.push('</tbody></table>');
+        if (showRows === 0) {
+            $root.find('.excel-table-wrap').html('<div class="preview-msg">工作表为空</div>');
+        } else {
+            $root.find('.excel-table-wrap').html(html.join(''));
+        }
+    }
+
+    function renderExcelPreview($body, workbook) {
+        var names = workbook.SheetNames || [];
+        if (!names.length) {
+            $body.removeClass('excel-mode').html('<div class="preview-msg error">工作簿无工作表</div>');
+            return;
+        }
+        $body.addClass('excel-mode');
+        var $root = $('<div class="excel-preview">'
+            + '<div class="excel-tabs"></div>'
+            + '<div class="excel-meta"></div>'
+            + '<div class="excel-table-wrap"></div>'
+            + '</div>');
+        var $tabs = $root.find('.excel-tabs');
+        names.forEach(function (name, idx) {
+            var $tab = $('<button type="button" class="excel-tab"></button>')
+                .text(name)
+                .attr('title', name)
+                .toggleClass('active', idx === 0)
+                .on('click', function () {
+                    $tabs.find('.excel-tab').removeClass('active');
+                    $(this).addClass('active');
+                    renderExcelSheet($root, workbook, name);
+                });
+            $tabs.append($tab);
+        });
+        $body.empty().append($root);
+        renderExcelSheet($root, workbook, names[0]);
     }
 
     function openSessionPreview(data) {
@@ -1077,7 +1517,10 @@ function notifyFilesVisible($pane, targetWin) {
         $('#appShell').append($ov);
         var $body = $('#sessionPreviewBody');
         $('#sessionPreviewTitle').text(name);
-        $body.html('<div class="preview-msg">加载中…</div>');
+        $body.removeClass('excel-mode image-mode dragging').html('<div class="preview-msg">加载中…</div>');
+        $('#sessionPreviewOverlay').removeClass('image-mode');
+        resetImageZoomState();
+        setPreviewHint(kind);
         $ov.addClass('show').attr('aria-hidden', 'false');
         try {
             $ov[0].focus({ preventScroll: true });
@@ -1085,6 +1528,35 @@ function notifyFilesVisible($pane, targetWin) {
 
         if (!url) {
             $body.html('<div class="preview-msg error">预览地址无效</div>');
+            return;
+        }
+        if (kind === 'excel') {
+            if (typeof XLSX === 'undefined') {
+                $body.html('<div class="preview-msg error">Excel 预览组件未加载</div>');
+                return;
+            }
+            fetch(url, { credentials: 'same-origin' })
+                .then(function (res) {
+                    if (!res.ok) {
+                        throw new Error('HTTP ' + res.status);
+                    }
+                    return res.arrayBuffer();
+                })
+                .then(function (buf) {
+                    if (seq !== previewSeq) {
+                        return;
+                    }
+                    var workbook = XLSX.read(buf, { type: 'array', cellDates: true });
+                    renderExcelPreview($body, workbook);
+                })
+                .catch(function (err) {
+                    if (seq !== previewSeq) {
+                        return;
+                    }
+                    $body.removeClass('excel-mode')
+                        .html('<div class="preview-msg error">Excel 预览失败：'
+                            + escapePreviewHtml(err && err.message ? err.message : '') + '</div>');
+                });
             return;
         }
         if (kind === 'text') {
@@ -1130,20 +1602,109 @@ function notifyFilesVisible($pane, targetWin) {
             if (seq !== previewSeq) {
                 return;
             }
-            $body.empty().append(img);
+            mountImagePreview($body, img);
         };
         img.onerror = function () {
             if (seq !== previewSeq) {
                 return;
             }
-            $body.html('<div class="preview-msg error">图片加载失败（可检查 /preview 接口或 tagId）</div>');
+            $body.removeClass('image-mode')
+                .html('<div class="preview-msg error">图片加载失败（可检查 /preview 接口或 tagId）</div>');
         };
         img.src = url;
     }
 
     $('#sessionPreviewClose').on('click', closeSessionPreview);
+    $('#sessionPreviewZoomIn').on('click', function (e) {
+        e.stopPropagation();
+        if (!imageZoom.img) {
+            return;
+        }
+        setImageZoom(imageZoom.scale * 1.25);
+    });
+    $('#sessionPreviewZoomOut').on('click', function (e) {
+        e.stopPropagation();
+        if (!imageZoom.img) {
+            return;
+        }
+        setImageZoom(imageZoom.scale / 1.25);
+    });
+    $('#sessionPreviewZoomFit').on('click', function (e) {
+        e.stopPropagation();
+        if (!imageZoom.img) {
+            return;
+        }
+        fitImageZoom();
+    });
+    $('#sessionPreviewZoom100').on('click', function (e) {
+        e.stopPropagation();
+        if (!imageZoom.img) {
+            return;
+        }
+        actualImageZoom();
+    });
+    $('#sessionPreviewBody').on('wheel', function (e) {
+        if (!imageZoom.img || !$('#sessionPreviewOverlay').hasClass('image-mode')) {
+            return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        var oe = e.originalEvent || e;
+        var factor = oe.deltaY < 0 ? 1.12 : (1 / 1.12);
+        setImageZoom(imageZoom.scale * factor, oe.clientX, oe.clientY);
+    });
+    $('#sessionPreviewBody').on('mousedown', function (e) {
+        if (!imageZoom.img || !$('#sessionPreviewOverlay').hasClass('image-mode')) {
+            return;
+        }
+        if (e.button !== 0) {
+            return;
+        }
+        e.preventDefault();
+        imageZoom.dragging = true;
+        imageZoom.lastX = e.clientX;
+        imageZoom.lastY = e.clientY;
+        $(this).addClass('dragging');
+    });
+    $(document).on('mousemove.imgPreviewZoom', function (e) {
+        if (!imageZoom.dragging || !imageZoom.img) {
+            return;
+        }
+        var dx = e.clientX - imageZoom.lastX;
+        var dy = e.clientY - imageZoom.lastY;
+        imageZoom.lastX = e.clientX;
+        imageZoom.lastY = e.clientY;
+        imageZoom.tx += dx;
+        imageZoom.ty += dy;
+        applyImageTransform();
+    });
+    $(document).on('mouseup.imgPreviewZoom', function () {
+        if (!imageZoom.dragging) {
+            return;
+        }
+        imageZoom.dragging = false;
+        $('#sessionPreviewBody').removeClass('dragging');
+    });
+    $('#sessionPreviewBody').on('dblclick', function (e) {
+        if (!imageZoom.img || !$('#sessionPreviewOverlay').hasClass('image-mode')) {
+            return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        // 接近适应比例 → 切 1:1；否则回到适应
+        if (Math.abs(imageZoom.scale - imageZoom.fitScale) < 0.02) {
+            actualImageZoom();
+        } else {
+            fitImageZoom();
+        }
+    });
     $('#sessionPreviewOverlay').attr('tabindex', '-1').on('click', function (e) {
-        if (e.target === this || $(e.target).hasClass('session-preview-body')) {
+        if (e.target === this) {
+            closeSessionPreview();
+            return;
+        }
+        // 图片模式下点击空白仍关闭；点到工具栏不关
+        if ($(e.target).hasClass('session-preview-body') && !$(e.target).hasClass('image-mode')) {
             closeSessionPreview();
         }
     });
@@ -1157,6 +1718,28 @@ function notifyFilesVisible($pane, targetWin) {
             closeSessionPreview();
             return;
         }
+        if (imageZoom.img && $('#sessionPreviewOverlay').hasClass('image-mode')) {
+            if (e.key === '+' || e.key === '=') {
+                e.preventDefault();
+                setImageZoom(imageZoom.scale * 1.25);
+                return;
+            }
+            if (e.key === '-' || e.key === '_') {
+                e.preventDefault();
+                setImageZoom(imageZoom.scale / 1.25);
+                return;
+            }
+            if (e.key === '0') {
+                e.preventDefault();
+                fitImageZoom();
+                return;
+            }
+            if (e.key === '1') {
+                e.preventDefault();
+                actualImageZoom();
+                return;
+            }
+        }
         if (e.key === ' ' || e.code === 'Space') {
             e.preventDefault();
             e.stopPropagation();
@@ -1169,7 +1752,21 @@ function notifyFilesVisible($pane, targetWin) {
                 }
                 return;
             }
+            if (imageZoom.img) {
+                return;
+            }
             closeSessionPreview();
+        }
+    });
+    $(window).on('resize.imgPreviewZoom', function () {
+        if (!imageZoom.img || !$('#sessionPreviewOverlay').hasClass('show')) {
+            return;
+        }
+        // 窗口变化时保持「相对适应」观感：若当前接近 fit，则重新 fit
+        if (Math.abs(imageZoom.scale - imageZoom.fitScale) < 0.05 && Math.abs(imageZoom.tx) < 2 && Math.abs(imageZoom.ty) < 2) {
+            fitImageZoom();
+        } else {
+            imageZoom.fitScale = computeFitScale();
         }
     });
 
@@ -1254,13 +1851,29 @@ function notifyFilesVisible($pane, targetWin) {
             if ($ff.closest('#desktopSessionLayer, #desktopDockStrip').length && window.SessionWindows) {
                 var path = data.path || '';
                 var title;
+                var $sw = $ff.closest('.session-win');
+                var sid = $sw.data('session-id') || $sw.attr('data-session-id');
+                var sess = (sid && window.sessionsCache && window.sessionsCache[sid]) || null;
+                var sName = (sess && sess.name) || '';
+                var sIp = (sess && sess.ip) || '';
+                var host;
+                if (sName && sIp) {
+                    host = sName + ' (' + sIp + ')';
+                } else {
+                    host = sName || sIp || ($sw.data('title') || '文件');
+                }
                 if (!path || path === '/') {
-                    title = '此电脑 (/)';
+                    title = host;
                 } else {
                     var parts = String(path).split('/').filter(Boolean);
-                    title = parts.length ? parts[parts.length - 1] : String(path);
+                    var leaf = parts.length ? parts[parts.length - 1] : String(path);
+                    title = host + ' · ' + leaf;
                 }
                 window.SessionWindows.setTitle($ff, title);
+                $sw.data('cwd', path || '/');
+                if (window.SessionLayout && typeof window.SessionLayout.save === 'function') {
+                    window.SessionLayout.save();
+                }
             } else if (window.FolderWindows) {
                 window.FolderWindows.setWindowTitle($ff, data.path);
             }

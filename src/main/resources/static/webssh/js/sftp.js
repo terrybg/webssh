@@ -8,6 +8,7 @@ var SFTP_SORT_KEY = 'websshSftpSort';
 var THUMB_MAX_BYTES = 5 * 1024 * 1024;
 var VIDEO_THUMB_MAX_BYTES = 80 * 1024 * 1024;
 var PREVIEW_MAX_BYTES = 8 * 1024 * 1024;
+var EXCEL_PREVIEW_MAX_BYTES = 5 * 1024 * 1024;
 var VIDEO_PREVIEW_MAX_BYTES = 512 * 1024 * 1024;
 var SEARCH_DEPTH_MAX = 5;
 var currentItems = [];
@@ -39,6 +40,7 @@ var iconScale = (function () {
 })();
 var IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|ico|svg)$/i;
 var VIDEO_EXT = /\.(mp4|webm|ogg|ogv|m4v|mov)$/i;
+var EXCEL_EXT = /\.(xlsx|xlsm|xls)$/i;
 var TEXT_EXT = /\.(txt|log|md|json|xml|csv|ya?ml|conf|ini|properties|sh|bash|py|js|ts|css|html?|sql|java|go|c|h|cpp|hpp|rs|toml|env|gitignore|dockerfile)$/i;
 var THUMB_CONCURRENCY = 3;
 var VIDEO_THUMB_CONCURRENCY = 2;
@@ -115,6 +117,9 @@ function extBadgeClass(ext) {
     if (/^(txt|log|md|csv|gitignore|dockerfile)$/i.test(ext)) {
         return 'ext-text';
     }
+    if (/^(xlsx|xlsm|xls)$/i.test(ext)) {
+        return 'ext-office';
+    }
     if (/^(png|jpe?g|gif|webp|bmp|ico|svg|mp4|webm|ogg|ogv|m4v|mov)$/i.test(ext)) {
         return 'ext-media';
     }
@@ -144,8 +149,12 @@ function isTextFile(item) {
     return item && !item.dir && TEXT_EXT.test(item.name || '');
 }
 
+function isExcelFile(item) {
+    return item && !item.dir && EXCEL_EXT.test(item.name || '');
+}
+
 function isPreviewable(item) {
-    return isImageFile(item) || isTextFile(item) || isVideoFile(item);
+    return isImageFile(item) || isTextFile(item) || isVideoFile(item) || isExcelFile(item);
 }
 
 function previewKind(item) {
@@ -155,17 +164,30 @@ function previewKind(item) {
     if (isImageFile(item)) {
         return 'image';
     }
+    if (isExcelFile(item)) {
+        return 'excel';
+    }
     return 'text';
 }
 
 function previewSizeLimit(item) {
-    return isVideoFile(item) ? VIDEO_PREVIEW_MAX_BYTES : PREVIEW_MAX_BYTES;
+    if (isVideoFile(item)) {
+        return VIDEO_PREVIEW_MAX_BYTES;
+    }
+    if (isExcelFile(item)) {
+        return EXCEL_PREVIEW_MAX_BYTES;
+    }
+    return PREVIEW_MAX_BYTES;
 }
 
 function previewTooLargeMessage(item) {
-    return isVideoFile(item)
-        ? '视频过大，无法预览（上限约 512MB），请下载查看'
-        : '文件过大，无法预览（上限约 8MB），请下载查看';
+    if (isVideoFile(item)) {
+        return '视频过大，无法预览（上限约 512MB），请下载查看';
+    }
+    if (isExcelFile(item)) {
+        return 'Excel 过大，无法预览（上限约 5MB），请下载查看';
+    }
+    return '文件过大，无法预览（上限约 8MB），请下载查看';
 }
 
 function joinPath(base, name) {
@@ -703,8 +725,24 @@ function openPreview(relPath) {
         kind: kind,
         url: url
     };
-    if (window.parent && window.parent !== window) {
-        window.parent.postMessage(payload, '*');
+    // 桌面父页用 SheetJS / 媒体元素渲染；不要 window.open 预览地址：
+    // Office MIME 即使 Content-Disposition=inline，Chrome 也会直接「下载」
+    var parentWin = null;
+    try {
+        if (window.parent && window.parent !== window) {
+            parentWin = window.parent;
+        } else if (window.top && window.top !== window) {
+            parentWin = window.top;
+        }
+    } catch (err) {
+        parentWin = null;
+    }
+    if (parentWin) {
+        parentWin.postMessage(payload, '*');
+        return;
+    }
+    if (kind === 'excel' || kind === 'video') {
+        alert('请从桌面打开「文件」窗口后再预览（当前页无法嵌入预览层）');
         return;
     }
     window.open(url, '_blank');
@@ -905,8 +943,8 @@ function handleCtrlWheel(e) {
 
 $(function () {
     syncViewMenu();
-    // 首屏先出 /root（或已有路径），再异步切到 shell cwd
-    syncToShellCwd($('#currentPath').val() || '/root');
+    // 首屏：URL cwd 优先；否则先 /，再异步切到 shell cwd（避免无权限的 /root）
+    syncToShellCwd($('#currentPath').val() || '/');
 
     bindDropUpload($('.sftp-root'), function () {
         return $('#currentPath').val() || '/';
@@ -919,7 +957,7 @@ $(function () {
         }
         if (data.type === 'webssh-files-visible' && data.visible) {
             // 已打开过则只拉 cwd，不重复强制刷 fallback（减少抖动）
-            syncToShellCwd($('#currentPath').val() || '/root', { immediate: false });
+            syncToShellCwd($('#currentPath').val() || '/', { immediate: false });
         }
         if (data.type === 'webssh-sync-cwd' && data.path) {
             clearSearchUi(false);
@@ -1223,6 +1261,64 @@ function notifyFolderWindowPath(path) {
     } catch (e) { /* ignore */ }
 }
 
+var sessionExpiredReloginTried = false;
+
+function recoverExpiredSessionThen(path, afterLoad) {
+    if (sessionExpiredReloginTried) {
+        $('#fileView').html('<div class="p-3 text-danger">未登录或会话已过期，请关闭窗口后重新打开文件</div>');
+        return;
+    }
+    sessionExpiredReloginTried = true;
+    $('#fileView').html('<div class="p-3 text-muted">会话已过期，正在重新连接…</div>');
+
+    var parentWin = null;
+    try {
+        if (window.parent && window.parent !== window) {
+            parentWin = window.parent;
+        }
+    } catch (e0) {
+        parentWin = null;
+    }
+    if (!parentWin || typeof parentWin.ensureLoggedIn !== 'function') {
+        $('#fileView').html('<div class="p-3 text-danger">未登录或会话已过期，请重新连接</div>');
+        return;
+    }
+
+    var sid = null;
+    try {
+        sid = getQueryParam('sessionId') || sessionId || parentWin.currentSessionId;
+    } catch (e1) {
+        sid = parentWin.currentSessionId;
+    }
+    var cache = parentWin.sessionsCache || {};
+
+    function onSession(session) {
+        if (!session) {
+            $('#fileView').html('<div class="p-3 text-danger">未登录或会话已过期，请重新连接</div>');
+            return;
+        }
+        parentWin.ensureLoggedIn(session)
+            .done(function (newTagId) {
+                if (typeof applyTagId === 'function') {
+                    applyTagId(newTagId);
+                }
+                sessionExpiredReloginTried = false;
+                renderFileList(path, afterLoad);
+            })
+            .fail(function (msg) {
+                $('#fileView').html('<div class="p-3 text-danger">' + escapeHtml(msg || '重新登录失败') + '</div>');
+            });
+    }
+
+    if (sid && cache[sid]) {
+        onSession(cache[sid]);
+    } else if (sid && typeof parentWin.resolveSession === 'function') {
+        parentWin.resolveSession(sid, onSession);
+    } else {
+        $('#fileView').html('<div class="p-3 text-danger">未登录或会话已过期，请关闭窗口后重新打开文件</div>');
+    }
+}
+
 function renderFileList(path, afterLoad) {
     $('#currentPath').val(path);
     notifyFolderWindowPath(path);
@@ -1234,9 +1330,14 @@ function renderFileList(path, afterLoad) {
         success: function (response) {
             if (!response || response.status !== 200) {
                 var msg = (response && response.message) ? response.message : '加载失败';
+                if (typeof isSessionExpiredMessage === 'function' && isSessionExpiredMessage(msg)) {
+                    recoverExpiredSessionThen(path, afterLoad);
+                    return;
+                }
                 $('#fileView').html('<div class="p-3 text-danger">' + escapeHtml(msg) + '</div>');
                 return;
             }
+            sessionExpiredReloginTried = false;
             var list = response.result || [];
             currentItems = list;
             if (!isSearchMode) {
@@ -1253,6 +1354,10 @@ function renderFileList(path, afterLoad) {
             var detail = (xhr && xhr.responseJSON && xhr.responseJSON.message)
                 ? xhr.responseJSON.message
                 : '加载失败（请刷新或重新连接会话）';
+            if (typeof isSessionExpiredMessage === 'function' && isSessionExpiredMessage(detail)) {
+                recoverExpiredSessionThen(path, afterLoad);
+                return;
+            }
             $('#fileView').html('<div class="p-3 text-danger">' + escapeHtml(detail) + '</div>');
         }
     });
@@ -1310,11 +1415,12 @@ function fetchShellPwd() {
 
 function syncToShellCwd(fallback, opts) {
     opts = opts || {};
-    var fb = fallback || $('#currentPath').val() || '/root';
-    // URL 预置目录（打开文件窗时由父页注入）优先
+    var fb = fallback || $('#currentPath').val() || '/';
+    var preset = null;
+    // URL 预置目录（打开文件窗 / 布局还原时由父页注入）优先，且不再被 shell pwd 覆盖
     try {
         var sp = new URLSearchParams(window.location.search || '');
-        var preset = sp.get('cwd');
+        preset = sp.get('cwd');
         if (preset) {
             fb = preset;
         }
@@ -1324,7 +1430,7 @@ function syncToShellCwd(fallback, opts) {
         clearSearchUi(false);
         renderFileList(fb);
     }
-    if (opts.skipPwd) {
+    if (preset || opts.skipPwd) {
         return;
     }
     fetchShellPwd().then(function (pwd) {
@@ -2185,6 +2291,11 @@ function openSelected(relPath) {
         return;
     }
     if (item && isPreviewable(item)) {
+        openPreview(name);
+        return;
+    }
+    // 扩展名像 Excel 时绝不走下载（避免旧逻辑/查找异常把预览变成另存为）
+    if (item && !isDirItem(item) && EXCEL_EXT.test(String(item.name || name))) {
         openPreview(name);
         return;
     }

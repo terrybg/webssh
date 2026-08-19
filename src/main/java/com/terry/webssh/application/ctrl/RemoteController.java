@@ -192,10 +192,15 @@ public class RemoteController {
     }
 
     private static final long PREVIEW_MAX_BYTES = 8L * 1024 * 1024;
+    /** Excel 只读预览（SheetJS），略严于文本以免撑爆浏览器 */
+    private static final long EXCEL_PREVIEW_MAX_BYTES = 5L * 1024 * 1024;
     /** 视频可边下边播，上限放宽 */
     private static final long VIDEO_PREVIEW_MAX_BYTES = 512L * 1024 * 1024;
     private static final Set<String> VIDEO_EXT = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
             "mp4", "webm", "ogg", "ogv", "m4v", "mov"
+    )));
+    private static final Set<String> EXCEL_EXT = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+            "xlsx", "xlsm", "xls"
     )));
 
     private static final Map<String, String> PREVIEW_MIME = new HashMap<>();
@@ -246,6 +251,10 @@ public class RemoteController {
         PREVIEW_MIME.put("env", "text/plain;charset=UTF-8");
         PREVIEW_MIME.put("gitignore", "text/plain;charset=UTF-8");
         PREVIEW_MIME.put("dockerfile", "text/plain;charset=UTF-8");
+        // Excel：用 octet-stream，避免浏览器把 /preview 导航当成「另存为 Office」
+        PREVIEW_MIME.put("xlsx", "application/octet-stream");
+        PREVIEW_MIME.put("xlsm", "application/octet-stream");
+        PREVIEW_MIME.put("xls", "application/octet-stream");
     }
 
     private static String fileExt(String path) {
@@ -390,7 +399,9 @@ public class RemoteController {
             return;
         }
         boolean video = VIDEO_EXT.contains(ext);
-        long maxBytes = video ? VIDEO_PREVIEW_MAX_BYTES : PREVIEW_MAX_BYTES;
+        boolean excel = EXCEL_EXT.contains(ext);
+        long maxBytes = video ? VIDEO_PREVIEW_MAX_BYTES
+                : (excel ? EXCEL_PREVIEW_MAX_BYTES : PREVIEW_MAX_BYTES);
         SSHConnectInfo sshConnectInfo = getCacheSsh(server);
         ChannelSftp ch = null;
         try {
@@ -405,8 +416,10 @@ public class RemoteController {
                 if (attrs != null) {
                     fileSize = attrs.getSize();
                     if (fileSize > maxBytes) {
-                        response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
-                                video ? "视频过大无法预览（上限约 512MB）" : "文件过大无法预览");
+                        String tooLarge = video
+                                ? "视频过大无法预览（上限约 512MB）"
+                                : (excel ? "Excel 过大无法预览（上限约 5MB）" : "文件过大无法预览");
+                        response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, tooLarge);
                         return;
                     }
                 }
@@ -787,25 +800,45 @@ public class RemoteController {
 
     /**
      * 跨会话/跨服务器复制（服务端 SFTP 流式中转，始终复制不删除源）。
+     * 响应为 NDJSON：start / file / progress / done / error。
      */
     @PostMapping("/crossCopy")
-    public StatusContent<String> crossCopy(@RequestParam("sourceTagId") String sourceTagId,
-                                           @RequestParam("destTagId") String destTagId,
-                                           @RequestParam("sources") String sources,
-                                           @RequestParam("destDir") String destDir) {
+    public void crossCopy(@RequestParam("sourceTagId") String sourceTagId,
+                          @RequestParam("destTagId") String destTagId,
+                          @RequestParam("sources") String sources,
+                          @RequestParam("destDir") String destDir,
+                          HttpServletResponse response) throws IOException {
+        response.setCharacterEncoding("UTF-8");
+        response.setContentType("application/x-ndjson;charset=UTF-8");
+        response.setHeader("Cache-Control", "no-cache, no-store");
+        response.setHeader("X-Accel-Buffering", "no");
+        PrintWriter writer = response.getWriter();
+
         if (StrUtil.isBlank(sourceTagId) || StrUtil.isBlank(destTagId)) {
-            return StatusContent.error("参数无效");
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"参数无效\"}");
+            return;
         }
         if (sourceTagId.equals(destTagId)) {
-            return batchTransfer(sources, destDir, destTagId, false);
+            StatusContent<String> same = batchTransfer(sources, destDir, destTagId, false);
+            if (same != null && same.getStatus() == 200) {
+                writeUploadEvent(writer, "{\"phase\":\"done\",\"status\":200,\"message\":"
+                        + jsonQuote(same.getMessage() != null ? same.getMessage() : "复制成功")
+                        + ",\"result\":" + jsonQuote(same.getResult() != null ? String.valueOf(same.getResult()) : "") + "}");
+            } else {
+                String msg = same != null && same.getMessage() != null ? same.getMessage() : "复制失败";
+                writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":" + jsonQuote(msg) + "}");
+            }
+            return;
         }
         Server srcServer = WebSSHService.webLoginMap.get(sourceTagId);
         Server dstServer = WebSSHService.webLoginMap.get(destTagId);
         if (srcServer == null || dstServer == null) {
-            return StatusContent.error("源或目标会话未登录或已过期");
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"源或目标会话未登录或已过期\"}");
+            return;
         }
         if (StrUtil.isBlank(sources) || StrUtil.isBlank(destDir)) {
-            return StatusContent.error("参数无效");
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"参数无效\"}");
+            return;
         }
         String[] parts = sources.split("\n");
         List<String> list = new ArrayList<>();
@@ -815,7 +848,8 @@ public class RemoteController {
             }
         }
         if (list.isEmpty()) {
-            return StatusContent.error("未选择文件");
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"未选择文件\"}");
+            return;
         }
         String destDirNorm = destDir.endsWith("/") ? destDir : destDir + "/";
         SSHConnectInfo srcCache = getCacheSsh(srcServer);
@@ -828,24 +862,141 @@ public class RemoteController {
             dstCh = openTempSftp(dstCache.getSession());
             for (String src : list) {
                 if (!isSafeRemotePath(src) || src.equals("/")) {
-                    return StatusContent.error("非法路径: " + src);
+                    writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":"
+                            + jsonQuote("非法路径: " + src) + "}");
+                    return;
                 }
+            }
+            long batchTotal = 0L;
+            int fileCount = 0;
+            for (String src : list) {
+                batchTotal += measureRemoteBytes(srcCh, src);
+                fileCount += countRemoteFiles(srcCh, src);
+            }
+            writeUploadEvent(writer, "{\"phase\":\"start\",\"total\":" + batchTotal
+                    + ",\"fileCount\":" + fileCount + "}");
+
+            final long[] batchLoaded = {0L};
+            final PrintWriter out = writer;
+            final long total = batchTotal;
+            for (String src : list) {
                 String base = src.substring(src.lastIndexOf('/') + 1);
                 if (remoteExists(dstCh, destDirNorm + base)) {
                     base = uniqueCopyBaseName(dstCh, destDirNorm, base);
                 }
                 String dest = destDirNorm + base;
-                copyRemoteRecursive(srcCh, dstCh, src, dest);
+                copyRemoteRecursiveWithProgress(srcCh, dstCh, src, dest, batchLoaded, total, out);
                 resultNames.add(base);
             }
-            return StatusContent.ok("复制成功", String.join("\n", resultNames));
+            writeUploadEvent(writer, "{\"phase\":\"done\",\"status\":200,\"message\":\"复制成功\",\"result\":"
+                    + jsonQuote(String.join("\n", resultNames)) + "}");
         } catch (Exception e) {
             e.printStackTrace();
-            return StatusContent.error("跨服务器复制失败: " + e.getMessage());
+            String msg = e.getMessage() == null ? "跨服务器复制失败" : ("跨服务器复制失败: " + e.getMessage());
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":" + jsonQuote(msg) + "}");
         } finally {
             closeQuietly(srcCh);
             closeQuietly(dstCh);
         }
+    }
+
+    private long measureRemoteBytes(ChannelSftp src, String path) throws SftpException {
+        SftpATTRS attrs = src.stat(path);
+        if (!attrs.isDir()) {
+            return Math.max(0L, attrs.getSize());
+        }
+        long sum = 0L;
+        @SuppressWarnings("unchecked")
+        Vector<ChannelSftp.LsEntry> entries = src.ls(path);
+        for (ChannelSftp.LsEntry entry : entries) {
+            String name = entry.getFilename();
+            if (".".equals(name) || "..".equals(name)) {
+                continue;
+            }
+            String child = path.endsWith("/") ? path + name : path + "/" + name;
+            sum += measureRemoteBytes(src, child);
+        }
+        return sum;
+    }
+
+    private int countRemoteFiles(ChannelSftp src, String path) throws SftpException {
+        SftpATTRS attrs = src.stat(path);
+        if (!attrs.isDir()) {
+            return 1;
+        }
+        int n = 0;
+        @SuppressWarnings("unchecked")
+        Vector<ChannelSftp.LsEntry> entries = src.ls(path);
+        for (ChannelSftp.LsEntry entry : entries) {
+            String name = entry.getFilename();
+            if (".".equals(name) || "..".equals(name)) {
+                continue;
+            }
+            String child = path.endsWith("/") ? path + name : path + "/" + name;
+            n += countRemoteFiles(src, child);
+        }
+        return n;
+    }
+
+    private void copyRemoteRecursiveWithProgress(ChannelSftp src, ChannelSftp dst,
+                                                 String srcPath, String destPath,
+                                                 long[] batchLoaded, long batchTotal,
+                                                 PrintWriter writer)
+            throws SftpException, IOException {
+        SftpATTRS attrs = src.stat(srcPath);
+        if (attrs.isDir()) {
+            try {
+                dst.mkdir(destPath);
+            } catch (SftpException e) {
+                if (!remoteExists(dst, destPath)) {
+                    throw e;
+                }
+            }
+            @SuppressWarnings("unchecked")
+            Vector<ChannelSftp.LsEntry> entries = src.ls(srcPath);
+            for (ChannelSftp.LsEntry entry : entries) {
+                String name = entry.getFilename();
+                if (".".equals(name) || "..".equals(name)) {
+                    continue;
+                }
+                String childSrc = srcPath.endsWith("/") ? srcPath + name : srcPath + "/" + name;
+                String childDst = destPath.endsWith("/") ? destPath + name : destPath + "/" + name;
+                copyRemoteRecursiveWithProgress(src, dst, childSrc, childDst, batchLoaded, batchTotal, writer);
+            }
+            return;
+        }
+        long fileTotal = Math.max(0L, attrs.getSize());
+        String baseName = srcPath.substring(srcPath.lastIndexOf('/') + 1);
+        writeUploadEvent(writer, "{\"phase\":\"file\",\"name\":" + jsonQuote(baseName)
+                + ",\"fileTotal\":" + fileTotal
+                + ",\"batchLoaded\":" + batchLoaded[0]
+                + ",\"batchTotal\":" + batchTotal + "}");
+        writeUploadEvent(writer, "{\"phase\":\"progress\",\"name\":" + jsonQuote(baseName)
+                + ",\"fileLoaded\":0,\"fileTotal\":" + fileTotal
+                + ",\"batchLoaded\":" + batchLoaded[0]
+                + ",\"batchTotal\":" + batchTotal + "}");
+        try (InputStream raw = src.get(srcPath); OutputStream out = dst.put(destPath)) {
+            ProgressInputStream pin = new ProgressInputStream(raw, fileTotal, (loaded, tot) -> {
+                writeUploadEvent(writer, "{\"phase\":\"progress\",\"name\":" + jsonQuote(baseName)
+                        + ",\"fileLoaded\":" + loaded
+                        + ",\"fileTotal\":" + tot
+                        + ",\"batchLoaded\":" + (batchLoaded[0] + loaded)
+                        + ",\"batchTotal\":" + batchTotal + "}");
+            });
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = pin.read(buf)) >= 0) {
+                if (n > 0) {
+                    out.write(buf, 0, n);
+                }
+            }
+            out.flush();
+        }
+        batchLoaded[0] += fileTotal;
+        writeUploadEvent(writer, "{\"phase\":\"progress\",\"name\":" + jsonQuote(baseName)
+                + ",\"fileLoaded\":" + fileTotal + ",\"fileTotal\":" + fileTotal
+                + ",\"batchLoaded\":" + batchLoaded[0]
+                + ",\"batchTotal\":" + batchTotal + "}");
     }
 
     private void copyRemoteRecursive(ChannelSftp src, ChannelSftp dst, String srcPath, String destPath)

@@ -1,0 +1,16 @@
+{
+  "name": "webssh",
+  "version": "1.0.0",
+  "description": "浏览器里用的轻量 SSH / SFTP 工具：装在服务端即可通过页面连远程、管文件、跑终端。可独立运行，也可作为 Spring Boot Starter / iframe 嵌进现有项目。",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://gitee.com/zgbd/webssh.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
