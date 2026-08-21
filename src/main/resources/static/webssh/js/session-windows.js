@@ -112,14 +112,19 @@
         var tid = opts.tagId;
         if (tid == null || tid === '') {
             try {
-                tid = w.localStorage.getItem('tagId' + port) || '';
+                if (opts.session && typeof w.getWebsshStoredTagId === 'function') {
+                    tid = w.getWebsshStoredTagId(opts.session) || '';
+                }
+                if (!tid) {
+                    tid = w.localStorage.getItem('tagId' + port) || '';
+                }
             } catch (e) {
                 tid = '';
             }
         }
         var sep = q.indexOf('?') >= 0 ? '&' : '?';
         if (kind === 'sftp') {
-            var url = 'sftp.html' + q + sep + 'folderWin=1&v=44';
+            var url = 'sftp.html' + q + sep + 'folderWin=1&v=45';
             if (tid) {
                 url += '&tagId=' + encodeURIComponent(tid);
             }

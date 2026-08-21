@@ -290,11 +290,43 @@
     loadCommands();
   }
 
+  function importCommonCommands() {
+    var msg = currentScope === 'global'
+      ? '将把内置约 1000 条常见运维命令合并到「通用命令」；已存在的相同命令内容会跳过。继续？'
+      : '将把内置约 1000 条常见运维命令合并到当前服务器「常用命令」；已存在的相同命令内容会跳过。继续？';
+    if (!confirm(msg)) {
+      return;
+    }
+    var $btn = $('#commandImportCommonBtn');
+    $btn.prop('disabled', true).text('导入中…');
+    $.ajax({
+      url: baseUrl + '/commands/import-common?' + scopeQuery(),
+      type: 'POST',
+      dataType: 'json'
+    })
+      .done(function (res) {
+        if (res.status !== 200) {
+          alert(res.message || '导入失败');
+          return;
+        }
+        var r = res.result || {};
+        alert('导入完成：新增 ' + (r.imported || 0) + ' 条，跳过 ' + (r.skipped || 0) + ' 条（种子共 ' + (r.total || 0) + ' 条）');
+        loadCommands();
+      })
+      .fail(function () {
+        alert('导入失败');
+      })
+      .always(function () {
+        $btn.prop('disabled', false).text('导入常见命令');
+      });
+  }
+
   $(function () {
     $('#commandSubmitBtn').on('click', saveCommand);
     $('#commandResetBtn').on('click', function () {
       resetCommandForm();
     });
+    $('#commandImportCommonBtn').on('click', importCommonCommands);
     $('#cmdSettingsSaveBtn').on('click', saveSettings);
 
     $('#commandForm').on('keydown', 'input, textarea', function (event) {

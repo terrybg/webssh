@@ -230,6 +230,82 @@ public class CommandRepository {
         }
     }
 
+    /**
+     * Merge seed commands from dict.json into global or a session list.
+     * Existing values (trim-equal) are skipped; returns counts.
+     */
+    public Map<String, Integer> importCommon(String scope, String sessionId) {
+        synchronized (lock) {
+            List<CommandItem> seeds = readSeedItems();
+            if (seeds.isEmpty()) {
+                Map<String, Integer> empty = new LinkedHashMap<>();
+                empty.put("imported", 0);
+                empty.put("skipped", 0);
+                empty.put("total", 0);
+                return empty;
+            }
+            CommandStoreData data = load();
+            List<CommandItem> target;
+            if ("global".equals(scope)) {
+                target = data.getGlobal();
+            } else if ("session".equals(scope)) {
+                if (StrUtil.isBlank(sessionId)) {
+                    throw new IllegalArgumentException("sessionId is required");
+                }
+                target = data.getBySession().computeIfAbsent(sessionId, k -> new ArrayList<>());
+            } else {
+                throw new IllegalArgumentException("scope must be global or session");
+            }
+            int imported = 0;
+            int skipped = 0;
+            for (CommandItem seed : seeds) {
+                if (findByValue(target, seed.getValue()) != null) {
+                    skipped++;
+                    continue;
+                }
+                target.add(newItem(seed.getName(), seed.getValue()));
+                imported++;
+            }
+            if (imported > 0) {
+                store.write(data);
+            }
+            Map<String, Integer> result = new LinkedHashMap<>();
+            result.put("imported", imported);
+            result.put("skipped", skipped);
+            result.put("total", seeds.size());
+            return result;
+        }
+    }
+
+    private List<CommandItem> readSeedItems() {
+        String json = readDictJson();
+        if (StrUtil.isBlank(json)) {
+            return Collections.emptyList();
+        }
+        JSONObject root = JSONUtil.parseObj(json);
+        JSONArray result = root.getJSONArray("result");
+        if (result == null) {
+            return Collections.emptyList();
+        }
+        List<CommandItem> items = new ArrayList<>();
+        for (int i = 0; i < result.size(); i++) {
+            JSONObject row = result.getJSONObject(i);
+            if (row == null) {
+                continue;
+            }
+            String name = row.getStr("name");
+            String value = row.getStr("value");
+            if (StrUtil.isBlank(name) || StrUtil.isBlank(value)) {
+                continue;
+            }
+            CommandItem item = new CommandItem();
+            item.setName(name.trim());
+            item.setValue(value.trim());
+            items.add(item);
+        }
+        return items;
+    }
+
     private CommandStoreData load() {
         if (Files.exists(commandsFile)) {
             CommandStoreData data = store.read(CommandStoreData.class, CommandStoreData::new);
@@ -245,27 +321,9 @@ public class CommandRepository {
     }
 
     private CommandStoreData importFromDictOrEmpty() {
-        String json = readDictJson();
-        if (StrUtil.isBlank(json)) {
-            return new CommandStoreData();
-        }
-        JSONObject root = JSONUtil.parseObj(json);
-        JSONArray result = root.getJSONArray("result");
         CommandStoreData data = new CommandStoreData();
-        if (result == null) {
-            return data;
-        }
-        for (int i = 0; i < result.size(); i++) {
-            JSONObject row = result.getJSONObject(i);
-            if (row == null) {
-                continue;
-            }
-            String name = row.getStr("name");
-            String value = row.getStr("value");
-            if (StrUtil.isBlank(name) || StrUtil.isBlank(value)) {
-                continue;
-            }
-            data.getGlobal().add(newItem(name, value));
+        for (CommandItem seed : readSeedItems()) {
+            data.getGlobal().add(newItem(seed.getName(), seed.getValue()));
         }
         return data;
     }

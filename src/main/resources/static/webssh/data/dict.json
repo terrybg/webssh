@@ -1,116 +1,4004 @@
 {
-  "status": 200,
-  "message": "成功！",
   "result": [
     {
-      "id": 19,
-      "name": "后台启动jar命令",
-      "value": "nohup java -jar xxx.jar &",
-      "type": null,
-      "grade": null,
-      "sort": null,
-      "pid": 18,
-      "imgUrl": null,
-      "createTime": "2022-10-19 13:12:59"
+      "name": "查看网卡与 MAC 地址",
+      "value": "ip link show"
     },
     {
-      "id": 20,
-      "name": "查看文件（显示行）",
-      "value": "cat -n nohup.out",
-      "type": null,
-      "grade": null,
-      "sort": null,
-      "pid": 18,
-      "imgUrl": null,
-      "createTime": "2022-10-19 13:15:24"
+      "name": "查看所有网卡 MAC（ifconfig）",
+      "value": "ifconfig -a | grep -i ether"
     },
     {
-      "id": 21,
-      "name": "实时查看文件",
-      "value": "tail -20f xxx.log",
-      "type": null,
-      "grade": null,
-      "sort": null,
-      "pid": 18,
-      "imgUrl": null,
-      "createTime": "2022-10-19 13:17:32"
+      "name": "查看指定网卡 MAC",
+      "value": "cat /sys/class/net/eth0/address"
     },
     {
-      "id": 22,
-      "name": "查看进程的运行命令",
-      "value": "ps -ef | grep frp",
-      "type": null,
-      "grade": null,
-      "sort": null,
-      "pid": 18,
-      "imgUrl": null,
-      "createTime": "2022-10-19 13:18:15"
+      "name": "列出网卡名",
+      "value": "ls /sys/class/net"
     },
     {
-      "id": 23,
-      "name": "查看全部端口占用",
-      "value": "netstat -tulpn",
-      "type": null,
-      "grade": null,
-      "sort": null,
-      "pid": 18,
-      "imgUrl": null,
-      "createTime": "2022-10-19 13:18:47"
+      "name": "查看 IP 地址",
+      "value": "ip addr show"
     },
     {
-      "id": 24,
-      "name": "查询指定端口的占用情况",
-      "value": "netstat -tulpn |grep 9200",
-      "type": null,
-      "grade": null,
-      "sort": null,
-      "pid": 18,
-      "imgUrl": null,
-      "createTime": "2022-10-19 13:19:13"
+      "name": "简要查看 IP",
+      "value": "hostname -I"
     },
     {
-      "id": 25,
-      "name": "查看进程运行目录",
-      "value": "ll /proc/PID",
-      "type": null,
-      "grade": null,
-      "sort": null,
-      "pid": 18,
-      "imgUrl": null,
-      "createTime": "2022-10-19 13:19:32"
+      "name": "查看路由表",
+      "value": "ip route show"
     },
     {
-      "id": 26,
-      "name": "top命令（CPU排名排序）",
-      "value": "top -P",
-      "type": null,
-      "grade": null,
-      "sort": null,
-      "pid": 18,
-      "imgUrl": null,
-      "createTime": "2022-10-19 13:20:38"
+      "name": "查看默认网关",
+      "value": "ip route | grep default"
     },
     {
-      "id": 27,
-      "name": "top命令（内存排名排序）",
-      "value": "top -M",
-      "type": null,
-      "grade": null,
-      "sort": null,
-      "pid": 18,
-      "imgUrl": null,
-      "createTime": "2022-10-19 13:21:25"
+      "name": "测试连通性",
+      "value": "ping -c 4 8.8.8.8"
     },
     {
-      "id": 28,
-      "name": "查看文件占用大小",
-      "value": "du -sh /*",
-      "type": null,
-      "grade": null,
-      "sort": null,
-      "pid": 18,
-      "imgUrl": null,
-      "createTime": "2022-10-19 13:22:04"
+      "name": "连续 ping",
+      "value": "ping 8.8.8.8"
+    },
+    {
+      "name": "查看 DNS 配置",
+      "value": "cat /etc/resolv.conf"
+    },
+    {
+      "name": "解析域名",
+      "value": "nslookup baidu.com"
+    },
+    {
+      "name": "dig 查询 A 记录",
+      "value": "dig baidu.com +short"
+    },
+    {
+      "name": "查看监听端口",
+      "value": "ss -tulpn"
+    },
+    {
+      "name": "netstat 查看端口",
+      "value": "netstat -tulpn"
+    },
+    {
+      "name": "查看 TCP 连接",
+      "value": "ss -antp"
+    },
+    {
+      "name": "按端口查进程",
+      "value": "ss -lptn 'sport = :80'"
+    },
+    {
+      "name": "traceroute",
+      "value": "traceroute baidu.com"
+    },
+    {
+      "name": "mtr 网络诊断",
+      "value": "mtr -rwc 10 baidu.com"
+    },
+    {
+      "name": "查看防火墙规则 firewalld",
+      "value": "firewall-cmd --list-all"
+    },
+    {
+      "name": "查看 iptables",
+      "value": "iptables -L -n -v"
+    },
+    {
+      "name": "查看 nftables",
+      "value": "nft list ruleset"
+    },
+    {
+      "name": "下载测速（curl）",
+      "value": "curl -o /dev/null -s -w '%{speed_download}\\n' https://speed.cloudflare.com/__down?bytes=10000000"
+    },
+    {
+      "name": "公网 IP",
+      "value": "curl -s ifconfig.me"
+    },
+    {
+      "name": "公网 IP（备用）",
+      "value": "curl -s ip.sb"
+    },
+    {
+      "name": "查看 ARP 表",
+      "value": "ip neigh show"
+    },
+    {
+      "name": "抓包 80 端口",
+      "value": "tcpdump -i any port 80 -nn -c 50"
+    },
+    {
+      "name": "查看网卡流量",
+      "value": "iftop -n"
+    },
+    {
+      "name": "实时带宽",
+      "value": "nload"
+    },
+    {
+      "name": "curl 带响应头",
+      "value": "curl -I https://baidu.com"
+    },
+    {
+      "name": "wget 下载",
+      "value": "wget -O /tmp/out.bin URL"
+    },
+    {
+      "name": "HTTP 状态码",
+      "value": "curl -o /dev/null -s -w '%{http_code}\\n' URL"
+    },
+    {
+      "name": "主机名",
+      "value": "hostname"
+    },
+    {
+      "name": "设置主机名（临时）",
+      "value": "hostnamectl set-hostname NEWNAME"
+    },
+    {
+      "name": "系统版本",
+      "value": "cat /etc/os-release"
+    },
+    {
+      "name": "内核版本",
+      "value": "uname -a"
+    },
+    {
+      "name": "CPU 信息",
+      "value": "lscpu"
+    },
+    {
+      "name": "CPU 型号简要",
+      "value": "grep 'model name' /proc/cpuinfo | head -1"
+    },
+    {
+      "name": "CPU 核数",
+      "value": "nproc"
+    },
+    {
+      "name": "内存概况",
+      "value": "free -h"
+    },
+    {
+      "name": "详细内存",
+      "value": "cat /proc/meminfo | head -20"
+    },
+    {
+      "name": "磁盘分区",
+      "value": "lsblk -f"
+    },
+    {
+      "name": "磁盘用量",
+      "value": "df -h"
+    },
+    {
+      "name": "inode 用量",
+      "value": "df -ih"
+    },
+    {
+      "name": "目录占用 Top",
+      "value": "du -xh --max-depth=1 / | sort -hr | head -20"
+    },
+    {
+      "name": "当前目录占用",
+      "value": "du -sh * | sort -hr | head -20"
+    },
+    {
+      "name": "硬件概览",
+      "value": "lshw -short"
+    },
+    {
+      "name": "PCI 设备",
+      "value": "lspci"
+    },
+    {
+      "name": "USB 设备",
+      "value": "lsusb"
+    },
+    {
+      "name": "运行时间",
+      "value": "uptime"
+    },
+    {
+      "name": "开机时间",
+      "value": "who -b"
+    },
+    {
+      "name": "时区",
+      "value": "timedatectl"
+    },
+    {
+      "name": "同步时间",
+      "value": "chronyc tracking"
+    },
+    {
+      "name": "日历",
+      "value": "cal"
+    },
+    {
+      "name": "日期时间",
+      "value": "date '+%Y-%m-%d %H:%M:%S'"
+    },
+    {
+      "name": "进程列表",
+      "value": "ps aux"
+    },
+    {
+      "name": "按 CPU 排序进程",
+      "value": "ps aux --sort=-%cpu | head -20"
+    },
+    {
+      "name": "按内存排序进程",
+      "value": "ps aux --sort=-%mem | head -20"
+    },
+    {
+      "name": "查找进程",
+      "value": "ps -ef | grep nginx"
+    },
+    {
+      "name": "杀进程（按名）",
+      "value": "pkill -f PROCESS"
+    },
+    {
+      "name": "杀进程（按 PID）",
+      "value": "kill -9 PID"
+    },
+    {
+      "name": "top",
+      "value": "top"
+    },
+    {
+      "name": "htop",
+      "value": "htop"
+    },
+    {
+      "name": "systemd 服务状态",
+      "value": "systemctl status SERVICE"
+    },
+    {
+      "name": "启动服务",
+      "value": "systemctl start SERVICE"
+    },
+    {
+      "name": "停止服务",
+      "value": "systemctl stop SERVICE"
+    },
+    {
+      "name": "重启服务",
+      "value": "systemctl restart SERVICE"
+    },
+    {
+      "name": "开机自启",
+      "value": "systemctl enable SERVICE"
+    },
+    {
+      "name": "取消自启",
+      "value": "systemctl disable SERVICE"
+    },
+    {
+      "name": "列出失败服务",
+      "value": "systemctl --failed"
+    },
+    {
+      "name": "重载 systemd",
+      "value": "systemctl daemon-reload"
+    },
+    {
+      "name": "查看服务日志",
+      "value": "journalctl -u SERVICE -n 100 --no-pager"
+    },
+    {
+      "name": "跟随服务日志",
+      "value": "journalctl -u SERVICE -f"
+    },
+    {
+      "name": "最近系统日志",
+      "value": "journalctl -xe --no-pager | tail -100"
+    },
+    {
+      "name": "开机日志",
+      "value": "journalctl -b --no-pager | tail -100"
+    },
+    {
+      "name": "列出文件详情",
+      "value": "ls -lah"
+    },
+    {
+      "name": "按时间排序",
+      "value": "ls -laht | head"
+    },
+    {
+      "name": "按大小排序",
+      "value": "ls -lahS | head"
+    },
+    {
+      "name": "创建目录",
+      "value": "mkdir -p /path/to/dir"
+    },
+    {
+      "name": "复制",
+      "value": "cp -a SRC DEST"
+    },
+    {
+      "name": "移动/重命名",
+      "value": "mv SRC DEST"
+    },
+    {
+      "name": "删除文件",
+      "value": "rm -f FILE"
+    },
+    {
+      "name": "删除目录",
+      "value": "rm -rf DIR"
+    },
+    {
+      "name": "软链接",
+      "value": "ln -s TARGET LINK"
+    },
+    {
+      "name": "查找文件名",
+      "value": "find / -name 'FILE' 2>/dev/null"
+    },
+    {
+      "name": "按类型找",
+      "value": "find /path -type f -name '*.log'"
+    },
+    {
+      "name": "按大小找",
+      "value": "find / -type f -size +100M 2>/dev/null"
+    },
+    {
+      "name": "按修改时间找",
+      "value": "find /path -mtime -1"
+    },
+    {
+      "name": "grep 内容",
+      "value": "grep -RIn 'PATTERN' /path"
+    },
+    {
+      "name": "忽略大小写 grep",
+      "value": "grep -RIni 'pattern' /path"
+    },
+    {
+      "name": "查看文件",
+      "value": "cat FILE"
+    },
+    {
+      "name": "带行号查看",
+      "value": "cat -n FILE"
+    },
+    {
+      "name": "分页查看",
+      "value": "less FILE"
+    },
+    {
+      "name": "文件头",
+      "value": "head -n 50 FILE"
+    },
+    {
+      "name": "文件尾",
+      "value": "tail -n 50 FILE"
+    },
+    {
+      "name": "实时看日志",
+      "value": "tail -f FILE"
+    },
+    {
+      "name": "实时看多行",
+      "value": "tail -n 100 -f FILE"
+    },
+    {
+      "name": "统计行数",
+      "value": "wc -l FILE"
+    },
+    {
+      "name": "文件类型",
+      "value": "file FILE"
+    },
+    {
+      "name": "改权限",
+      "value": "chmod 755 FILE"
+    },
+    {
+      "name": "递归改权限",
+      "value": "chmod -R 755 DIR"
+    },
+    {
+      "name": "改所有者",
+      "value": "chown user:group FILE"
+    },
+    {
+      "name": "递归改所有者",
+      "value": "chown -R user:group DIR"
+    },
+    {
+      "name": "查看 ACL",
+      "value": "getfacl FILE"
+    },
+    {
+      "name": "diff 比较",
+      "value": "diff -u a b"
+    },
+    {
+      "name": "md5",
+      "value": "md5sum FILE"
+    },
+    {
+      "name": "sha256",
+      "value": "sha256sum FILE"
+    },
+    {
+      "name": "打包 tar.gz",
+      "value": "tar -czvf archive.tar.gz DIR"
+    },
+    {
+      "name": "解压 tar.gz",
+      "value": "tar -xzvf archive.tar.gz"
+    },
+    {
+      "name": "打包 zip",
+      "value": "zip -r archive.zip DIR"
+    },
+    {
+      "name": "解压 zip",
+      "value": "unzip archive.zip"
+    },
+    {
+      "name": "查看磁盘 IO",
+      "value": "iostat -xz 1 5"
+    },
+    {
+      "name": "同步落盘",
+      "value": "sync"
+    },
+    {
+      "name": "当前用户",
+      "value": "whoami"
+    },
+    {
+      "name": "当前登录",
+      "value": "who"
+    },
+    {
+      "name": "登录历史",
+      "value": "last | head -20"
+    },
+    {
+      "name": "失败登录",
+      "value": "lastb | head -20"
+    },
+    {
+      "name": "切换 root",
+      "value": "sudo -i"
+    },
+    {
+      "name": "以某用户执行",
+      "value": "sudo -u USER COMMAND"
+    },
+    {
+      "name": "添加用户",
+      "value": "useradd -m -s /bin/bash USER"
+    },
+    {
+      "name": "设置密码",
+      "value": "passwd USER"
+    },
+    {
+      "name": "删除用户",
+      "value": "userdel -r USER"
+    },
+    {
+      "name": "用户组",
+      "value": "id USER"
+    },
+    {
+      "name": "查看 sudoers",
+      "value": "cat /etc/sudoers"
+    },
+    {
+      "name": "SSH 配置",
+      "value": "cat /etc/ssh/sshd_config"
+    },
+    {
+      "name": "重启 sshd",
+      "value": "systemctl restart sshd"
+    },
+    {
+      "name": "查看授权密钥",
+      "value": "cat ~/.ssh/authorized_keys"
+    },
+    {
+      "name": "生成 SSH 密钥",
+      "value": "ssh-keygen -t ed25519 -C 'comment'"
+    },
+    {
+      "name": "apt 更新",
+      "value": "apt update && apt upgrade -y"
+    },
+    {
+      "name": "apt 安装",
+      "value": "apt install -y PKG"
+    },
+    {
+      "name": "apt 搜索",
+      "value": "apt search KEYWORD"
+    },
+    {
+      "name": "apt 卸载",
+      "value": "apt remove -y PKG"
+    },
+    {
+      "name": "yum 安装",
+      "value": "yum install -y PKG"
+    },
+    {
+      "name": "dnf 安装",
+      "value": "dnf install -y PKG"
+    },
+    {
+      "name": "rpm 查包",
+      "value": "rpm -qa | grep PKG"
+    },
+    {
+      "name": "dpkg 查包",
+      "value": "dpkg -l | grep PKG"
+    },
+    {
+      "name": "哪个包提供文件",
+      "value": "yum provides '*/bin/xxx'"
+    },
+    {
+      "name": "Docker 版本",
+      "value": "docker version"
+    },
+    {
+      "name": "Docker 信息",
+      "value": "docker info"
+    },
+    {
+      "name": "容器列表",
+      "value": "docker ps -a"
+    },
+    {
+      "name": "镜像列表",
+      "value": "docker images"
+    },
+    {
+      "name": "启动容器",
+      "value": "docker start NAME"
+    },
+    {
+      "name": "停止容器",
+      "value": "docker stop NAME"
+    },
+    {
+      "name": "重启容器",
+      "value": "docker restart NAME"
+    },
+    {
+      "name": "进入容器",
+      "value": "docker exec -it NAME bash"
+    },
+    {
+      "name": "容器日志",
+      "value": "docker logs -f --tail 200 NAME"
+    },
+    {
+      "name": "删除容器",
+      "value": "docker rm -f NAME"
+    },
+    {
+      "name": "删除镜像",
+      "value": "docker rmi IMAGE"
+    },
+    {
+      "name": "清理无用资源",
+      "value": "docker system prune -af"
+    },
+    {
+      "name": "查看容器资源",
+      "value": "docker stats --no-stream"
+    },
+    {
+      "name": "compose 启动",
+      "value": "docker compose up -d"
+    },
+    {
+      "name": "compose 停止",
+      "value": "docker compose down"
+    },
+    {
+      "name": "compose 日志",
+      "value": "docker compose logs -f --tail 200"
+    },
+    {
+      "name": "构建镜像",
+      "value": "docker build -t NAME:TAG ."
+    },
+    {
+      "name": "导出镜像",
+      "value": "docker save -o name.tar IMAGE"
+    },
+    {
+      "name": "导入镜像",
+      "value": "docker load -i name.tar"
+    },
+    {
+      "name": "查看节点",
+      "value": "kubectl get nodes -o wide"
+    },
+    {
+      "name": "查看 Pod",
+      "value": "kubectl get pods -A -o wide"
+    },
+    {
+      "name": "查看服务",
+      "value": "kubectl get svc -A"
+    },
+    {
+      "name": "描述 Pod",
+      "value": "kubectl describe pod NAME -n NS"
+    },
+    {
+      "name": "Pod 日志",
+      "value": "kubectl logs -f --tail=200 NAME -n NS"
+    },
+    {
+      "name": "进入 Pod",
+      "value": "kubectl exec -it NAME -n NS -- bash"
+    },
+    {
+      "name": "应用 YAML",
+      "value": "kubectl apply -f FILE"
+    },
+    {
+      "name": "删除资源",
+      "value": "kubectl delete -f FILE"
+    },
+    {
+      "name": "上下文",
+      "value": "kubectl config get-contexts"
+    },
+    {
+      "name": "vmstat",
+      "value": "vmstat 1 5"
+    },
+    {
+      "name": "mpstat",
+      "value": "mpstat -P ALL 1 5"
+    },
+    {
+      "name": "内存详情",
+      "value": "free -mh"
+    },
+    {
+      "name": "打开文件数",
+      "value": "lsof | wc -l"
+    },
+    {
+      "name": "进程打开文件",
+      "value": "lsof -p PID"
+    },
+    {
+      "name": "端口占用进程",
+      "value": "lsof -i :PORT"
+    },
+    {
+      "name": "dmesg 内核日志",
+      "value": "dmesg -T | tail -100"
+    },
+    {
+      "name": "系统限制",
+      "value": "ulimit -a"
+    },
+    {
+      "name": "文件描述符上限",
+      "value": "cat /proc/sys/fs/file-nr"
+    },
+    {
+      "name": "连接跟踪数",
+      "value": "cat /proc/sys/net/netfilter/nf_conntrack_count"
+    },
+    {
+      "name": "GPU 状态",
+      "value": "nvidia-smi"
+    },
+    {
+      "name": "持续看 GPU",
+      "value": "watch -n 1 nvidia-smi"
+    },
+    {
+      "name": "awk 第1列",
+      "value": "awk '{print $1}' FILE"
+    },
+    {
+      "name": "cut 字段",
+      "value": "cut -d: -f1 /etc/passwd"
+    },
+    {
+      "name": "sort uniq 统计",
+      "value": "sort FILE | uniq -c | sort -nr | head"
+    },
+    {
+      "name": "sed 替换",
+      "value": "sed -i 's/OLD/NEW/g' FILE"
+    },
+    {
+      "name": "jq 解析 JSON",
+      "value": "cat FILE.json | jq ."
+    },
+    {
+      "name": "base64 编码",
+      "value": "echo -n 'text' | base64"
+    },
+    {
+      "name": "base64 解码",
+      "value": "echo 'ENCODED' | base64 -d"
+    },
+    {
+      "name": "git 状态",
+      "value": "git status"
+    },
+    {
+      "name": "git 分支",
+      "value": "git branch -vv"
+    },
+    {
+      "name": "git 最近提交",
+      "value": "git log --oneline -20"
+    },
+    {
+      "name": "git pull",
+      "value": "git pull --rebase"
+    },
+    {
+      "name": "git diff",
+      "value": "git diff"
+    },
+    {
+      "name": "git 暂存",
+      "value": "git add -A && git commit -m 'msg'"
+    },
+    {
+      "name": "后台运行 jar",
+      "value": "nohup java -jar app.jar > app.log 2>&1 &"
+    },
+    {
+      "name": "查看后台任务",
+      "value": "jobs -l"
+    },
+    {
+      "name": "环境变量",
+      "value": "env | sort"
+    },
+    {
+      "name": "PATH",
+      "value": "echo $PATH"
+    },
+    {
+      "name": "历史命令",
+      "value": "history | tail -50"
+    },
+    {
+      "name": "清屏",
+      "value": "clear"
+    },
+    {
+      "name": "磁盘 SMART",
+      "value": "smartctl -a /dev/sda"
+    },
+    {
+      "name": "挂载查看",
+      "value": "mount | column -t"
+    },
+    {
+      "name": "重新挂载读写",
+      "value": "mount -o remount,rw /"
+    },
+    {
+      "name": "同步时钟 NTP",
+      "value": "chronyc -a makestep"
+    },
+    {
+      "name": "检查 SELinux",
+      "value": "getenforce"
+    },
+    {
+      "name": "临时关 SELinux",
+      "value": "setenforce 0"
+    },
+    {
+      "name": "查看 crontab",
+      "value": "crontab -l"
+    },
+    {
+      "name": "编辑 crontab",
+      "value": "crontab -e"
+    },
+    {
+      "name": "系统定时任务",
+      "value": "ls /etc/cron.*"
+    },
+    {
+      "name": "rsync 同步",
+      "value": "rsync -avz --progress SRC/ DEST/"
+    },
+    {
+      "name": "scp 拷贝",
+      "value": "scp -r SRC user@host:/path"
+    },
+    {
+      "name": "ssh 登录",
+      "value": "ssh user@host"
+    },
+    {
+      "name": "生成随机密码",
+      "value": "openssl rand -base64 24"
+    },
+    {
+      "name": "测磁盘写入",
+      "value": "dd if=/dev/zero of=/tmp/test.img bs=1M count=1024 oflag=direct"
+    },
+    {
+      "name": "测磁盘读取",
+      "value": "dd if=/tmp/test.img of=/dev/null bs=1M iflag=direct"
+    },
+    {
+      "name": "查看打开端口(nmap本机)",
+      "value": "nmap -sT -O localhost"
+    },
+    {
+      "name": "Python HTTP 临时服务",
+      "value": "python3 -m http.server 8000"
+    },
+    {
+      "name": "统计目录文件数",
+      "value": "find . -type f | wc -l"
+    },
+    {
+      "name": "空目录清理",
+      "value": "find . -type d -empty -delete"
+    },
+    {
+      "name": "按扩展名统计",
+      "value": "find . -type f | sed 's/.*\\.//' | sort | uniq -c | sort -nr | head"
+    },
+    {
+      "name": "查看 nginx 状态",
+      "value": "systemctl status nginx"
+    },
+    {
+      "name": "重启 nginx",
+      "value": "systemctl restart nginx"
+    },
+    {
+      "name": "停止 nginx",
+      "value": "systemctl stop nginx"
+    },
+    {
+      "name": "启动 nginx",
+      "value": "systemctl start nginx"
+    },
+    {
+      "name": "是否开机自启 nginx",
+      "value": "systemctl is-enabled nginx"
+    },
+    {
+      "name": "nginx 最近日志",
+      "value": "journalctl -u nginx -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 nginx 日志",
+      "value": "journalctl -u nginx -f"
+    },
+    {
+      "name": "查看 httpd 状态",
+      "value": "systemctl status httpd"
+    },
+    {
+      "name": "重启 httpd",
+      "value": "systemctl restart httpd"
+    },
+    {
+      "name": "停止 httpd",
+      "value": "systemctl stop httpd"
+    },
+    {
+      "name": "启动 httpd",
+      "value": "systemctl start httpd"
+    },
+    {
+      "name": "是否开机自启 httpd",
+      "value": "systemctl is-enabled httpd"
+    },
+    {
+      "name": "httpd 最近日志",
+      "value": "journalctl -u httpd -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 httpd 日志",
+      "value": "journalctl -u httpd -f"
+    },
+    {
+      "name": "查看 apache2 状态",
+      "value": "systemctl status apache2"
+    },
+    {
+      "name": "重启 apache2",
+      "value": "systemctl restart apache2"
+    },
+    {
+      "name": "停止 apache2",
+      "value": "systemctl stop apache2"
+    },
+    {
+      "name": "启动 apache2",
+      "value": "systemctl start apache2"
+    },
+    {
+      "name": "是否开机自启 apache2",
+      "value": "systemctl is-enabled apache2"
+    },
+    {
+      "name": "apache2 最近日志",
+      "value": "journalctl -u apache2 -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 apache2 日志",
+      "value": "journalctl -u apache2 -f"
+    },
+    {
+      "name": "查看 mysql 状态",
+      "value": "systemctl status mysql"
+    },
+    {
+      "name": "重启 mysql",
+      "value": "systemctl restart mysql"
+    },
+    {
+      "name": "停止 mysql",
+      "value": "systemctl stop mysql"
+    },
+    {
+      "name": "启动 mysql",
+      "value": "systemctl start mysql"
+    },
+    {
+      "name": "是否开机自启 mysql",
+      "value": "systemctl is-enabled mysql"
+    },
+    {
+      "name": "mysql 最近日志",
+      "value": "journalctl -u mysql -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 mysql 日志",
+      "value": "journalctl -u mysql -f"
+    },
+    {
+      "name": "查看 mariadb 状态",
+      "value": "systemctl status mariadb"
+    },
+    {
+      "name": "重启 mariadb",
+      "value": "systemctl restart mariadb"
+    },
+    {
+      "name": "停止 mariadb",
+      "value": "systemctl stop mariadb"
+    },
+    {
+      "name": "启动 mariadb",
+      "value": "systemctl start mariadb"
+    },
+    {
+      "name": "是否开机自启 mariadb",
+      "value": "systemctl is-enabled mariadb"
+    },
+    {
+      "name": "mariadb 最近日志",
+      "value": "journalctl -u mariadb -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 mariadb 日志",
+      "value": "journalctl -u mariadb -f"
+    },
+    {
+      "name": "查看 redis 状态",
+      "value": "systemctl status redis"
+    },
+    {
+      "name": "重启 redis",
+      "value": "systemctl restart redis"
+    },
+    {
+      "name": "停止 redis",
+      "value": "systemctl stop redis"
+    },
+    {
+      "name": "启动 redis",
+      "value": "systemctl start redis"
+    },
+    {
+      "name": "是否开机自启 redis",
+      "value": "systemctl is-enabled redis"
+    },
+    {
+      "name": "redis 最近日志",
+      "value": "journalctl -u redis -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 redis 日志",
+      "value": "journalctl -u redis -f"
+    },
+    {
+      "name": "查看 postgresql 状态",
+      "value": "systemctl status postgresql"
+    },
+    {
+      "name": "重启 postgresql",
+      "value": "systemctl restart postgresql"
+    },
+    {
+      "name": "停止 postgresql",
+      "value": "systemctl stop postgresql"
+    },
+    {
+      "name": "启动 postgresql",
+      "value": "systemctl start postgresql"
+    },
+    {
+      "name": "是否开机自启 postgresql",
+      "value": "systemctl is-enabled postgresql"
+    },
+    {
+      "name": "postgresql 最近日志",
+      "value": "journalctl -u postgresql -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 postgresql 日志",
+      "value": "journalctl -u postgresql -f"
+    },
+    {
+      "name": "查看 docker 状态",
+      "value": "systemctl status docker"
+    },
+    {
+      "name": "重启 docker",
+      "value": "systemctl restart docker"
+    },
+    {
+      "name": "停止 docker",
+      "value": "systemctl stop docker"
+    },
+    {
+      "name": "启动 docker",
+      "value": "systemctl start docker"
+    },
+    {
+      "name": "是否开机自启 docker",
+      "value": "systemctl is-enabled docker"
+    },
+    {
+      "name": "docker 最近日志",
+      "value": "journalctl -u docker -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 docker 日志",
+      "value": "journalctl -u docker -f"
+    },
+    {
+      "name": "查看 containerd 状态",
+      "value": "systemctl status containerd"
+    },
+    {
+      "name": "重启 containerd",
+      "value": "systemctl restart containerd"
+    },
+    {
+      "name": "停止 containerd",
+      "value": "systemctl stop containerd"
+    },
+    {
+      "name": "启动 containerd",
+      "value": "systemctl start containerd"
+    },
+    {
+      "name": "是否开机自启 containerd",
+      "value": "systemctl is-enabled containerd"
+    },
+    {
+      "name": "containerd 最近日志",
+      "value": "journalctl -u containerd -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 containerd 日志",
+      "value": "journalctl -u containerd -f"
+    },
+    {
+      "name": "查看 sshd 状态",
+      "value": "systemctl status sshd"
+    },
+    {
+      "name": "停止 sshd",
+      "value": "systemctl stop sshd"
+    },
+    {
+      "name": "启动 sshd",
+      "value": "systemctl start sshd"
+    },
+    {
+      "name": "是否开机自启 sshd",
+      "value": "systemctl is-enabled sshd"
+    },
+    {
+      "name": "sshd 最近日志",
+      "value": "journalctl -u sshd -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 sshd 日志",
+      "value": "journalctl -u sshd -f"
+    },
+    {
+      "name": "查看 cron 状态",
+      "value": "systemctl status cron"
+    },
+    {
+      "name": "重启 cron",
+      "value": "systemctl restart cron"
+    },
+    {
+      "name": "停止 cron",
+      "value": "systemctl stop cron"
+    },
+    {
+      "name": "启动 cron",
+      "value": "systemctl start cron"
+    },
+    {
+      "name": "是否开机自启 cron",
+      "value": "systemctl is-enabled cron"
+    },
+    {
+      "name": "cron 最近日志",
+      "value": "journalctl -u cron -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 cron 日志",
+      "value": "journalctl -u cron -f"
+    },
+    {
+      "name": "查看 rsyslog 状态",
+      "value": "systemctl status rsyslog"
+    },
+    {
+      "name": "重启 rsyslog",
+      "value": "systemctl restart rsyslog"
+    },
+    {
+      "name": "停止 rsyslog",
+      "value": "systemctl stop rsyslog"
+    },
+    {
+      "name": "启动 rsyslog",
+      "value": "systemctl start rsyslog"
+    },
+    {
+      "name": "是否开机自启 rsyslog",
+      "value": "systemctl is-enabled rsyslog"
+    },
+    {
+      "name": "rsyslog 最近日志",
+      "value": "journalctl -u rsyslog -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 rsyslog 日志",
+      "value": "journalctl -u rsyslog -f"
+    },
+    {
+      "name": "查看 firewalld 状态",
+      "value": "systemctl status firewalld"
+    },
+    {
+      "name": "重启 firewalld",
+      "value": "systemctl restart firewalld"
+    },
+    {
+      "name": "停止 firewalld",
+      "value": "systemctl stop firewalld"
+    },
+    {
+      "name": "启动 firewalld",
+      "value": "systemctl start firewalld"
+    },
+    {
+      "name": "是否开机自启 firewalld",
+      "value": "systemctl is-enabled firewalld"
+    },
+    {
+      "name": "firewalld 最近日志",
+      "value": "journalctl -u firewalld -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 firewalld 日志",
+      "value": "journalctl -u firewalld -f"
+    },
+    {
+      "name": "查看 NetworkManager 状态",
+      "value": "systemctl status NetworkManager"
+    },
+    {
+      "name": "重启 NetworkManager",
+      "value": "systemctl restart NetworkManager"
+    },
+    {
+      "name": "停止 NetworkManager",
+      "value": "systemctl stop NetworkManager"
+    },
+    {
+      "name": "启动 NetworkManager",
+      "value": "systemctl start NetworkManager"
+    },
+    {
+      "name": "是否开机自启 NetworkManager",
+      "value": "systemctl is-enabled NetworkManager"
+    },
+    {
+      "name": "NetworkManager 最近日志",
+      "value": "journalctl -u NetworkManager -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 NetworkManager 日志",
+      "value": "journalctl -u NetworkManager -f"
+    },
+    {
+      "name": "查看 kubelet 状态",
+      "value": "systemctl status kubelet"
+    },
+    {
+      "name": "重启 kubelet",
+      "value": "systemctl restart kubelet"
+    },
+    {
+      "name": "停止 kubelet",
+      "value": "systemctl stop kubelet"
+    },
+    {
+      "name": "启动 kubelet",
+      "value": "systemctl start kubelet"
+    },
+    {
+      "name": "是否开机自启 kubelet",
+      "value": "systemctl is-enabled kubelet"
+    },
+    {
+      "name": "kubelet 最近日志",
+      "value": "journalctl -u kubelet -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 kubelet 日志",
+      "value": "journalctl -u kubelet -f"
+    },
+    {
+      "name": "查看 php-fpm 状态",
+      "value": "systemctl status php-fpm"
+    },
+    {
+      "name": "重启 php-fpm",
+      "value": "systemctl restart php-fpm"
+    },
+    {
+      "name": "停止 php-fpm",
+      "value": "systemctl stop php-fpm"
+    },
+    {
+      "name": "启动 php-fpm",
+      "value": "systemctl start php-fpm"
+    },
+    {
+      "name": "是否开机自启 php-fpm",
+      "value": "systemctl is-enabled php-fpm"
+    },
+    {
+      "name": "php-fpm 最近日志",
+      "value": "journalctl -u php-fpm -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 php-fpm 日志",
+      "value": "journalctl -u php-fpm -f"
+    },
+    {
+      "name": "查看 tomcat 状态",
+      "value": "systemctl status tomcat"
+    },
+    {
+      "name": "重启 tomcat",
+      "value": "systemctl restart tomcat"
+    },
+    {
+      "name": "停止 tomcat",
+      "value": "systemctl stop tomcat"
+    },
+    {
+      "name": "启动 tomcat",
+      "value": "systemctl start tomcat"
+    },
+    {
+      "name": "是否开机自启 tomcat",
+      "value": "systemctl is-enabled tomcat"
+    },
+    {
+      "name": "tomcat 最近日志",
+      "value": "journalctl -u tomcat -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 tomcat 日志",
+      "value": "journalctl -u tomcat -f"
+    },
+    {
+      "name": "查看 rabbitmq-server 状态",
+      "value": "systemctl status rabbitmq-server"
+    },
+    {
+      "name": "重启 rabbitmq-server",
+      "value": "systemctl restart rabbitmq-server"
+    },
+    {
+      "name": "停止 rabbitmq-server",
+      "value": "systemctl stop rabbitmq-server"
+    },
+    {
+      "name": "启动 rabbitmq-server",
+      "value": "systemctl start rabbitmq-server"
+    },
+    {
+      "name": "是否开机自启 rabbitmq-server",
+      "value": "systemctl is-enabled rabbitmq-server"
+    },
+    {
+      "name": "rabbitmq-server 最近日志",
+      "value": "journalctl -u rabbitmq-server -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 rabbitmq-server 日志",
+      "value": "journalctl -u rabbitmq-server -f"
+    },
+    {
+      "name": "查看 mongod 状态",
+      "value": "systemctl status mongod"
+    },
+    {
+      "name": "重启 mongod",
+      "value": "systemctl restart mongod"
+    },
+    {
+      "name": "停止 mongod",
+      "value": "systemctl stop mongod"
+    },
+    {
+      "name": "启动 mongod",
+      "value": "systemctl start mongod"
+    },
+    {
+      "name": "是否开机自启 mongod",
+      "value": "systemctl is-enabled mongod"
+    },
+    {
+      "name": "mongod 最近日志",
+      "value": "journalctl -u mongod -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 mongod 日志",
+      "value": "journalctl -u mongod -f"
+    },
+    {
+      "name": "查看 elasticsearch 状态",
+      "value": "systemctl status elasticsearch"
+    },
+    {
+      "name": "重启 elasticsearch",
+      "value": "systemctl restart elasticsearch"
+    },
+    {
+      "name": "停止 elasticsearch",
+      "value": "systemctl stop elasticsearch"
+    },
+    {
+      "name": "启动 elasticsearch",
+      "value": "systemctl start elasticsearch"
+    },
+    {
+      "name": "是否开机自启 elasticsearch",
+      "value": "systemctl is-enabled elasticsearch"
+    },
+    {
+      "name": "elasticsearch 最近日志",
+      "value": "journalctl -u elasticsearch -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 elasticsearch 日志",
+      "value": "journalctl -u elasticsearch -f"
+    },
+    {
+      "name": "查看 prometheus 状态",
+      "value": "systemctl status prometheus"
+    },
+    {
+      "name": "重启 prometheus",
+      "value": "systemctl restart prometheus"
+    },
+    {
+      "name": "停止 prometheus",
+      "value": "systemctl stop prometheus"
+    },
+    {
+      "name": "启动 prometheus",
+      "value": "systemctl start prometheus"
+    },
+    {
+      "name": "是否开机自启 prometheus",
+      "value": "systemctl is-enabled prometheus"
+    },
+    {
+      "name": "prometheus 最近日志",
+      "value": "journalctl -u prometheus -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 prometheus 日志",
+      "value": "journalctl -u prometheus -f"
+    },
+    {
+      "name": "查看 grafana-server 状态",
+      "value": "systemctl status grafana-server"
+    },
+    {
+      "name": "重启 grafana-server",
+      "value": "systemctl restart grafana-server"
+    },
+    {
+      "name": "停止 grafana-server",
+      "value": "systemctl stop grafana-server"
+    },
+    {
+      "name": "启动 grafana-server",
+      "value": "systemctl start grafana-server"
+    },
+    {
+      "name": "是否开机自启 grafana-server",
+      "value": "systemctl is-enabled grafana-server"
+    },
+    {
+      "name": "grafana-server 最近日志",
+      "value": "journalctl -u grafana-server -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 grafana-server 日志",
+      "value": "journalctl -u grafana-server -f"
+    },
+    {
+      "name": "查看 node_exporter 状态",
+      "value": "systemctl status node_exporter"
+    },
+    {
+      "name": "重启 node_exporter",
+      "value": "systemctl restart node_exporter"
+    },
+    {
+      "name": "停止 node_exporter",
+      "value": "systemctl stop node_exporter"
+    },
+    {
+      "name": "启动 node_exporter",
+      "value": "systemctl start node_exporter"
+    },
+    {
+      "name": "是否开机自启 node_exporter",
+      "value": "systemctl is-enabled node_exporter"
+    },
+    {
+      "name": "node_exporter 最近日志",
+      "value": "journalctl -u node_exporter -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 node_exporter 日志",
+      "value": "journalctl -u node_exporter -f"
+    },
+    {
+      "name": "查看 fail2ban 状态",
+      "value": "systemctl status fail2ban"
+    },
+    {
+      "name": "重启 fail2ban",
+      "value": "systemctl restart fail2ban"
+    },
+    {
+      "name": "停止 fail2ban",
+      "value": "systemctl stop fail2ban"
+    },
+    {
+      "name": "启动 fail2ban",
+      "value": "systemctl start fail2ban"
+    },
+    {
+      "name": "是否开机自启 fail2ban",
+      "value": "systemctl is-enabled fail2ban"
+    },
+    {
+      "name": "fail2ban 最近日志",
+      "value": "journalctl -u fail2ban -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 fail2ban 日志",
+      "value": "journalctl -u fail2ban -f"
+    },
+    {
+      "name": "查看 ntpd 状态",
+      "value": "systemctl status ntpd"
+    },
+    {
+      "name": "重启 ntpd",
+      "value": "systemctl restart ntpd"
+    },
+    {
+      "name": "停止 ntpd",
+      "value": "systemctl stop ntpd"
+    },
+    {
+      "name": "启动 ntpd",
+      "value": "systemctl start ntpd"
+    },
+    {
+      "name": "是否开机自启 ntpd",
+      "value": "systemctl is-enabled ntpd"
+    },
+    {
+      "name": "ntpd 最近日志",
+      "value": "journalctl -u ntpd -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 ntpd 日志",
+      "value": "journalctl -u ntpd -f"
+    },
+    {
+      "name": "查看 chronyd 状态",
+      "value": "systemctl status chronyd"
+    },
+    {
+      "name": "重启 chronyd",
+      "value": "systemctl restart chronyd"
+    },
+    {
+      "name": "停止 chronyd",
+      "value": "systemctl stop chronyd"
+    },
+    {
+      "name": "启动 chronyd",
+      "value": "systemctl start chronyd"
+    },
+    {
+      "name": "是否开机自启 chronyd",
+      "value": "systemctl is-enabled chronyd"
+    },
+    {
+      "name": "chronyd 最近日志",
+      "value": "journalctl -u chronyd -n 100 --no-pager"
+    },
+    {
+      "name": "跟随 chronyd 日志",
+      "value": "journalctl -u chronyd -f"
+    },
+    {
+      "name": "查看谁占用 22 端口",
+      "value": "ss -lptn 'sport = :22'"
+    },
+    {
+      "name": "lsof 查端口 22",
+      "value": "lsof -i :22"
+    },
+    {
+      "name": "curl 本机 22",
+      "value": "curl -sS -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:22/"
+    },
+    {
+      "name": "lsof 查端口 80",
+      "value": "lsof -i :80"
+    },
+    {
+      "name": "curl 本机 80",
+      "value": "curl -sS -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:80/"
+    },
+    {
+      "name": "查看谁占用 443 端口",
+      "value": "ss -lptn 'sport = :443'"
+    },
+    {
+      "name": "lsof 查端口 443",
+      "value": "lsof -i :443"
+    },
+    {
+      "name": "curl 本机 443",
+      "value": "curl -sS -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:443/"
+    },
+    {
+      "name": "查看谁占用 3306 端口",
+      "value": "ss -lptn 'sport = :3306'"
+    },
+    {
+      "name": "lsof 查端口 3306",
+      "value": "lsof -i :3306"
+    },
+    {
+      "name": "curl 本机 3306",
+      "value": "curl -sS -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:3306/"
+    },
+    {
+      "name": "查看谁占用 6379 端口",
+      "value": "ss -lptn 'sport = :6379'"
+    },
+    {
+      "name": "lsof 查端口 6379",
+      "value": "lsof -i :6379"
+    },
+    {
+      "name": "curl 本机 6379",
+      "value": "curl -sS -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:6379/"
+    },
+    {
+      "name": "查看谁占用 5432 端口",
+      "value": "ss -lptn 'sport = :5432'"
+    },
+    {
+      "name": "lsof 查端口 5432",
+      "value": "lsof -i :5432"
+    },
+    {
+      "name": "curl 本机 5432",
+      "value": "curl -sS -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:5432/"
+    },
+    {
+      "name": "查看谁占用 8080 端口",
+      "value": "ss -lptn 'sport = :8080'"
+    },
+    {
+      "name": "lsof 查端口 8080",
+      "value": "lsof -i :8080"
+    },
+    {
+      "name": "curl 本机 8080",
+      "value": "curl -sS -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:8080/"
+    },
+    {
+      "name": "查看谁占用 8443 端口",
+      "value": "ss -lptn 'sport = :8443'"
+    },
+    {
+      "name": "lsof 查端口 8443",
+      "value": "lsof -i :8443"
+    },
+    {
+      "name": "curl 本机 8443",
+      "value": "curl -sS -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:8443/"
+    },
+    {
+      "name": "查看谁占用 9000 端口",
+      "value": "ss -lptn 'sport = :9000'"
+    },
+    {
+      "name": "lsof 查端口 9000",
+      "value": "lsof -i :9000"
+    },
+    {
+      "name": "curl 本机 9000",
+      "value": "curl -sS -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:9000/"
+    },
+    {
+      "name": "查看谁占用 9200 端口",
+      "value": "ss -lptn 'sport = :9200'"
+    },
+    {
+      "name": "lsof 查端口 9200",
+      "value": "lsof -i :9200"
+    },
+    {
+      "name": "curl 本机 9200",
+      "value": "curl -sS -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:9200/"
+    },
+    {
+      "name": "查看谁占用 27017 端口",
+      "value": "ss -lptn 'sport = :27017'"
+    },
+    {
+      "name": "lsof 查端口 27017",
+      "value": "lsof -i :27017"
+    },
+    {
+      "name": "curl 本机 27017",
+      "value": "curl -sS -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:27017/"
+    },
+    {
+      "name": "查看谁占用 2379 端口",
+      "value": "ss -lptn 'sport = :2379'"
+    },
+    {
+      "name": "lsof 查端口 2379",
+      "value": "lsof -i :2379"
+    },
+    {
+      "name": "curl 本机 2379",
+      "value": "curl -sS -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:2379/"
+    },
+    {
+      "name": "查看谁占用 6443 端口",
+      "value": "ss -lptn 'sport = :6443'"
+    },
+    {
+      "name": "lsof 查端口 6443",
+      "value": "lsof -i :6443"
+    },
+    {
+      "name": "curl 本机 6443",
+      "value": "curl -sS -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:6443/"
+    },
+    {
+      "name": "查看谁占用 10250 端口",
+      "value": "ss -lptn 'sport = :10250'"
+    },
+    {
+      "name": "lsof 查端口 10250",
+      "value": "lsof -i :10250"
+    },
+    {
+      "name": "curl 本机 10250",
+      "value": "curl -sS -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:10250/"
+    },
+    {
+      "name": "查看系统日志尾部",
+      "value": "tail -n 100 /var/log/messages"
+    },
+    {
+      "name": "实时看系统日志",
+      "value": "tail -f /var/log/messages"
+    },
+    {
+      "name": "系统日志 大小",
+      "value": "ls -lh /var/log/messages"
+    },
+    {
+      "name": "查看syslog尾部",
+      "value": "tail -n 100 /var/log/syslog"
+    },
+    {
+      "name": "实时看syslog",
+      "value": "tail -f /var/log/syslog"
+    },
+    {
+      "name": "syslog 大小",
+      "value": "ls -lh /var/log/syslog"
+    },
+    {
+      "name": "查看安全日志尾部",
+      "value": "tail -n 100 /var/log/secure"
+    },
+    {
+      "name": "实时看安全日志",
+      "value": "tail -f /var/log/secure"
+    },
+    {
+      "name": "安全日志 大小",
+      "value": "ls -lh /var/log/secure"
+    },
+    {
+      "name": "查看auth 日志尾部",
+      "value": "tail -n 100 /var/log/auth.log"
+    },
+    {
+      "name": "实时看auth 日志",
+      "value": "tail -f /var/log/auth.log"
+    },
+    {
+      "name": "auth 日志 大小",
+      "value": "ls -lh /var/log/auth.log"
+    },
+    {
+      "name": "查看nginx access尾部",
+      "value": "tail -n 100 /var/log/nginx/access.log"
+    },
+    {
+      "name": "实时看nginx access",
+      "value": "tail -f /var/log/nginx/access.log"
+    },
+    {
+      "name": "nginx access 大小",
+      "value": "ls -lh /var/log/nginx/access.log"
+    },
+    {
+      "name": "查看nginx error尾部",
+      "value": "tail -n 100 /var/log/nginx/error.log"
+    },
+    {
+      "name": "实时看nginx error",
+      "value": "tail -f /var/log/nginx/error.log"
+    },
+    {
+      "name": "nginx error 大小",
+      "value": "ls -lh /var/log/nginx/error.log"
+    },
+    {
+      "name": "查看mysql error尾部",
+      "value": "tail -n 100 /var/log/mysqld.log"
+    },
+    {
+      "name": "实时看mysql error",
+      "value": "tail -f /var/log/mysqld.log"
+    },
+    {
+      "name": "mysql error 大小",
+      "value": "ls -lh /var/log/mysqld.log"
+    },
+    {
+      "name": "查看docker 守护进程尾部",
+      "value": "tail -n 100 /var/log/docker.log"
+    },
+    {
+      "name": "实时看docker 守护进程",
+      "value": "tail -f /var/log/docker.log"
+    },
+    {
+      "name": "docker 守护进程 大小",
+      "value": "ls -lh /var/log/docker.log"
+    },
+    {
+      "name": "查看kern 日志尾部",
+      "value": "tail -n 100 /var/log/kern.log"
+    },
+    {
+      "name": "实时看kern 日志",
+      "value": "tail -f /var/log/kern.log"
+    },
+    {
+      "name": "kern 日志 大小",
+      "value": "ls -lh /var/log/kern.log"
+    },
+    {
+      "name": "查看boot 日志尾部",
+      "value": "tail -n 100 /var/log/boot.log"
+    },
+    {
+      "name": "实时看boot 日志",
+      "value": "tail -f /var/log/boot.log"
+    },
+    {
+      "name": "boot 日志 大小",
+      "value": "ls -lh /var/log/boot.log"
+    },
+    {
+      "name": "查看 eth0 详情",
+      "value": "ip addr show eth0"
+    },
+    {
+      "name": "查看 eth0 链路",
+      "value": "ip -s link show eth0"
+    },
+    {
+      "name": "重启 eth0（down/up）",
+      "value": "ip link set eth0 down && ip link set eth0 up"
+    },
+    {
+      "name": "查看 ens33 MAC",
+      "value": "cat /sys/class/net/ens33/address"
+    },
+    {
+      "name": "查看 ens33 详情",
+      "value": "ip addr show ens33"
+    },
+    {
+      "name": "查看 ens33 链路",
+      "value": "ip -s link show ens33"
+    },
+    {
+      "name": "重启 ens33（down/up）",
+      "value": "ip link set ens33 down && ip link set ens33 up"
+    },
+    {
+      "name": "查看 ens160 MAC",
+      "value": "cat /sys/class/net/ens160/address"
+    },
+    {
+      "name": "查看 ens160 详情",
+      "value": "ip addr show ens160"
+    },
+    {
+      "name": "查看 ens160 链路",
+      "value": "ip -s link show ens160"
+    },
+    {
+      "name": "重启 ens160（down/up）",
+      "value": "ip link set ens160 down && ip link set ens160 up"
+    },
+    {
+      "name": "查看 enp0s3 MAC",
+      "value": "cat /sys/class/net/enp0s3/address"
+    },
+    {
+      "name": "查看 enp0s3 详情",
+      "value": "ip addr show enp0s3"
+    },
+    {
+      "name": "查看 enp0s3 链路",
+      "value": "ip -s link show enp0s3"
+    },
+    {
+      "name": "重启 enp0s3（down/up）",
+      "value": "ip link set enp0s3 down && ip link set enp0s3 up"
+    },
+    {
+      "name": "查看 wlan0 MAC",
+      "value": "cat /sys/class/net/wlan0/address"
+    },
+    {
+      "name": "查看 wlan0 详情",
+      "value": "ip addr show wlan0"
+    },
+    {
+      "name": "查看 wlan0 链路",
+      "value": "ip -s link show wlan0"
+    },
+    {
+      "name": "重启 wlan0（down/up）",
+      "value": "ip link set wlan0 down && ip link set wlan0 up"
+    },
+    {
+      "name": "查看 docker0 MAC",
+      "value": "cat /sys/class/net/docker0/address"
+    },
+    {
+      "name": "查看 docker0 详情",
+      "value": "ip addr show docker0"
+    },
+    {
+      "name": "查看 docker0 链路",
+      "value": "ip -s link show docker0"
+    },
+    {
+      "name": "重启 docker0（down/up）",
+      "value": "ip link set docker0 down && ip link set docker0 up"
+    },
+    {
+      "name": "查看 br0 MAC",
+      "value": "cat /sys/class/net/br0/address"
+    },
+    {
+      "name": "查看 br0 详情",
+      "value": "ip addr show br0"
+    },
+    {
+      "name": "查看 br0 链路",
+      "value": "ip -s link show br0"
+    },
+    {
+      "name": "重启 br0（down/up）",
+      "value": "ip link set br0 down && ip link set br0 up"
+    },
+    {
+      "name": "查看 / 磁盘占用",
+      "value": "du -xh --max-depth=1 / 2>/dev/null | sort -hr | head -20"
+    },
+    {
+      "name": "列出 /",
+      "value": "ls -lah /"
+    },
+    {
+      "name": "查看 /home 磁盘占用",
+      "value": "du -xh --max-depth=1 /home 2>/dev/null | sort -hr | head -20"
+    },
+    {
+      "name": "列出 /home",
+      "value": "ls -lah /home"
+    },
+    {
+      "name": "查看 /var 磁盘占用",
+      "value": "du -xh --max-depth=1 /var 2>/dev/null | sort -hr | head -20"
+    },
+    {
+      "name": "列出 /var",
+      "value": "ls -lah /var"
+    },
+    {
+      "name": "查看 /var/log 磁盘占用",
+      "value": "du -xh --max-depth=1 /var/log 2>/dev/null | sort -hr | head -20"
+    },
+    {
+      "name": "列出 /var/log",
+      "value": "ls -lah /var/log"
+    },
+    {
+      "name": "查看 /tmp 磁盘占用",
+      "value": "du -xh --max-depth=1 /tmp 2>/dev/null | sort -hr | head -20"
+    },
+    {
+      "name": "列出 /tmp",
+      "value": "ls -lah /tmp"
+    },
+    {
+      "name": "查看 /opt 磁盘占用",
+      "value": "du -xh --max-depth=1 /opt 2>/dev/null | sort -hr | head -20"
+    },
+    {
+      "name": "列出 /opt",
+      "value": "ls -lah /opt"
+    },
+    {
+      "name": "查看 /usr 磁盘占用",
+      "value": "du -xh --max-depth=1 /usr 2>/dev/null | sort -hr | head -20"
+    },
+    {
+      "name": "列出 /usr",
+      "value": "ls -lah /usr"
+    },
+    {
+      "name": "查看 /etc 磁盘占用",
+      "value": "du -xh --max-depth=1 /etc 2>/dev/null | sort -hr | head -20"
+    },
+    {
+      "name": "列出 /etc",
+      "value": "ls -lah /etc"
+    },
+    {
+      "name": "查看 /data 磁盘占用",
+      "value": "du -xh --max-depth=1 /data 2>/dev/null | sort -hr | head -20"
+    },
+    {
+      "name": "列出 /data",
+      "value": "ls -lah /data"
+    },
+    {
+      "name": "查看 /root 磁盘占用",
+      "value": "du -xh --max-depth=1 /root 2>/dev/null | sort -hr | head -20"
+    },
+    {
+      "name": "列出 /root",
+      "value": "ls -lah /root"
+    },
+    {
+      "name": "查找 *.log 文件",
+      "value": "find / -type f -name '*.log' 2>/dev/null | head -50"
+    },
+    {
+      "name": "当前目录 *.log",
+      "value": "find . -type f -name '*.log' | head -50"
+    },
+    {
+      "name": "查找 *.conf 文件",
+      "value": "find / -type f -name '*.conf' 2>/dev/null | head -50"
+    },
+    {
+      "name": "当前目录 *.conf",
+      "value": "find . -type f -name '*.conf' | head -50"
+    },
+    {
+      "name": "查找 *.yml 文件",
+      "value": "find / -type f -name '*.yml' 2>/dev/null | head -50"
+    },
+    {
+      "name": "当前目录 *.yml",
+      "value": "find . -type f -name '*.yml' | head -50"
+    },
+    {
+      "name": "查找 *.yaml 文件",
+      "value": "find / -type f -name '*.yaml' 2>/dev/null | head -50"
+    },
+    {
+      "name": "当前目录 *.yaml",
+      "value": "find . -type f -name '*.yaml' | head -50"
+    },
+    {
+      "name": "查找 *.json 文件",
+      "value": "find / -type f -name '*.json' 2>/dev/null | head -50"
+    },
+    {
+      "name": "当前目录 *.json",
+      "value": "find . -type f -name '*.json' | head -50"
+    },
+    {
+      "name": "查找 *.sh 文件",
+      "value": "find / -type f -name '*.sh' 2>/dev/null | head -50"
+    },
+    {
+      "name": "当前目录 *.sh",
+      "value": "find . -type f -name '*.sh' | head -50"
+    },
+    {
+      "name": "查找 *.py 文件",
+      "value": "find / -type f -name '*.py' 2>/dev/null | head -50"
+    },
+    {
+      "name": "当前目录 *.py",
+      "value": "find . -type f -name '*.py' | head -50"
+    },
+    {
+      "name": "查找 *.jar 文件",
+      "value": "find / -type f -name '*.jar' 2>/dev/null | head -50"
+    },
+    {
+      "name": "当前目录 *.jar",
+      "value": "find . -type f -name '*.jar' | head -50"
+    },
+    {
+      "name": "查找 *.war 文件",
+      "value": "find / -type f -name '*.war' 2>/dev/null | head -50"
+    },
+    {
+      "name": "当前目录 *.war",
+      "value": "find . -type f -name '*.war' | head -50"
+    },
+    {
+      "name": "查找 *.gz 文件",
+      "value": "find / -type f -name '*.gz' 2>/dev/null | head -50"
+    },
+    {
+      "name": "当前目录 *.gz",
+      "value": "find . -type f -name '*.gz' | head -50"
+    },
+    {
+      "name": "查找 *.tar 文件",
+      "value": "find / -type f -name '*.tar' 2>/dev/null | head -50"
+    },
+    {
+      "name": "当前目录 *.tar",
+      "value": "find . -type f -name '*.tar' | head -50"
+    },
+    {
+      "name": "查找 *.zip 文件",
+      "value": "find / -type f -name '*.zip' 2>/dev/null | head -50"
+    },
+    {
+      "name": "当前目录 *.zip",
+      "value": "find . -type f -name '*.zip' | head -50"
+    },
+    {
+      "name": "查找 *.sql 文件",
+      "value": "find / -type f -name '*.sql' 2>/dev/null | head -50"
+    },
+    {
+      "name": "当前目录 *.sql",
+      "value": "find . -type f -name '*.sql' | head -50"
+    },
+    {
+      "name": "查找 *.out 文件",
+      "value": "find / -type f -name '*.out' 2>/dev/null | head -50"
+    },
+    {
+      "name": "当前目录 *.out",
+      "value": "find . -type f -name '*.out' | head -50"
+    },
+    {
+      "name": "进入容器 web",
+      "value": "docker exec -it web bash || docker exec -it web sh"
+    },
+    {
+      "name": "容器 web 日志",
+      "value": "docker logs -f --tail 200 web"
+    },
+    {
+      "name": "检查容器 web",
+      "value": "docker inspect web --format '{{.State.Status}}'"
+    },
+    {
+      "name": "进入容器 api",
+      "value": "docker exec -it api bash || docker exec -it api sh"
+    },
+    {
+      "name": "容器 api 日志",
+      "value": "docker logs -f --tail 200 api"
+    },
+    {
+      "name": "检查容器 api",
+      "value": "docker inspect api --format '{{.State.Status}}'"
+    },
+    {
+      "name": "进入容器 db",
+      "value": "docker exec -it db bash || docker exec -it db sh"
+    },
+    {
+      "name": "容器 db 日志",
+      "value": "docker logs -f --tail 200 db"
+    },
+    {
+      "name": "检查容器 db",
+      "value": "docker inspect db --format '{{.State.Status}}'"
+    },
+    {
+      "name": "进入容器 redis",
+      "value": "docker exec -it redis bash || docker exec -it redis sh"
+    },
+    {
+      "name": "容器 redis 日志",
+      "value": "docker logs -f --tail 200 redis"
+    },
+    {
+      "name": "检查容器 redis",
+      "value": "docker inspect redis --format '{{.State.Status}}'"
+    },
+    {
+      "name": "进入容器 nginx",
+      "value": "docker exec -it nginx bash || docker exec -it nginx sh"
+    },
+    {
+      "name": "容器 nginx 日志",
+      "value": "docker logs -f --tail 200 nginx"
+    },
+    {
+      "name": "检查容器 nginx",
+      "value": "docker inspect nginx --format '{{.State.Status}}'"
+    },
+    {
+      "name": "进入容器 app",
+      "value": "docker exec -it app bash || docker exec -it app sh"
+    },
+    {
+      "name": "容器 app 日志",
+      "value": "docker logs -f --tail 200 app"
+    },
+    {
+      "name": "检查容器 app",
+      "value": "docker inspect app --format '{{.State.Status}}'"
+    },
+    {
+      "name": "进入容器 worker",
+      "value": "docker exec -it worker bash || docker exec -it worker sh"
+    },
+    {
+      "name": "容器 worker 日志",
+      "value": "docker logs -f --tail 200 worker"
+    },
+    {
+      "name": "检查容器 worker",
+      "value": "docker inspect worker --format '{{.State.Status}}'"
+    },
+    {
+      "name": "进入容器 mysql",
+      "value": "docker exec -it mysql bash || docker exec -it mysql sh"
+    },
+    {
+      "name": "容器 mysql 日志",
+      "value": "docker logs -f --tail 200 mysql"
+    },
+    {
+      "name": "检查容器 mysql",
+      "value": "docker inspect mysql --format '{{.State.Status}}'"
+    },
+    {
+      "name": "进入容器 postgres",
+      "value": "docker exec -it postgres bash || docker exec -it postgres sh"
+    },
+    {
+      "name": "容器 postgres 日志",
+      "value": "docker logs -f --tail 200 postgres"
+    },
+    {
+      "name": "检查容器 postgres",
+      "value": "docker inspect postgres --format '{{.State.Status}}'"
+    },
+    {
+      "name": "后台启动 app.jar",
+      "value": "nohup java -jar app.jar > app.jar.out 2>&1 &"
+    },
+    {
+      "name": "查看 app.jar 进程",
+      "value": "ps -ef | grep app.jar | grep -v grep"
+    },
+    {
+      "name": "实时看 app.jar 输出",
+      "value": "tail -n 100 -f app.jar.out"
+    },
+    {
+      "name": "后台启动 server.jar",
+      "value": "nohup java -jar server.jar > server.jar.out 2>&1 &"
+    },
+    {
+      "name": "查看 server.jar 进程",
+      "value": "ps -ef | grep server.jar | grep -v grep"
+    },
+    {
+      "name": "实时看 server.jar 输出",
+      "value": "tail -n 100 -f server.jar.out"
+    },
+    {
+      "name": "后台启动 gateway.jar",
+      "value": "nohup java -jar gateway.jar > gateway.jar.out 2>&1 &"
+    },
+    {
+      "name": "查看 gateway.jar 进程",
+      "value": "ps -ef | grep gateway.jar | grep -v grep"
+    },
+    {
+      "name": "实时看 gateway.jar 输出",
+      "value": "tail -n 100 -f gateway.jar.out"
+    },
+    {
+      "name": "后台启动 admin.jar",
+      "value": "nohup java -jar admin.jar > admin.jar.out 2>&1 &"
+    },
+    {
+      "name": "查看 admin.jar 进程",
+      "value": "ps -ef | grep admin.jar | grep -v grep"
+    },
+    {
+      "name": "实时看 admin.jar 输出",
+      "value": "tail -n 100 -f admin.jar.out"
+    },
+    {
+      "name": "后台启动 api.jar",
+      "value": "nohup java -jar api.jar > api.jar.out 2>&1 &"
+    },
+    {
+      "name": "查看 api.jar 进程",
+      "value": "ps -ef | grep api.jar | grep -v grep"
+    },
+    {
+      "name": "实时看 api.jar 输出",
+      "value": "tail -n 100 -f api.jar.out"
+    },
+    {
+      "name": "ping baidu.com",
+      "value": "ping -c 4 baidu.com"
+    },
+    {
+      "name": "解析 baidu.com",
+      "value": "getent hosts baidu.com || nslookup baidu.com"
+    },
+    {
+      "name": "ping 127.0.0.1",
+      "value": "ping -c 4 127.0.0.1"
+    },
+    {
+      "name": "解析 127.0.0.1",
+      "value": "getent hosts 127.0.0.1 || nslookup 127.0.0.1"
+    },
+    {
+      "name": "解析 8.8.8.8",
+      "value": "getent hosts 8.8.8.8 || nslookup 8.8.8.8"
+    },
+    {
+      "name": "ping 1.1.1.1",
+      "value": "ping -c 4 1.1.1.1"
+    },
+    {
+      "name": "解析 1.1.1.1",
+      "value": "getent hosts 1.1.1.1 || nslookup 1.1.1.1"
+    },
+    {
+      "name": "ping google.com",
+      "value": "ping -c 4 google.com"
+    },
+    {
+      "name": "解析 google.com",
+      "value": "getent hosts google.com || nslookup google.com"
+    },
+    {
+      "name": "firewalld 放行 22/tcp",
+      "value": "firewall-cmd --permanent --add-port=22/tcp && firewall-cmd --reload"
+    },
+    {
+      "name": "firewalld 查询 22",
+      "value": "firewall-cmd --query-port=22/tcp"
+    },
+    {
+      "name": "firewalld 放行 80/tcp",
+      "value": "firewall-cmd --permanent --add-port=80/tcp && firewall-cmd --reload"
+    },
+    {
+      "name": "firewalld 查询 80",
+      "value": "firewall-cmd --query-port=80/tcp"
+    },
+    {
+      "name": "firewalld 放行 443/tcp",
+      "value": "firewall-cmd --permanent --add-port=443/tcp && firewall-cmd --reload"
+    },
+    {
+      "name": "firewalld 查询 443",
+      "value": "firewall-cmd --query-port=443/tcp"
+    },
+    {
+      "name": "firewalld 放行 3306/tcp",
+      "value": "firewall-cmd --permanent --add-port=3306/tcp && firewall-cmd --reload"
+    },
+    {
+      "name": "firewalld 查询 3306",
+      "value": "firewall-cmd --query-port=3306/tcp"
+    },
+    {
+      "name": "firewalld 放行 8080/tcp",
+      "value": "firewall-cmd --permanent --add-port=8080/tcp && firewall-cmd --reload"
+    },
+    {
+      "name": "firewalld 查询 8080",
+      "value": "firewall-cmd --query-port=8080/tcp"
+    },
+    {
+      "name": "日志搜 ERROR",
+      "value": "grep -RIn 'ERROR' /var/log --include='*.log' | tail -50"
+    },
+    {
+      "name": "当前目录搜 ERROR",
+      "value": "grep -RIn 'ERROR' . | head -50"
+    },
+    {
+      "name": "日志搜 WARN",
+      "value": "grep -RIn 'WARN' /var/log --include='*.log' | tail -50"
+    },
+    {
+      "name": "当前目录搜 WARN",
+      "value": "grep -RIn 'WARN' . | head -50"
+    },
+    {
+      "name": "日志搜 Exception",
+      "value": "grep -RIn 'Exception' /var/log --include='*.log' | tail -50"
+    },
+    {
+      "name": "当前目录搜 Exception",
+      "value": "grep -RIn 'Exception' . | head -50"
+    },
+    {
+      "name": "日志搜 OutOfMemory",
+      "value": "grep -RIn 'OutOfMemory' /var/log --include='*.log' | tail -50"
+    },
+    {
+      "name": "当前目录搜 OutOfMemory",
+      "value": "grep -RIn 'OutOfMemory' . | head -50"
+    },
+    {
+      "name": "日志搜 timeout",
+      "value": "grep -RIn 'timeout' /var/log --include='*.log' | tail -50"
+    },
+    {
+      "name": "当前目录搜 timeout",
+      "value": "grep -RIn 'timeout' . | head -50"
+    },
+    {
+      "name": "日志搜 refused",
+      "value": "grep -RIn 'refused' /var/log --include='*.log' | tail -50"
+    },
+    {
+      "name": "当前目录搜 refused",
+      "value": "grep -RIn 'refused' . | head -50"
+    },
+    {
+      "name": "日志搜 denied",
+      "value": "grep -RIn 'denied' /var/log --include='*.log' | tail -50"
+    },
+    {
+      "name": "当前目录搜 denied",
+      "value": "grep -RIn 'denied' . | head -50"
+    },
+    {
+      "name": "查看 default 命名空间 Pod",
+      "value": "kubectl get pods -n default -o wide"
+    },
+    {
+      "name": "查看 default 事件",
+      "value": "kubectl get events -n default --sort-by=.lastTimestamp | tail -30"
+    },
+    {
+      "name": "查看 default Deployment",
+      "value": "kubectl get deploy -n default"
+    },
+    {
+      "name": "查看 default ConfigMap",
+      "value": "kubectl get cm -n default"
+    },
+    {
+      "name": "查看 default Secret",
+      "value": "kubectl get secret -n default"
+    },
+    {
+      "name": "查看 kube-system 命名空间 Pod",
+      "value": "kubectl get pods -n kube-system -o wide"
+    },
+    {
+      "name": "查看 kube-system 事件",
+      "value": "kubectl get events -n kube-system --sort-by=.lastTimestamp | tail -30"
+    },
+    {
+      "name": "查看 kube-system Deployment",
+      "value": "kubectl get deploy -n kube-system"
+    },
+    {
+      "name": "查看 kube-system ConfigMap",
+      "value": "kubectl get cm -n kube-system"
+    },
+    {
+      "name": "查看 kube-system Secret",
+      "value": "kubectl get secret -n kube-system"
+    },
+    {
+      "name": "查看 monitoring 命名空间 Pod",
+      "value": "kubectl get pods -n monitoring -o wide"
+    },
+    {
+      "name": "查看 monitoring 事件",
+      "value": "kubectl get events -n monitoring --sort-by=.lastTimestamp | tail -30"
+    },
+    {
+      "name": "查看 monitoring Deployment",
+      "value": "kubectl get deploy -n monitoring"
+    },
+    {
+      "name": "查看 monitoring ConfigMap",
+      "value": "kubectl get cm -n monitoring"
+    },
+    {
+      "name": "查看 monitoring Secret",
+      "value": "kubectl get secret -n monitoring"
+    },
+    {
+      "name": "查看 ingress-nginx 命名空间 Pod",
+      "value": "kubectl get pods -n ingress-nginx -o wide"
+    },
+    {
+      "name": "查看 ingress-nginx 事件",
+      "value": "kubectl get events -n ingress-nginx --sort-by=.lastTimestamp | tail -30"
+    },
+    {
+      "name": "查看 ingress-nginx Deployment",
+      "value": "kubectl get deploy -n ingress-nginx"
+    },
+    {
+      "name": "查看 ingress-nginx ConfigMap",
+      "value": "kubectl get cm -n ingress-nginx"
+    },
+    {
+      "name": "查看 ingress-nginx Secret",
+      "value": "kubectl get secret -n ingress-nginx"
+    },
+    {
+      "name": "查看 prod 命名空间 Pod",
+      "value": "kubectl get pods -n prod -o wide"
+    },
+    {
+      "name": "查看 prod 事件",
+      "value": "kubectl get events -n prod --sort-by=.lastTimestamp | tail -30"
+    },
+    {
+      "name": "查看 prod Deployment",
+      "value": "kubectl get deploy -n prod"
+    },
+    {
+      "name": "查看 prod ConfigMap",
+      "value": "kubectl get cm -n prod"
+    },
+    {
+      "name": "查看 prod Secret",
+      "value": "kubectl get secret -n prod"
+    },
+    {
+      "name": "查看 dev 命名空间 Pod",
+      "value": "kubectl get pods -n dev -o wide"
+    },
+    {
+      "name": "查看 dev 事件",
+      "value": "kubectl get events -n dev --sort-by=.lastTimestamp | tail -30"
+    },
+    {
+      "name": "查看 dev Deployment",
+      "value": "kubectl get deploy -n dev"
+    },
+    {
+      "name": "查看 dev ConfigMap",
+      "value": "kubectl get cm -n dev"
+    },
+    {
+      "name": "查看 dev Secret",
+      "value": "kubectl get secret -n dev"
+    },
+    {
+      "name": "MySQL 进库 mysql",
+      "value": "mysql -uroot -p mysql"
+    },
+    {
+      "name": "MySQL 显示 mysql 表",
+      "value": "mysql -uroot -p -e 'SHOW TABLES' mysql"
+    },
+    {
+      "name": "MySQL 进库 information_schema",
+      "value": "mysql -uroot -p information_schema"
+    },
+    {
+      "name": "MySQL 显示 information_schema 表",
+      "value": "mysql -uroot -p -e 'SHOW TABLES' information_schema"
+    },
+    {
+      "name": "MySQL 进库 test",
+      "value": "mysql -uroot -p test"
+    },
+    {
+      "name": "MySQL 显示 test 表",
+      "value": "mysql -uroot -p -e 'SHOW TABLES' test"
+    },
+    {
+      "name": "MySQL 进库 app",
+      "value": "mysql -uroot -p app"
+    },
+    {
+      "name": "MySQL 显示 app 表",
+      "value": "mysql -uroot -p -e 'SHOW TABLES' app"
+    },
+    {
+      "name": "Redis 扫描键 *",
+      "value": "redis-cli --scan --pattern '*' | head -50"
+    },
+    {
+      "name": "Redis 扫描键 user:*",
+      "value": "redis-cli --scan --pattern 'user:*' | head -50"
+    },
+    {
+      "name": "Redis 扫描键 session:*",
+      "value": "redis-cli --scan --pattern 'session:*' | head -50"
+    },
+    {
+      "name": "Redis 扫描键 cache:*",
+      "value": "redis-cli --scan --pattern 'cache:*' | head -50"
+    },
+    {
+      "name": "Redis 信息",
+      "value": "redis-cli INFO"
+    },
+    {
+      "name": "Redis 内存",
+      "value": "redis-cli INFO memory"
+    },
+    {
+      "name": "Redis 慢日志",
+      "value": "redis-cli SLOWLOG GET 20"
+    },
+    {
+      "name": "Mongo 状态",
+      "value": "mongosh --eval 'db.serverStatus()' --quiet"
+    },
+    {
+      "name": "查看 IP 转发",
+      "value": "sysctl net.ipv4.ip_forward"
+    },
+    {
+      "name": "临时设置 IP 转发",
+      "value": "sysctl -w net.ipv4.ip_forward=VALUE"
+    },
+    {
+      "name": "查看 文件句柄上限",
+      "value": "sysctl fs.file-max"
+    },
+    {
+      "name": "临时设置 文件句柄上限",
+      "value": "sysctl -w fs.file-max=VALUE"
+    },
+    {
+      "name": "查看 swappiness",
+      "value": "sysctl vm.swappiness"
+    },
+    {
+      "name": "临时设置 swappiness",
+      "value": "sysctl -w vm.swappiness=VALUE"
+    },
+    {
+      "name": "查看 somaxconn",
+      "value": "sysctl net.core.somaxconn"
+    },
+    {
+      "name": "临时设置 somaxconn",
+      "value": "sysctl -w net.core.somaxconn=VALUE"
+    },
+    {
+      "name": "查看 tcp_tw_reuse",
+      "value": "sysctl net.ipv4.tcp_tw_reuse"
+    },
+    {
+      "name": "临时设置 tcp_tw_reuse",
+      "value": "sysctl -w net.ipv4.tcp_tw_reuse=VALUE"
+    },
+    {
+      "name": "查看 pid_max",
+      "value": "sysctl kernel.pid_max"
+    },
+    {
+      "name": "临时设置 pid_max",
+      "value": "sysctl -w kernel.pid_max=VALUE"
+    },
+    {
+      "name": "查看 inotify watches",
+      "value": "sysctl fs.inotify.max_user_watches"
+    },
+    {
+      "name": "临时设置 inotify watches",
+      "value": "sysctl -w fs.inotify.max_user_watches=VALUE"
+    },
+    {
+      "name": "nginx 今天日志",
+      "value": "journalctl -u nginx --since today --no-pager | tail -100"
+    },
+    {
+      "name": "nginx 一小时日志",
+      "value": "journalctl -u nginx --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "httpd 今天日志",
+      "value": "journalctl -u httpd --since today --no-pager | tail -100"
+    },
+    {
+      "name": "httpd 一小时日志",
+      "value": "journalctl -u httpd --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "apache2 今天日志",
+      "value": "journalctl -u apache2 --since today --no-pager | tail -100"
+    },
+    {
+      "name": "apache2 一小时日志",
+      "value": "journalctl -u apache2 --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "mysql 今天日志",
+      "value": "journalctl -u mysql --since today --no-pager | tail -100"
+    },
+    {
+      "name": "mysql 一小时日志",
+      "value": "journalctl -u mysql --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "mariadb 今天日志",
+      "value": "journalctl -u mariadb --since today --no-pager | tail -100"
+    },
+    {
+      "name": "mariadb 一小时日志",
+      "value": "journalctl -u mariadb --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "redis 今天日志",
+      "value": "journalctl -u redis --since today --no-pager | tail -100"
+    },
+    {
+      "name": "redis 一小时日志",
+      "value": "journalctl -u redis --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "postgresql 今天日志",
+      "value": "journalctl -u postgresql --since today --no-pager | tail -100"
+    },
+    {
+      "name": "postgresql 一小时日志",
+      "value": "journalctl -u postgresql --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "docker 今天日志",
+      "value": "journalctl -u docker --since today --no-pager | tail -100"
+    },
+    {
+      "name": "docker 一小时日志",
+      "value": "journalctl -u docker --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "containerd 今天日志",
+      "value": "journalctl -u containerd --since today --no-pager | tail -100"
+    },
+    {
+      "name": "containerd 一小时日志",
+      "value": "journalctl -u containerd --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "sshd 今天日志",
+      "value": "journalctl -u sshd --since today --no-pager | tail -100"
+    },
+    {
+      "name": "sshd 一小时日志",
+      "value": "journalctl -u sshd --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "cron 今天日志",
+      "value": "journalctl -u cron --since today --no-pager | tail -100"
+    },
+    {
+      "name": "cron 一小时日志",
+      "value": "journalctl -u cron --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "rsyslog 今天日志",
+      "value": "journalctl -u rsyslog --since today --no-pager | tail -100"
+    },
+    {
+      "name": "rsyslog 一小时日志",
+      "value": "journalctl -u rsyslog --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "firewalld 今天日志",
+      "value": "journalctl -u firewalld --since today --no-pager | tail -100"
+    },
+    {
+      "name": "firewalld 一小时日志",
+      "value": "journalctl -u firewalld --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "NetworkManager 今天日志",
+      "value": "journalctl -u NetworkManager --since today --no-pager | tail -100"
+    },
+    {
+      "name": "NetworkManager 一小时日志",
+      "value": "journalctl -u NetworkManager --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "kubelet 今天日志",
+      "value": "journalctl -u kubelet --since today --no-pager | tail -100"
+    },
+    {
+      "name": "kubelet 一小时日志",
+      "value": "journalctl -u kubelet --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "php-fpm 今天日志",
+      "value": "journalctl -u php-fpm --since today --no-pager | tail -100"
+    },
+    {
+      "name": "php-fpm 一小时日志",
+      "value": "journalctl -u php-fpm --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "tomcat 今天日志",
+      "value": "journalctl -u tomcat --since today --no-pager | tail -100"
+    },
+    {
+      "name": "tomcat 一小时日志",
+      "value": "journalctl -u tomcat --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "rabbitmq-server 今天日志",
+      "value": "journalctl -u rabbitmq-server --since today --no-pager | tail -100"
+    },
+    {
+      "name": "rabbitmq-server 一小时日志",
+      "value": "journalctl -u rabbitmq-server --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "mongod 今天日志",
+      "value": "journalctl -u mongod --since today --no-pager | tail -100"
+    },
+    {
+      "name": "mongod 一小时日志",
+      "value": "journalctl -u mongod --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "elasticsearch 今天日志",
+      "value": "journalctl -u elasticsearch --since today --no-pager | tail -100"
+    },
+    {
+      "name": "elasticsearch 一小时日志",
+      "value": "journalctl -u elasticsearch --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "prometheus 今天日志",
+      "value": "journalctl -u prometheus --since today --no-pager | tail -100"
+    },
+    {
+      "name": "prometheus 一小时日志",
+      "value": "journalctl -u prometheus --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "grafana-server 今天日志",
+      "value": "journalctl -u grafana-server --since today --no-pager | tail -100"
+    },
+    {
+      "name": "grafana-server 一小时日志",
+      "value": "journalctl -u grafana-server --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "node_exporter 今天日志",
+      "value": "journalctl -u node_exporter --since today --no-pager | tail -100"
+    },
+    {
+      "name": "node_exporter 一小时日志",
+      "value": "journalctl -u node_exporter --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "fail2ban 今天日志",
+      "value": "journalctl -u fail2ban --since today --no-pager | tail -100"
+    },
+    {
+      "name": "fail2ban 一小时日志",
+      "value": "journalctl -u fail2ban --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "ntpd 今天日志",
+      "value": "journalctl -u ntpd --since today --no-pager | tail -100"
+    },
+    {
+      "name": "ntpd 一小时日志",
+      "value": "journalctl -u ntpd --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "chronyd 今天日志",
+      "value": "journalctl -u chronyd --since today --no-pager | tail -100"
+    },
+    {
+      "name": "chronyd 一小时日志",
+      "value": "journalctl -u chronyd --since '1 hour ago' --no-pager"
+    },
+    {
+      "name": "查看 /dev/sda 分区",
+      "value": "fdisk -l /dev/sda"
+    },
+    {
+      "name": "SMART /dev/sda",
+      "value": "smartctl -H /dev/sda"
+    },
+    {
+      "name": "IO 统计 sda",
+      "value": "iostat -xd sda 1 3"
+    },
+    {
+      "name": "查看 /dev/sdb 分区",
+      "value": "fdisk -l /dev/sdb"
+    },
+    {
+      "name": "SMART /dev/sdb",
+      "value": "smartctl -H /dev/sdb"
+    },
+    {
+      "name": "IO 统计 sdb",
+      "value": "iostat -xd sdb 1 3"
+    },
+    {
+      "name": "查看 /dev/nvme0n1 分区",
+      "value": "fdisk -l /dev/nvme0n1"
+    },
+    {
+      "name": "SMART /dev/nvme0n1",
+      "value": "smartctl -H /dev/nvme0n1"
+    },
+    {
+      "name": "IO 统计 nvme0n1",
+      "value": "iostat -xd nvme0n1 1 3"
+    },
+    {
+      "name": "查看 /dev/vda 分区",
+      "value": "fdisk -l /dev/vda"
+    },
+    {
+      "name": "SMART /dev/vda",
+      "value": "smartctl -H /dev/vda"
+    },
+    {
+      "name": "IO 统计 vda",
+      "value": "iostat -xd vda 1 3"
+    },
+    {
+      "name": "查看 /dev/vdb 分区",
+      "value": "fdisk -l /dev/vdb"
+    },
+    {
+      "name": "SMART /dev/vdb",
+      "value": "smartctl -H /dev/vdb"
+    },
+    {
+      "name": "IO 统计 vdb",
+      "value": "iostat -xd vdb 1 3"
+    },
+    {
+      "name": "查看证书 baidu.com:443",
+      "value": "echo | openssl s_client -servername baidu.com -connect baidu.com:443 2>/dev/null | openssl x509 -noout -dates -subject"
+    },
+    {
+      "name": "查看证书 127.0.0.1:443",
+      "value": "echo | openssl s_client -servername 127.0.0.1 -connect 127.0.0.1:443 2>/dev/null | openssl x509 -noout -dates -subject"
+    },
+    {
+      "name": "查看证书 localhost:8443",
+      "value": "echo | openssl s_client -servername localhost -connect localhost:8443 2>/dev/null | openssl x509 -noout -dates -subject"
+    },
+    {
+      "name": "npm 全局列表",
+      "value": "npm list -g --depth=0"
+    },
+    {
+      "name": "pip 列表",
+      "value": "pip3 list"
+    },
+    {
+      "name": "pip 过期包",
+      "value": "pip3 list --outdated"
+    },
+    {
+      "name": "go 环境",
+      "value": "go env"
+    },
+    {
+      "name": "java 版本",
+      "value": "java -version"
+    },
+    {
+      "name": "javac 版本",
+      "value": "javac -version"
+    },
+    {
+      "name": "mvn 版本",
+      "value": "mvn -v"
+    },
+    {
+      "name": "node 版本",
+      "value": "node -v && npm -v"
+    },
+    {
+      "name": "python 版本",
+      "value": "python3 --version"
+    },
+    {
+      "name": "gcc 版本",
+      "value": "gcc --version | head -1"
+    },
+    {
+      "name": "备份目录 /etc",
+      "value": "tar -czvf /tmp/backup-$(date +%F).tar.gz /etc"
+    },
+    {
+      "name": "rsync 备份 /etc",
+      "value": "rsync -avz --delete /etc/ /backup/etc/"
+    },
+    {
+      "name": "备份目录 /home",
+      "value": "tar -czvf /tmp/backup-$(date +%F).tar.gz /home"
+    },
+    {
+      "name": "rsync 备份 /home",
+      "value": "rsync -avz --delete /home/ /backup/home/"
+    },
+    {
+      "name": "备份目录 /var/www",
+      "value": "tar -czvf /tmp/backup-$(date +%F).tar.gz /var/www"
+    },
+    {
+      "name": "rsync 备份 /var/www",
+      "value": "rsync -avz --delete /var/www/ /backup/var/www/"
+    },
+    {
+      "name": "备份目录 /opt/app",
+      "value": "tar -czvf /tmp/backup-$(date +%F).tar.gz /opt/app"
+    },
+    {
+      "name": "rsync 备份 /opt/app",
+      "value": "rsync -avz --delete /opt/app/ /backup/opt/app/"
+    },
+    {
+      "name": "备份目录 /data",
+      "value": "tar -czvf /tmp/backup-$(date +%F).tar.gz /data"
+    },
+    {
+      "name": "rsync 备份 /data",
+      "value": "rsync -avz --delete /data/ /backup/data/"
+    },
+    {
+      "name": "查看权限 /etc/passwd",
+      "value": "ls -ld /etc/passwd"
+    },
+    {
+      "name": "查看属主 /etc/passwd",
+      "value": "stat -c '%U:%G %a %n' /etc/passwd"
+    },
+    {
+      "name": "查看权限 /etc/shadow",
+      "value": "ls -ld /etc/shadow"
+    },
+    {
+      "name": "查看属主 /etc/shadow",
+      "value": "stat -c '%U:%G %a %n' /etc/shadow"
+    },
+    {
+      "name": "查看权限 /etc/ssh/sshd_config",
+      "value": "ls -ld /etc/ssh/sshd_config"
+    },
+    {
+      "name": "查看属主 /etc/ssh/sshd_config",
+      "value": "stat -c '%U:%G %a %n' /etc/ssh/sshd_config"
+    },
+    {
+      "name": "查看权限 /var/log",
+      "value": "ls -ld /var/log"
+    },
+    {
+      "name": "查看属主 /var/log",
+      "value": "stat -c '%U:%G %a %n' /var/log"
+    },
+    {
+      "name": "查看权限 /tmp",
+      "value": "ls -ld /tmp"
+    },
+    {
+      "name": "查看属主 /tmp",
+      "value": "stat -c '%U:%G %a %n' /tmp"
+    },
+    {
+      "name": "eth0 丢包统计",
+      "value": "ip -s link show eth0 | sed -n '1,8p'"
+    },
+    {
+      "name": "ethtool eth0",
+      "value": "ethtool eth0"
+    },
+    {
+      "name": "ens33 丢包统计",
+      "value": "ip -s link show ens33 | sed -n '1,8p'"
+    },
+    {
+      "name": "ethtool ens33",
+      "value": "ethtool ens33"
+    },
+    {
+      "name": "ens160 丢包统计",
+      "value": "ip -s link show ens160 | sed -n '1,8p'"
+    },
+    {
+      "name": "ethtool ens160",
+      "value": "ethtool ens160"
+    },
+    {
+      "name": "enp0s3 丢包统计",
+      "value": "ip -s link show enp0s3 | sed -n '1,8p'"
+    },
+    {
+      "name": "ethtool enp0s3",
+      "value": "ethtool enp0s3"
+    },
+    {
+      "name": "wlan0 丢包统计",
+      "value": "ip -s link show wlan0 | sed -n '1,8p'"
+    },
+    {
+      "name": "ethtool wlan0",
+      "value": "ethtool wlan0"
+    },
+    {
+      "name": "docker0 丢包统计",
+      "value": "ip -s link show docker0 | sed -n '1,8p'"
+    },
+    {
+      "name": "ethtool docker0",
+      "value": "ethtool docker0"
+    },
+    {
+      "name": "br0 丢包统计",
+      "value": "ip -s link show br0 | sed -n '1,8p'"
+    },
+    {
+      "name": "ethtool br0",
+      "value": "ethtool br0"
+    },
+    {
+      "name": "查找 java 进程",
+      "value": "ps -ef | grep java | grep -v grep"
+    },
+    {
+      "name": "top 看 java",
+      "value": "top -b -n 1 | grep java | head"
+    },
+    {
+      "name": "pgrep java",
+      "value": "pgrep -a java"
+    },
+    {
+      "name": "杀光 java（慎用）",
+      "value": "pkill -9 java"
+    },
+    {
+      "name": "查找 python 进程",
+      "value": "ps -ef | grep python | grep -v grep"
+    },
+    {
+      "name": "top 看 python",
+      "value": "top -b -n 1 | grep python | head"
+    },
+    {
+      "name": "pgrep python",
+      "value": "pgrep -a python"
+    },
+    {
+      "name": "杀光 python（慎用）",
+      "value": "pkill -9 python"
+    },
+    {
+      "name": "查找 node 进程",
+      "value": "ps -ef | grep node | grep -v grep"
+    },
+    {
+      "name": "top 看 node",
+      "value": "top -b -n 1 | grep node | head"
+    },
+    {
+      "name": "pgrep node",
+      "value": "pgrep -a node"
+    },
+    {
+      "name": "杀光 node（慎用）",
+      "value": "pkill -9 node"
+    },
+    {
+      "name": "查找 nginx 进程",
+      "value": "ps -ef | grep nginx | grep -v grep"
+    },
+    {
+      "name": "top 看 nginx",
+      "value": "top -b -n 1 | grep nginx | head"
+    },
+    {
+      "name": "pgrep nginx",
+      "value": "pgrep -a nginx"
+    },
+    {
+      "name": "杀光 nginx（慎用）",
+      "value": "pkill -9 nginx"
+    },
+    {
+      "name": "查找 mysql 进程",
+      "value": "ps -ef | grep mysql | grep -v grep"
+    },
+    {
+      "name": "top 看 mysql",
+      "value": "top -b -n 1 | grep mysql | head"
+    },
+    {
+      "name": "pgrep mysql",
+      "value": "pgrep -a mysql"
+    },
+    {
+      "name": "杀光 mysql（慎用）",
+      "value": "pkill -9 mysql"
+    },
+    {
+      "name": "查找 redis-server 进程",
+      "value": "ps -ef | grep redis-server | grep -v grep"
+    },
+    {
+      "name": "top 看 redis-server",
+      "value": "top -b -n 1 | grep redis-server | head"
+    },
+    {
+      "name": "pgrep redis-server",
+      "value": "pgrep -a redis-server"
+    },
+    {
+      "name": "杀光 redis-server（慎用）",
+      "value": "pkill -9 redis-server"
+    },
+    {
+      "name": "查找 dockerd 进程",
+      "value": "ps -ef | grep dockerd | grep -v grep"
+    },
+    {
+      "name": "top 看 dockerd",
+      "value": "top -b -n 1 | grep dockerd | head"
+    },
+    {
+      "name": "pgrep dockerd",
+      "value": "pgrep -a dockerd"
+    },
+    {
+      "name": "杀光 dockerd（慎用）",
+      "value": "pkill -9 dockerd"
+    },
+    {
+      "name": "查找 containerd 进程",
+      "value": "ps -ef | grep containerd | grep -v grep"
+    },
+    {
+      "name": "top 看 containerd",
+      "value": "top -b -n 1 | grep containerd | head"
+    },
+    {
+      "name": "pgrep containerd",
+      "value": "pgrep -a containerd"
+    },
+    {
+      "name": "杀光 containerd（慎用）",
+      "value": "pkill -9 containerd"
+    },
+    {
+      "name": "查找 kubelet 进程",
+      "value": "ps -ef | grep kubelet | grep -v grep"
+    },
+    {
+      "name": "top 看 kubelet",
+      "value": "top -b -n 1 | grep kubelet | head"
+    },
+    {
+      "name": "pgrep kubelet",
+      "value": "pgrep -a kubelet"
+    },
+    {
+      "name": "杀光 kubelet（慎用）",
+      "value": "pkill -9 kubelet"
+    },
+    {
+      "name": "查找 sshd 进程",
+      "value": "ps -ef | grep sshd | grep -v grep"
+    },
+    {
+      "name": "top 看 sshd",
+      "value": "top -b -n 1 | grep sshd | head"
+    },
+    {
+      "name": "pgrep sshd",
+      "value": "pgrep -a sshd"
+    },
+    {
+      "name": "杀光 sshd（慎用）",
+      "value": "pkill -9 sshd"
+    },
+    {
+      "name": "查看 locale",
+      "value": "locale"
+    },
+    {
+      "name": "查看语言环境",
+      "value": "echo $LANG"
+    },
+    {
+      "name": "硬件时钟",
+      "value": "hwclock -r"
+    },
+    {
+      "name": "同步硬件时钟",
+      "value": "hwclock -w"
+    },
+    {
+      "name": "打包 logs.tar.gz",
+      "value": "tar -czvf logs.tar.gz logs"
+    },
+    {
+      "name": "解压 logs.tar.gz",
+      "value": "tar -xzvf logs.tar.gz"
+    },
+    {
+      "name": "列出 logs.tar.gz",
+      "value": "tar -tzvf logs.tar.gz | head"
+    },
+    {
+      "name": "打包 conf.tar.gz",
+      "value": "tar -czvf conf.tar.gz conf"
+    },
+    {
+      "name": "解压 conf.tar.gz",
+      "value": "tar -xzvf conf.tar.gz"
+    },
+    {
+      "name": "列出 conf.tar.gz",
+      "value": "tar -tzvf conf.tar.gz | head"
+    },
+    {
+      "name": "打包 backup.tar.gz",
+      "value": "tar -czvf backup.tar.gz backup"
+    },
+    {
+      "name": "解压 backup.tar.gz",
+      "value": "tar -xzvf backup.tar.gz"
+    },
+    {
+      "name": "列出 backup.tar.gz",
+      "value": "tar -tzvf backup.tar.gz | head"
+    },
+    {
+      "name": "打包 release.tar.gz",
+      "value": "tar -czvf release.tar.gz release"
+    },
+    {
+      "name": "解压 release.tar.gz",
+      "value": "tar -xzvf release.tar.gz"
+    },
+    {
+      "name": "列出 release.tar.gz",
+      "value": "tar -tzvf release.tar.gz | head"
+    },
+    {
+      "name": "打包 data.tar.gz",
+      "value": "tar -czvf data.tar.gz data"
+    },
+    {
+      "name": "解压 data.tar.gz",
+      "value": "tar -xzvf data.tar.gz"
+    },
+    {
+      "name": "列出 data.tar.gz",
+      "value": "tar -tzvf data.tar.gz | head"
+    },
+    {
+      "name": "探测本地 /",
+      "value": "curl -sS -m 3 http://127.0.0.1/"
+    },
+    {
+      "name": "探测本地 HTTPS /",
+      "value": "curl -sk -m 3 https://127.0.0.1/"
+    },
+    {
+      "name": "探测本地 /health",
+      "value": "curl -sS -m 3 http://127.0.0.1/health"
+    },
+    {
+      "name": "探测本地 HTTPS /health",
+      "value": "curl -sk -m 3 https://127.0.0.1/health"
+    },
+    {
+      "name": "探测本地 /actuator/health",
+      "value": "curl -sS -m 3 http://127.0.0.1/actuator/health"
+    },
+    {
+      "name": "探测本地 HTTPS /actuator/health",
+      "value": "curl -sk -m 3 https://127.0.0.1/actuator/health"
+    },
+    {
+      "name": "探测本地 /api/status",
+      "value": "curl -sS -m 3 http://127.0.0.1/api/status"
+    },
+    {
+      "name": "探测本地 HTTPS /api/status",
+      "value": "curl -sk -m 3 https://127.0.0.1/api/status"
+    },
+    {
+      "name": "探测本地 /metrics",
+      "value": "curl -sS -m 3 http://127.0.0.1/metrics"
+    },
+    {
+      "name": "探测本地 HTTPS /metrics",
+      "value": "curl -sk -m 3 https://127.0.0.1/metrics"
+    },
+    {
+      "name": "探测本地 /ready",
+      "value": "curl -sS -m 3 http://127.0.0.1/ready"
+    },
+    {
+      "name": "探测本地 HTTPS /ready",
+      "value": "curl -sk -m 3 https://127.0.0.1/ready"
+    },
+    {
+      "name": "探测本地 /live",
+      "value": "curl -sS -m 3 http://127.0.0.1/live"
+    },
+    {
+      "name": "探测本地 HTTPS /live",
+      "value": "curl -sk -m 3 https://127.0.0.1/live"
+    },
+    {
+      "name": "查找大于 10M 的文件",
+      "value": "find / -type f -size +10M 2>/dev/null | head -50"
+    },
+    {
+      "name": "查找大于 50M 的文件",
+      "value": "find / -type f -size +50M 2>/dev/null | head -50"
+    },
+    {
+      "name": "查找大于 100M 的文件",
+      "value": "find / -type f -size +100M 2>/dev/null | head -50"
+    },
+    {
+      "name": "查找大于 500M 的文件",
+      "value": "find / -type f -size +500M 2>/dev/null | head -50"
+    },
+    {
+      "name": "查找大于 1G 的文件",
+      "value": "find / -type f -size +1G 2>/dev/null | head -50"
+    },
+    {
+      "name": "git remote",
+      "value": "git remote -v"
+    },
+    {
+      "name": "git stash 列表",
+      "value": "git stash list"
+    },
+    {
+      "name": "git 当前分支",
+      "value": "git rev-parse --abbrev-ref HEAD"
+    },
+    {
+      "name": "git 最近作者",
+      "value": "git shortlog -sn | head"
+    },
+    {
+      "name": "Docker 网络",
+      "value": "docker network ls"
+    },
+    {
+      "name": "Docker 卷",
+      "value": "docker volume ls"
+    },
+    {
+      "name": "Docker 磁盘占用",
+      "value": "docker system df"
+    },
+    {
+      "name": "检查 Docker 网络 bridge",
+      "value": "docker network inspect bridge --format '{{.Name}}'"
+    },
+    {
+      "name": "检查 Docker 网络 host",
+      "value": "docker network inspect host --format '{{.Name}}'"
+    },
+    {
+      "name": "检查 Docker 网络 none",
+      "value": "docker network inspect none --format '{{.Name}}'"
+    },
+    {
+      "name": "列出 timers",
+      "value": "systemctl list-timers --all"
+    },
+    {
+      "name": "列出 sockets",
+      "value": "systemctl list-sockets --all"
+    },
+    {
+      "name": "列出 unit 文件",
+      "value": "systemctl list-unit-files --type=service | head -50"
+    },
+    {
+      "name": "空密码账户",
+      "value": "awk -F: '($2==\"\"){print $1}' /etc/shadow"
+    },
+    {
+      "name": "UID=0 账户",
+      "value": "awk -F: '($3==0){print $1}' /etc/passwd"
+    },
+    {
+      "name": "可登录账户",
+      "value": "grep -E '/bin/(bash|sh)$' /etc/passwd"
+    },
+    {
+      "name": "世界可写文件（抽样）",
+      "value": "find / -xdev -type f -perm -0002 2>/dev/null | head -50"
+    },
+    {
+      "name": "SUID 文件（抽样）",
+      "value": "find / -xdev -perm -4000 2>/dev/null | head -50"
+    },
+    {
+      "name": "xz 压缩",
+      "value": "xz -k FILE"
+    },
+    {
+      "name": "xz 解压",
+      "value": "xz -d FILE.xz"
+    },
+    {
+      "name": "zstd 压缩",
+      "value": "zstd -19 FILE"
+    },
+    {
+      "name": "zstd 解压",
+      "value": "zstd -d FILE.zst"
+    },
+    {
+      "name": "tmux 新建会话",
+      "value": "tmux new -s work"
+    },
+    {
+      "name": "tmux 列会话",
+      "value": "tmux ls"
+    },
+    {
+      "name": "tmux 接入",
+      "value": "tmux attach -t work"
+    },
+    {
+      "name": "screen 列表",
+      "value": "screen -ls"
+    },
+    {
+      "name": "用 114.114.114.114 解析 baidu.com",
+      "value": "dig @114.114.114.114 baidu.com +short"
+    },
+    {
+      "name": "用 8.8.8.8 解析 baidu.com",
+      "value": "dig @8.8.8.8 baidu.com +short"
+    },
+    {
+      "name": "用 1.1.1.1 解析 baidu.com",
+      "value": "dig @1.1.1.1 baidu.com +short"
+    },
+    {
+      "name": "用 223.5.5.5 解析 baidu.com",
+      "value": "dig @223.5.5.5 baidu.com +short"
+    },
+    {
+      "name": "查看 /etc/hosts",
+      "value": "cat /etc/hosts"
+    },
+    {
+      "name": "编辑 /etc/hosts",
+      "value": "vi /etc/hosts"
+    },
+    {
+      "name": "查看 /etc/fstab",
+      "value": "cat /etc/fstab"
+    },
+    {
+      "name": "编辑 /etc/fstab",
+      "value": "vi /etc/fstab"
+    },
+    {
+      "name": "查看 /etc/profile",
+      "value": "cat /etc/profile"
+    },
+    {
+      "name": "编辑 /etc/profile",
+      "value": "vi /etc/profile"
+    },
+    {
+      "name": "查看 /etc/bashrc",
+      "value": "cat /etc/bashrc"
+    },
+    {
+      "name": "编辑 /etc/bashrc",
+      "value": "vi /etc/bashrc"
+    },
+    {
+      "name": "查看 /etc/environment",
+      "value": "cat /etc/environment"
+    },
+    {
+      "name": "编辑 /etc/environment",
+      "value": "vi /etc/environment"
+    },
+    {
+      "name": "查看 /etc/security/limits.conf",
+      "value": "cat /etc/security/limits.conf"
+    },
+    {
+      "name": "编辑 /etc/security/limits.conf",
+      "value": "vi /etc/security/limits.conf"
+    },
+    {
+      "name": "查看 /etc/sysctl.conf",
+      "value": "cat /etc/sysctl.conf"
+    },
+    {
+      "name": "编辑 /etc/sysctl.conf",
+      "value": "vi /etc/sysctl.conf"
+    },
+    {
+      "name": "查看 /etc/crontab",
+      "value": "cat /etc/crontab"
+    },
+    {
+      "name": "编辑 /etc/crontab",
+      "value": "vi /etc/crontab"
+    },
+    {
+      "name": "检测端口 3000 是否监听",
+      "value": "ss -lptn 'sport = :3000'"
+    },
+    {
+      "name": "curl 端口 3000",
+      "value": "curl -sS -m 3 -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:3000/"
+    },
+    {
+      "name": "检测端口 3001 是否监听",
+      "value": "ss -lptn 'sport = :3001'"
+    },
+    {
+      "name": "curl 端口 3001",
+      "value": "curl -sS -m 3 -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:3001/"
+    },
+    {
+      "name": "检测端口 4000 是否监听",
+      "value": "ss -lptn 'sport = :4000'"
+    },
+    {
+      "name": "curl 端口 4000",
+      "value": "curl -sS -m 3 -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:4000/"
+    },
+    {
+      "name": "检测端口 5000 是否监听",
+      "value": "ss -lptn 'sport = :5000'"
+    },
+    {
+      "name": "curl 端口 5000",
+      "value": "curl -sS -m 3 -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:5000/"
+    },
+    {
+      "name": "检测端口 5601 是否监听",
+      "value": "ss -lptn 'sport = :5601'"
+    },
+    {
+      "name": "curl 端口 5601",
+      "value": "curl -sS -m 3 -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:5601/"
+    },
+    {
+      "name": "检测端口 7001 是否监听",
+      "value": "ss -lptn 'sport = :7001'"
+    },
+    {
+      "name": "curl 端口 7001",
+      "value": "curl -sS -m 3 -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:7001/"
+    },
+    {
+      "name": "检测端口 8000 是否监听",
+      "value": "ss -lptn 'sport = :8000'"
+    },
+    {
+      "name": "curl 端口 8000",
+      "value": "curl -sS -m 3 -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:8000/"
+    },
+    {
+      "name": "检测端口 8081 是否监听",
+      "value": "ss -lptn 'sport = :8081'"
+    },
+    {
+      "name": "curl 端口 8081",
+      "value": "curl -sS -m 3 -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:8081/"
+    },
+    {
+      "name": "检测端口 8088 是否监听",
+      "value": "ss -lptn 'sport = :8088'"
+    },
+    {
+      "name": "curl 端口 8088",
+      "value": "curl -sS -m 3 -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:8088/"
+    },
+    {
+      "name": "检测端口 8090 是否监听",
+      "value": "ss -lptn 'sport = :8090'"
+    },
+    {
+      "name": "curl 端口 8090",
+      "value": "curl -sS -m 3 -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:8090/"
+    },
+    {
+      "name": "检测端口 8888 是否监听",
+      "value": "ss -lptn 'sport = :8888'"
+    },
+    {
+      "name": "curl 端口 8888",
+      "value": "curl -sS -m 3 -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:8888/"
+    },
+    {
+      "name": "检测端口 9090 是否监听",
+      "value": "ss -lptn 'sport = :9090'"
+    },
+    {
+      "name": "curl 端口 9090",
+      "value": "curl -sS -m 3 -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:9090/"
+    },
+    {
+      "name": "检测端口 9092 是否监听",
+      "value": "ss -lptn 'sport = :9092'"
+    },
+    {
+      "name": "curl 端口 9092",
+      "value": "curl -sS -m 3 -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:9092/"
+    },
+    {
+      "name": "检测端口 9411 是否监听",
+      "value": "ss -lptn 'sport = :9411'"
+    },
+    {
+      "name": "curl 端口 9411",
+      "value": "curl -sS -m 3 -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:9411/"
+    },
+    {
+      "name": "CPU 频率",
+      "value": "cat /proc/cpuinfo | grep MHz | head"
+    },
+    {
+      "name": "负载详细",
+      "value": "cat /proc/loadavg"
+    },
+    {
+      "name": "上下文切换",
+      "value": "vmstat 1 3"
+    },
+    {
+      "name": "中断统计",
+      "value": "cat /proc/interrupts | head"
+    },
+    {
+      "name": "软中断",
+      "value": "cat /proc/softirqs | head"
+    },
+    {
+      "name": "是否安装 curl",
+      "value": "command -v curl || which curl"
+    },
+    {
+      "name": "rpm 查 curl",
+      "value": "rpm -q curl 2>/dev/null || dpkg -l curl 2>/dev/null | tail -1"
+    },
+    {
+      "name": "是否安装 wget",
+      "value": "command -v wget || which wget"
+    },
+    {
+      "name": "rpm 查 wget",
+      "value": "rpm -q wget 2>/dev/null || dpkg -l wget 2>/dev/null | tail -1"
+    },
+    {
+      "name": "是否安装 vim",
+      "value": "command -v vim || which vim"
+    },
+    {
+      "name": "rpm 查 vim",
+      "value": "rpm -q vim 2>/dev/null || dpkg -l vim 2>/dev/null | tail -1"
+    },
+    {
+      "name": "是否安装 git",
+      "value": "command -v git || which git"
+    },
+    {
+      "name": "rpm 查 git",
+      "value": "rpm -q git 2>/dev/null || dpkg -l git 2>/dev/null | tail -1"
+    },
+    {
+      "name": "是否安装 htop",
+      "value": "command -v htop || which htop"
+    },
+    {
+      "name": "rpm 查 htop",
+      "value": "rpm -q htop 2>/dev/null || dpkg -l htop 2>/dev/null | tail -1"
+    },
+    {
+      "name": "是否安装 net-tools",
+      "value": "command -v net-tools || which net-tools"
+    },
+    {
+      "name": "rpm 查 net-tools",
+      "value": "rpm -q net-tools 2>/dev/null || dpkg -l net-tools 2>/dev/null | tail -1"
+    },
+    {
+      "name": "是否安装 tcpdump",
+      "value": "command -v tcpdump || which tcpdump"
+    },
+    {
+      "name": "rpm 查 tcpdump",
+      "value": "rpm -q tcpdump 2>/dev/null || dpkg -l tcpdump 2>/dev/null | tail -1"
+    },
+    {
+      "name": "是否安装 lsof",
+      "value": "command -v lsof || which lsof"
+    },
+    {
+      "name": "rpm 查 lsof",
+      "value": "rpm -q lsof 2>/dev/null || dpkg -l lsof 2>/dev/null | tail -1"
+    },
+    {
+      "name": "是否安装 jq",
+      "value": "command -v jq || which jq"
+    },
+    {
+      "name": "rpm 查 jq",
+      "value": "rpm -q jq 2>/dev/null || dpkg -l jq 2>/dev/null | tail -1"
+    },
+    {
+      "name": "是否安装 tree",
+      "value": "command -v tree || which tree"
+    },
+    {
+      "name": "rpm 查 tree",
+      "value": "rpm -q tree 2>/dev/null || dpkg -l tree 2>/dev/null | tail -1"
+    },
+    {
+      "name": "当前 shell",
+      "value": "echo $SHELL"
+    },
+    {
+      "name": "当前工作目录",
+      "value": "pwd"
+    },
+    {
+      "name": "目录栈",
+      "value": "dirs -v"
+    },
+    {
+      "name": "别名列表",
+      "value": "alias"
+    },
+    {
+      "name": "函数列表",
+      "value": "declare -F | head"
+    },
+    {
+      "name": "最近 20 条历史",
+      "value": "history 20"
+    },
+    {
+      "name": "磁盘 inode Top 目录",
+      "value": "find / -xdev -printf '%h\\n' 2>/dev/null | sort | uniq -c | sort -nr | head"
+    },
+    {
+      "name": "nginx 配置检测",
+      "value": "nginx -t"
+    },
+    {
+      "name": "nginx 重载",
+      "value": "nginx -s reload"
+    },
+    {
+      "name": "apache 配置检测",
+      "value": "apachectl configtest || httpd -t"
+    },
+    {
+      "name": "查看 nginx 编译参数",
+      "value": "nginx -V"
+    },
+    {
+      "name": "chrony 源",
+      "value": "chronyc sources -v"
+    },
+    {
+      "name": "ntp 对时状态",
+      "value": "ntpq -p"
+    },
+    {
+      "name": "手动对时（date）",
+      "value": "date -s '2026-01-01 12:00:00'"
+    },
+    {
+      "name": "查看 swap",
+      "value": "swapon --show"
+    },
+    {
+      "name": "清理 page cache（慎用）",
+      "value": "sync; echo 3 > /proc/sys/vm/drop_caches"
+    },
+    {
+      "name": "内存压力",
+      "value": "cat /proc/pressure/memory 2>/dev/null"
+    },
+    {
+      "name": "CPU 压力",
+      "value": "cat /proc/pressure/cpu 2>/dev/null"
+    },
+    {
+      "name": "IO 压力",
+      "value": "cat /proc/pressure/io 2>/dev/null"
+    },
+    {
+      "name": "查看 /var/log/messages 最近 20 行",
+      "value": "tail -n 20 /var/log/messages"
+    },
+    {
+      "name": "查看 /var/log/syslog 最近 20 行",
+      "value": "tail -n 20 /var/log/syslog"
+    },
+    {
+      "name": "查看 /var/log/secure 最近 20 行",
+      "value": "tail -n 20 /var/log/secure"
+    },
+    {
+      "name": "查看 /var/log/nginx/access.log 最近 20 行",
+      "value": "tail -n 20 /var/log/nginx/access.log"
+    },
+    {
+      "name": "查看 /var/log/nginx/error.log 最近 20 行",
+      "value": "tail -n 20 /var/log/nginx/error.log"
+    },
+    {
+      "name": "查看 nohup.out 最近 20 行",
+      "value": "tail -n 20 nohup.out"
+    },
+    {
+      "name": "查看 app.log 最近 20 行",
+      "value": "tail -n 20 app.log"
+    },
+    {
+      "name": "查看 server.log 最近 20 行",
+      "value": "tail -n 20 server.log"
+    },
+    {
+      "name": "查看 /var/log/messages 最近 25 行",
+      "value": "tail -n 25 /var/log/messages"
+    },
+    {
+      "name": "查看 /var/log/syslog 最近 25 行",
+      "value": "tail -n 25 /var/log/syslog"
+    },
+    {
+      "name": "查看 /var/log/secure 最近 25 行",
+      "value": "tail -n 25 /var/log/secure"
+    },
+    {
+      "name": "查看 /var/log/nginx/access.log 最近 25 行",
+      "value": "tail -n 25 /var/log/nginx/access.log"
     }
   ]
 }

@@ -124,6 +124,14 @@
           alert(res.message || '保存失败');
           return;
         }
+        // 改账号/密码后清掉旧登录缓存，下次打开强制用新凭据 loginSsh
+        if (id) {
+          clearStoredTag({ id: id, port: payload.port });
+          var prev = sessionsCache[id];
+          if (prev && prev.port != null && prev.port !== payload.port) {
+            clearStoredTag({ id: id, port: prev.port });
+          }
+        }
         $('#sessionModal').modal('hide');
         loadSessions();
       })
@@ -149,6 +157,12 @@
           alert(res.message || '删除失败');
           return;
         }
+        var prev = sessionsCache[id];
+        if (prev) {
+          clearStoredTag(prev);
+        } else {
+          clearStoredTag({ id: id });
+        }
         loadSessions();
       })
       .fail(function () {
@@ -173,10 +187,7 @@
           alert(res.message || '登录失败');
           return;
         }
-        window.localStorage.setItem('tagId' + session.port, res.result);
-        try {
-          window.localStorage.setItem('tagOwner' + session.port, sessionOwnerKey(session));
-        } catch (eOwner) { /* ignore */ }
+        writeStoredLogin(session, res.result, sessionOwnerKey(session));
         window.currentSessionId = session.id;
         window.currentSessionPort = session.port;
         var route = window.ensureRemoteTab(session, { forceNew: true });
@@ -250,37 +261,103 @@
     }
   }
 
+  /**
+   * localStorage 键：优先按会话 id，避免同端口不同主机/账号互相复用旧登录。
+   * 兼容旧版仅按 port 存储的键。
+   */
+  function tagStorageSuffix(session) {
+    if (session && session.id != null && String(session.id) !== '') {
+      return 's:' + String(session.id);
+    }
+    var port = session && session.port != null ? session.port : 22;
+    return 'p:' + port;
+  }
+
+  /** 账号/密码/主机任一变化都必须重新登录，不能只认 session.id */
   function sessionOwnerKey(session) {
     if (!session) {
       return '';
     }
-    if (session.id != null && String(session.id) !== '') {
-      return String(session.id);
-    }
-    return [session.ip || '', session.userName || '', session.port != null ? session.port : 22].join('|');
+    return [
+      session.id || '',
+      session.ip || '',
+      session.userName || '',
+      session.password || '',
+      session.port != null ? session.port : 22
+    ].join('|');
   }
 
-  function readTagOwner(port) {
+  function lsGet(key) {
     try {
-      return window.localStorage.getItem('tagOwner' + port) || '';
+      var v = window.localStorage.getItem(key);
+      return v === 'null' ? '' : (v || '');
     } catch (e) {
       return '';
     }
   }
 
-  function writeTagOwner(port, ownerKey) {
+  function lsSet(key, value) {
     try {
-      window.localStorage.setItem('tagOwner' + port, ownerKey || '');
+      window.localStorage.setItem(key, value || '');
     } catch (e) { /* ignore */ }
   }
 
-  function clearStoredTag(port) {
+  function lsDel(key) {
     try {
-      window.localStorage.removeItem('tagId' + port);
-    } catch (e0) { /* ignore */ }
-    try {
-      window.localStorage.removeItem('tagOwner' + port);
-    } catch (e1) { /* ignore */ }
+      window.localStorage.removeItem(key);
+    } catch (e) { /* ignore */ }
+  }
+
+  function readStoredTagId(session) {
+    var suffix = tagStorageSuffix(session);
+    var existing = lsGet('tagId' + suffix);
+    if (existing) {
+      return existing;
+    }
+    // 兼容旧键：tagId + port
+    if (session && session.port != null) {
+      return lsGet('tagId' + session.port);
+    }
+    return '';
+  }
+
+  function readTagOwner(session) {
+    var suffix = tagStorageSuffix(session);
+    var owner = lsGet('tagOwner' + suffix);
+    if (owner) {
+      return owner;
+    }
+    if (session && session.port != null) {
+      return lsGet('tagOwner' + session.port);
+    }
+    return '';
+  }
+
+  function writeStoredLogin(session, tagId, ownerKey) {
+    var suffix = tagStorageSuffix(session);
+    lsSet('tagId' + suffix, tagId);
+    lsSet('tagOwner' + suffix, ownerKey);
+    // 同步旧键，兼容尚未改完的读取路径
+    if (session && session.port != null) {
+      lsSet('tagId' + session.port, tagId);
+      lsSet('tagOwner' + session.port, ownerKey);
+    }
+  }
+
+  function clearStoredTag(sessionOrPort) {
+    if (sessionOrPort != null && typeof sessionOrPort === 'object') {
+      var suffix = tagStorageSuffix(sessionOrPort);
+      lsDel('tagId' + suffix);
+      lsDel('tagOwner' + suffix);
+      if (sessionOrPort.port != null) {
+        lsDel('tagId' + sessionOrPort.port);
+        lsDel('tagOwner' + sessionOrPort.port);
+      }
+      return;
+    }
+    // 旧调用：clearStoredTag(port)
+    lsDel('tagId' + sessionOrPort);
+    lsDel('tagOwner' + sessionOrPort);
   }
 
   function loginSshForSession(session, port, ownerKey) {
@@ -293,8 +370,7 @@
       if (!res || res.status !== 200) {
         return $.Deferred().reject((res && res.message) || '登录失败').promise();
       }
-      window.localStorage.setItem('tagId' + port, res.result);
-      writeTagOwner(port, ownerKey);
+      writeStoredLogin(session, res.result, ownerKey);
       window.currentSessionId = session.id;
       window.currentSessionPort = port;
       return res.result;
@@ -317,9 +393,8 @@
   }
 
   /**
-   * Ensure SSH login tagId for session.port.
-   * Reuses localStorage tagId only when still present, owned by the same session,
-   * AND still valid on the server (restart clears webLoginMap but leaves localStorage).
+   * Ensure SSH login tagId for session.
+   * 仅当 tag 仍有效且 ownerKey（含账号密码）一致时才复用；改密后必须重新 loginSsh。
    */
   function ensureLoggedIn(session) {
     if (!session) {
@@ -327,29 +402,27 @@
     }
     var port = session.port != null ? session.port : 22;
     var ownerKey = sessionOwnerKey(session);
-    var existing = '';
-    var owner = '';
-    try {
-      existing = window.localStorage.getItem('tagId' + port) || '';
-      if (existing === 'null') {
-        existing = '';
-      }
-    } catch (e) {
-      existing = '';
-    }
-    owner = readTagOwner(port);
+    var existing = readStoredTagId(session);
+    var owner = readTagOwner(session);
     if (existing && owner && owner === ownerKey) {
       return probeTagAlive(existing).then(function (alive) {
         if (alive) {
           window.currentSessionId = session.id;
           window.currentSessionPort = port;
+          writeStoredLogin(session, existing, ownerKey);
           return existing;
         }
-        clearStoredTag(port);
+        clearStoredTag(session);
         return loginSshForSession(session, port, ownerKey);
       });
     }
+    clearStoredTag(session);
     return loginSshForSession(session, port, ownerKey);
+  }
+
+  /** 供窗口/侧栏按会话取最新 tagId */
+  function getWebsshStoredTagId(session) {
+    return readStoredTagId(session);
   }
 
   /** Alias used by brief / callers expecting ensureSshSession */
@@ -605,6 +678,7 @@
   window.openHelpWindow = openHelpWindow;
   window.ensureLoggedIn = ensureLoggedIn;
   window.ensureSshSession = ensureSshSession;
+  window.getWebsshStoredTagId = getWebsshStoredTagId;
   window.resolveSession = resolveSession;
   window.showSessionList = showSessionList;
   window.workspaceIframeQuery = workspaceIframeQuery;

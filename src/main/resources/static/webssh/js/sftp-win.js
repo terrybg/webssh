@@ -83,6 +83,70 @@
         saveFavoriteStore(store);
     }
 
+    function bindSideResize() {
+        var SIDE_W_KEY = 'websshSftpSideWidth';
+        var $side = $('#sftpSide');
+        var $resizer = $('#sftpSideResizer');
+        if (!$side.length || !$resizer.length) {
+            return;
+        }
+        function applyWidth(px) {
+            var w = Math.round(Number(px) || 200);
+            var max = Math.max(160, Math.floor((window.innerWidth || 800) * 0.55));
+            if (w < 120) {
+                w = 120;
+            }
+            if (w > max) {
+                w = max;
+            }
+            $side.css({ flex: '0 0 ' + w + 'px', width: w + 'px' });
+            return w;
+        }
+        try {
+            var saved = parseInt(localStorage.getItem(SIDE_W_KEY) || '', 10);
+            if (saved >= 120) {
+                applyWidth(saved);
+            }
+        } catch (e0) { /* ignore */ }
+
+        var dragging = false;
+        var startX = 0;
+        var startW = 0;
+        function onMove(ev) {
+            if (!dragging) {
+                return;
+            }
+            var x = ev.clientX != null ? ev.clientX : (ev.originalEvent && ev.originalEvent.touches && ev.originalEvent.touches[0] && ev.originalEvent.touches[0].clientX);
+            if (x == null) {
+                return;
+            }
+            applyWidth(startW + (x - startX));
+        }
+        function onUp() {
+            if (!dragging) {
+                return;
+            }
+            dragging = false;
+            $(document).off('.sftpSideResize');
+            $('body').removeClass('sftp-side-resizing');
+            try {
+                localStorage.setItem(SIDE_W_KEY, String(Math.round($side.outerWidth() || 200)));
+            } catch (e1) { /* ignore */ }
+        }
+        $resizer.on('mousedown touchstart', function (ev) {
+            ev.preventDefault();
+            dragging = true;
+            startX = ev.clientX != null ? ev.clientX : (ev.originalEvent.touches[0].clientX);
+            startW = $side.outerWidth() || 200;
+            $('body').addClass('sftp-side-resizing');
+            $(document).on('mousemove.sftpSideResize touchmove.sftpSideResize', onMove);
+            $(document).on('mouseup.sftpSideResize touchend.sftpSideResize touchcancel.sftpSideResize', onUp);
+        });
+        $(window).on('resize.sftpSide', function () {
+            applyWidth($side.outerWidth() || 200);
+        });
+    }
+
     function readParentClipboard() {
         try {
             if (window.parent && window.parent !== window && window.parent.__websshFolderClipboard) {
@@ -355,18 +419,6 @@
         });
     }
 
-    function loadFavorites() {
-        try {
-            return JSON.parse(localStorage.getItem(FAV_KEY) || '[]') || [];
-        } catch (e) {
-            return [];
-        }
-    }
-
-    function saveFavorites(list) {
-        localStorage.setItem(FAV_KEY, JSON.stringify(list || []));
-    }
-
     var treeExpanded = { '/': true };
     var treeChildren = {}; // path -> [{name, path}]
     var treeLoading = {};
@@ -562,6 +614,11 @@
 
     function toggleFavorite(path) {
         path = normalizeDirPath(path || curDir());
+        var sid = resolveFavSessionId();
+        if (!sid) {
+            showSftpToast('无法收藏：缺少会话标识，请关闭文件窗后重新打开');
+            return;
+        }
         var list = loadFavorites();
         var i = list.indexOf(path);
         if (i >= 0) {
@@ -917,7 +974,11 @@
             if (e.button !== 0) {
                 return;
             }
-            if ($(e.target).closest('tr, .icon-tile, thead, input, button, a').length) {
+            if ($(e.target).closest('tr, .icon-tile, .content-row, thead, input, textarea, button, a, .rename-input').length) {
+                return;
+            }
+            if (typeof renamingPath !== 'undefined' && renamingPath) {
+                endInlineRename(true);
                 return;
             }
             var off = $view.offset();
@@ -1487,6 +1548,7 @@
         bindBoxSelect();
         bindInternalDrag();
         bindAddressBar();
+        bindSideResize();
 
         $('#btnNavBack').on('click', function () { goHistory(-1); });
         $('#btnNavForward').on('click', function () { goHistory(1); });

@@ -1250,18 +1250,69 @@ public class RemoteController {
         return null;
     }
 
+    private static String sshShareKey(Server server) {
+        if (server == null) {
+            return "";
+        }
+        String ip = server.getIp() == null ? "" : server.getIp();
+        int port = server.getPort();
+        String user = server.getUserName() == null ? "" : server.getUserName();
+        return ip + ":" + port + ":" + user;
+    }
+
+    private void disconnectQuietly(SSHConnectInfo info) {
+        if (info == null) {
+            return;
+        }
+        try {
+            invalidateSharedSftp(info);
+        } catch (Exception ignored) {
+            // ignore
+        }
+        try {
+            Session old = info.getSession();
+            if (old != null && old.isConnected()) {
+                old.disconnect();
+            }
+        } catch (Exception ignored) {
+            // ignore
+        }
+    }
+
     public SSHConnectInfo getCacheSsh(Server server){
-        SSHConnectInfo sshConnectInfo = WebSSHService.webSshMap.get(server.getIp() + ":" + server.getPort());
+        String key = sshShareKey(server);
+        SSHConnectInfo sshConnectInfo = WebSSHService.webSshMap.get(key);
+        // 兼容旧版仅按 ip:port 缓存的键
+        if (sshConnectInfo == null) {
+            sshConnectInfo = WebSSHService.webSshMap.get(server.getIp() + ":" + server.getPort());
+            if (sshConnectInfo != null) {
+                WebSSHService.webSshMap.put(key, sshConnectInfo);
+            }
+        }
         if (sshConnectInfo == null) {
             sshConnectInfo = new SSHConnectInfo();
-            WebSSHService.webSshMap.put(server.getIp() + ":" + server.getPort(), sshConnectInfo);
+            WebSSHService.webSshMap.put(key, sshConnectInfo);
         }
         synchronized (sshConnectInfo) {
             Session session = sshConnectInfo.getSession();
-            if (session == null || !session.isConnected()) {
+            String cachedUser = sshConnectInfo.getCachedUserName();
+            String cachedPass = sshConnectInfo.getCachedPassword();
+            boolean credChanged = (cachedUser != null || cachedPass != null)
+                    && (!java.util.Objects.equals(cachedUser, server.getUserName())
+                    || !java.util.Objects.equals(cachedPass, server.getPassword()));
+            if (session == null || !session.isConnected() || credChanged) {
+                if (session != null) {
+                    try {
+                        session.disconnect();
+                    } catch (Exception ignored) {
+                        // ignore
+                    }
+                }
+                invalidateSharedSftp(sshConnectInfo);
                 session = JschUtil.getSession(server.getIp(), server.getPort(), server.getUserName(), server.getPassword());
                 sshConnectInfo.setSession(session);
-                invalidateSharedSftp(sshConnectInfo);
+                sshConnectInfo.setCachedUserName(server.getUserName());
+                sshConnectInfo.setCachedPassword(server.getPassword());
             }
             Sftp sftp = sshConnectInfo.getSftp();
             if (sftp != null) {
@@ -1292,18 +1343,29 @@ public class RemoteController {
             String tagId = IdUtil.simpleUUID();
             WebSSHService.webLoginMap.put(tagId, server);
 
-            // 会话共用技术
+            String key = sshShareKey(server);
+            SSHConnectInfo previous = WebSSHService.webSshMap.get(key);
+            if (previous == null) {
+                previous = WebSSHService.webSshMap.get(server.getIp() + ":" + server.getPort());
+            }
+            disconnectQuietly(previous);
+
+            // 会话共用：按 ip:port:user 隔离，改密后覆盖旧连接
             SSHConnectInfo sshConnectInfo = new SSHConnectInfo();
             sshConnectInfo.setSession(session);
-            WebSSHService.webSshMap.put(server.getIp() + ":" + server.getPort(), sshConnectInfo);
+            sshConnectInfo.setCachedUserName(server.getUserName());
+            sshConnectInfo.setCachedPassword(server.getPassword());
+            WebSSHService.webSshMap.put(key, sshConnectInfo);
+            // 清掉旧 ip:port 键，避免继续命中旧会话
+            WebSSHService.webSshMap.remove(server.getIp() + ":" + server.getPort());
 
             return StatusContent.ok("登录成功", tagId);
         } catch (Exception e) {
-            if (e.getMessage().contains("UnknownHostException")) {
+            if (e.getMessage() != null && e.getMessage().contains("UnknownHostException")) {
                 return StatusContent.error("登录失败，" + server.getIp() + " 主机不通！");
-            } else if (e.getMessage().contains("Connection refused")) {
+            } else if (e.getMessage() != null && e.getMessage().contains("Connection refused")) {
                 return StatusContent.error("登录失败，" + server.getIp() + ":" + server.getPort() + " 网络不通！");
-            } else if (e.getMessage().contains("Auth fail")) {
+            } else if (e.getMessage() != null && e.getMessage().contains("Auth fail")) {
                 return StatusContent.error("登录失败，密码错误！");
             }
             return StatusContent.error("登录失败，" + e.getMessage());

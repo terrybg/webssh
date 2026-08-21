@@ -32,6 +32,9 @@ public class SSHConnectInfo {
     private Session session;
     private String encoded;
     private Sftp sftp;
+    /** 共享连接建立时的账号，改密后用于判定是否需要重连 */
+    private String cachedUserName;
+    private String cachedPassword;
 
     BufferedReader stdInput;
     BufferedReader stdError;

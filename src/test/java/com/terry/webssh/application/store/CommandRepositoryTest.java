@@ -126,4 +126,31 @@ class CommandRepositoryTest {
         assertTrue(after.isAutoCollect());
         assertEquals(1000, after.getCollectLimit());
     }
+
+    @Test
+    void importCommonMergesAndSkipsDuplicates(@TempDir Path temp) throws Exception {
+        Path dict = temp.resolve("dict.json");
+        Files.write(dict, ("{\"result\":["
+                + "{\"name\":\"查看MAC\",\"value\":\"ip link show\"},"
+                + "{\"name\":\"磁盘\",\"value\":\"df -h\"}"
+                + "]}").getBytes(StandardCharsets.UTF_8));
+        Path commands = temp.resolve("commands.json");
+        Files.write(commands, "{\"global\":[],\"bySession\":{},\"sessionSettings\":{}}".getBytes(StandardCharsets.UTF_8));
+        CommandRepository repo = new CommandRepository(commands, dict);
+        repo.createGlobal("已有磁盘", "df -h");
+
+        Map<String, Integer> first = repo.importCommon("global", null);
+        assertEquals(1, first.get("imported").intValue());
+        assertEquals(1, first.get("skipped").intValue());
+        assertEquals(2, first.get("total").intValue());
+        assertEquals(2, repo.listGlobal().size());
+
+        Map<String, Integer> second = repo.importCommon("global", null);
+        assertEquals(0, second.get("imported").intValue());
+        assertEquals(2, second.get("skipped").intValue());
+
+        Map<String, Integer> sessionImport = repo.importCommon("session", "sid1");
+        assertEquals(2, sessionImport.get("imported").intValue());
+        assertEquals(2, repo.listSession("sid1").size());
+    }
 }

@@ -242,12 +242,34 @@
         }
         .sftp-side {
             flex: 0 0 200px;
-            border-right: 1px solid #d4d4d4;
+            width: 200px;
+            min-width: 120px;
+            max-width: 60%;
+            border-right: 0;
             background: #f3f3f3;
             overflow: auto;
             font-size: 12px;
             display: flex;
             flex-direction: column;
+        }
+        .sftp-side-resizer {
+            flex: 0 0 5px;
+            width: 5px;
+            cursor: col-resize;
+            background: #d4d4d4;
+            position: relative;
+            z-index: 3;
+        }
+        .sftp-side-resizer:hover,
+        body.sftp-side-resizing .sftp-side-resizer {
+            background: #0078d4;
+        }
+        body.sftp-side-resizing {
+            cursor: col-resize !important;
+            user-select: none !important;
+        }
+        body.sftp-side-resizing iframe {
+            pointer-events: none !important;
         }
         .sftp-side .side-title {
             padding: 8px 10px 4px;
@@ -842,11 +864,12 @@
         </div>
     </div>
     <div class="sftp-body">
-        <aside class="sftp-side">
+        <aside class="sftp-side" id="sftpSide">
             <div class="side-title">快速访问</div>
             <ul id="sftpFavList" class="side-list"></ul>
             <div id="sftpTree" class="sftp-tree"></div>
         </aside>
+        <div class="sftp-side-resizer" id="sftpSideResizer" title="拖动调整侧栏宽度"></div>
         <div class="sftp-main">
             <div id="fileView" class="view-details"></div>
         </div>
@@ -985,7 +1008,7 @@
 <script src="../js/bootstrap/popper.min.js" charset="utf-8"></script>
 <script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
 <script src="../js/websocket.js" charset="utf-8"></script>
-<script src="../js/sftp.js?v=44" charset="utf-8"></script>
-<script src="../js/sftp-win.js?v=10" charset="utf-8"></script>
+<script src="../js/sftp.js?v=45" charset="utf-8"></script>
+<script src="../js/sftp-win.js?v=11" charset="utf-8"></script>
 </body>
 </html>

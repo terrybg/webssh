@@ -2143,6 +2143,7 @@ function renameSelected(relPath) {
 
 var renameTimer = null;
 var renamingPath = null;
+var renameOutsideBound = false;
 
 function cancelScheduledRename() {
     if (renameTimer) {
@@ -2159,10 +2160,35 @@ function scheduleInlineRename(relPath) {
     }, 450);
 }
 
+function unbindRenameOutside() {
+    if (!renameOutsideBound) {
+        return;
+    }
+    renameOutsideBound = false;
+    $(document).off('mousedown.renameOutside');
+}
+
+function bindRenameOutside() {
+    unbindRenameOutside();
+    renameOutsideBound = true;
+    // 用 mousedown 捕获：框选等会 preventDefault 导致 input 不 blur，仍需点外部结束重命名
+    $(document).on('mousedown.renameOutside', function (e) {
+        if (!renamingPath) {
+            unbindRenameOutside();
+            return;
+        }
+        if ($(e.target).closest('.rename-input').length) {
+            return;
+        }
+        endInlineRename(true);
+    });
+}
+
 function endInlineRename(commit) {
     var $input = $('#fileView .rename-input');
     if (!$input.length) {
         renamingPath = null;
+        unbindRenameOutside();
         return;
     }
     var path = renamingPath;
@@ -2170,6 +2196,7 @@ function endInlineRename(commit) {
     var val = ($input.val() || '').replace(/[\r\n]+/g, '').trim();
     var $row = $input.closest('tr, .icon-tile, .content-row');
     renamingPath = null;
+    unbindRenameOutside();
     $input.replaceWith(function () {
         if ($row.is('tr')) {
             return $('<span class="name-text"></span>').text(oldBase);
@@ -2265,6 +2292,7 @@ function beginInlineRename(relPath) {
     $input.on('click mousedown dblclick', function (e) {
         e.stopPropagation();
     });
+    bindRenameOutside();
 }
 
 

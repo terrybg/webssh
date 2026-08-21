@@ -78,9 +78,15 @@
         var port = $pane.data('session-port') || w.currentSessionPort || 22;
         var tid = '';
         try {
-            tid = w.localStorage.getItem('tagId' + port) || '';
+            var sidForTag = $pane.data('session-id') || $pane.attr('data-session-id') || '';
+            if (sidForTag && typeof w.getWebsshStoredTagId === 'function') {
+                tid = w.getWebsshStoredTagId({ id: sidForTag, port: port }) || '';
+            }
+            if (!tid) {
+                tid = w.localStorage.getItem('tagId' + port) || '';
+            }
         } catch (e) { /* ignore */ }
-        var url = 'sftp.html' + q + sep + 'v=44&tagId=' + encodeURIComponent(tid) + '&folderWin=1';
+        var url = 'sftp.html' + q + sep + 'v=45&tagId=' + encodeURIComponent(tid) + '&folderWin=1';
         try {
             var sid = $pane.data('session-id') || $pane.attr('data-session-id') || '';
             if (sid) {

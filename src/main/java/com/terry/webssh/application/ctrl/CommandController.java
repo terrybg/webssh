@@ -152,6 +152,21 @@ public class CommandController {
         }
     }
 
+    @PostMapping("/import-common")
+    public StatusContent<Map<String, Integer>> importCommon(@RequestParam String scope,
+                                                            @RequestParam(required = false) String sessionId) {
+        try {
+            if ("session".equals(scope)) {
+                requireSession(sessionId);
+            } else if (!"global".equals(scope)) {
+                return StatusContent.error("scope must be global or session");
+            }
+            return StatusContent.ok("成功！", commandRepository.importCommon(scope, sessionId));
+        } catch (IllegalArgumentException e) {
+            return StatusContent.error(e.getMessage());
+        }
+    }
+
     private void requireSession(String sessionId) {
         if (StrUtil.isBlank(sessionId)) {
             throw new IllegalArgumentException("sessionId is required");
