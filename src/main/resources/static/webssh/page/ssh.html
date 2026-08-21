@@ -7,34 +7,161 @@
     <link rel="stylesheet" href="../js/bootstrap/bootstrap.min.css"/>
     <link rel="stylesheet" href="../iconfont/iconfont.css">
     <style>
-        /*body{position: relative;background-color: #000}*/
-        html{height: 100%;}
-        body{height: 100%;background: #000;overflow: hidden;}
-        .bg-dark{color: #FFF}
-        #load .modal-content{background: #000;color: #FFF}
-        .tools{
-            position: absolute;
-            top: 20px;
-            right: 30px;
-            z-index:100;
-            width: 410px;
-            padding: 20px;
-            /*backdrop-filter: blur(5px);*/
-            background-color: rgba(255, 255, 255, 0.1);
+        html, body {
+            height: 100%;
+            margin: 0;
         }
-        .tools{font-size: 12px;color: rgb(197,197,197)}
-        .tool-list > div:hover{color:rgb(60,126,255)}
-        .tool-title{font-size: 16px;color: rgba(255,255,255,0.9);}
-        .iconfont{    font-size: 16px;}
-        .tool-item{cursor: pointer;
+        body.ssh-app {
+            display: flex;
+            flex-direction: column;
+            background: #0c0c0c;
+            overflow: hidden;
+            color: #ddd;
+        }
+        .bg-dark { color: #FFF; }
+        #load .modal-content { background: #000; color: #FFF; }
+
+        /* Windows 风格：工具栏固定顶栏，终端占满剩余区域 */
+        .ssh-toolbar {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 36px;
+            padding: 4px 10px;
+            background: linear-gradient(180deg, #2d2d2d 0%, #252525 100%);
+            border-bottom: 1px solid #3a3a3a;
+            box-shadow: 0 1px 0 rgba(255,255,255,.04) inset;
+            z-index: 100;
+            font-size: 12px;
+            color: #cfcfcf;
+            user-select: none;
+        }
+        .ssh-toolbar .btn-group > .btn,
+        .ssh-toolbar > .btn,
+        .ssh-toolbar > a.btn {
+            background: #3a3a3a;
+            border-color: #4a4a4a;
+            color: #eee;
+            font-size: 12px;
+            padding: 3px 10px;
+            line-height: 1.4;
+        }
+        .ssh-toolbar .btn:hover,
+        .ssh-toolbar a.btn:hover {
+            background: #4a4a4a;
+            border-color: #5a5a5a;
+            color: #fff;
+        }
+        .ssh-toolbar .btn:focus,
+        .ssh-toolbar a.btn:focus {
+            box-shadow: none;
+        }
+        .ssh-toolbar .dropdown-menu {
+            font-size: 12px;
+            background: #2b2b2b;
+            border-color: #4a4a4a;
+        }
+        .ssh-toolbar .dropdown-item {
+            color: #ddd;
+            cursor: pointer;
+        }
+        .ssh-toolbar .dropdown-item:hover {
+            background: #0d6efd;
+            color: #fff;
+        }
+        .ssh-toolbar .iconfont {
+            font-size: 14px;
+        }
+        .ssh-toolbar-spacer {
+            flex: 1 1 auto;
+            min-width: 8px;
+        }
+        .ssh-toolbar-hint {
+            color: #888;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        .ssh-shortcut-panel {
+            flex: 0 0 auto;
+            max-height: min(280px, 40vh);
+            overflow: hidden;
+            background: #1a1a1a;
+            border-bottom: 1px solid #333;
+        }
+        .ssh-shortcut-panel .card {
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+        }
+        .ssh-shortcut-panel .card-body {
+            padding: 8px 10px;
+            max-height: min(280px, 40vh);
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .ssh-shortcut-filters {
+            display: flex;
+            gap: 8px;
+            flex: 0 0 auto;
+            margin-bottom: 8px;
+        }
+        .ssh-shortcut-filters .form-control {
+            background: #111;
+            border-color: #444;
+            color: #eee;
+        }
+        #shortcut {
+            overflow-y: auto;
+            flex: 1 1 auto;
+            min-height: 0;
+            max-height: none;
+            margin-bottom: 0;
+        }
+        #shortcut .list-group-item {
+            border-color: #333;
+            padding: 6px 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        #shortcut .list-group-item:hover {
+            background: #2a3a4a !important;
+        }
+
+        #terminal.ssh-terminal {
+            flex: 1 1 auto;
+            min-height: 0;
+            width: 100%;
+            height: auto;
+            overflow: hidden;
+            position: relative;
+            background: #000;
+        }
+        #terminal.ssh-terminal .xterm {
+            width: 100%;
+            height: 100%;
+            padding: 2px 0 0 2px;
+            box-sizing: border-box;
+        }
+        #terminal.ssh-terminal .xterm-viewport {
+            width: 100% !important;
+        }
+
+        .tool-list > div:hover { color: rgb(60,126,255); }
+        .tool-title { font-size: 16px; color: rgba(255,255,255,0.9); }
+        .iconfont { font-size: 16px; }
+        .tool-item {
+            cursor: pointer;
             display: inline-block;
             width: 42px;
             height: 42px;
             margin-bottom: 4px;
             line-height: 42px;
             border-radius: 4px;
-            background-color: #000;}
-        #shortcut{overflow-y: scroll;height: 300px}
+            background-color: #000;
+        }
         /* 整个滚动条 */
         /*::-webkit-scrollbar {width : 10px;}
         !* 滚动条里面滑块 *!
@@ -246,7 +373,7 @@
         #sshConflictBtnSkip { background: #555; color: #fff; }
     </style>
 </head>
-<body><!-- 对话框 -->
+<body class="ssh-app"><!-- 对话框 -->
 <!-- 使用自带的aria-labelledby事件按钮会冲突 -->
 <div class="modal fade" id="stationModel" tabindex="-1"  data-backdrop="static" data-keyboard="false" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered">
@@ -286,14 +413,12 @@
         </div>
     </div>
 </div>
-<div id="terminal" style="width: 100%;height: 100%;"></div>
-<div id="cmdSuggest" class="cmd-suggest" style="display:none">
-  <ul id="cmdSuggestList"></ul>
-</div>
-<div class="tools">
-    <div class="btn-group" role="group" aria-label="Button group with nested dropdown">
-        <button type="button" onclick="reload()" class="btn btn-secondary" title="刷新连接"><span class="iconfont icon-shuaxin"></span></button>
-        <div class="btn-group" role="group"  title="切换编码">
+<header class="ssh-toolbar" role="toolbar" aria-label="终端工具栏">
+    <div class="btn-group" role="group" aria-label="连接与编码">
+        <button type="button" onclick="reload()" class="btn btn-secondary" title="刷新连接">
+            <span class="iconfont icon-shuaxin"></span>
+        </button>
+        <div class="btn-group" role="group" title="切换编码">
             <button type="button" class="btn btn-secondary dropdown-toggle linux-encode" data-toggle="dropdown" aria-expanded="false">
                 UTF-8
             </button>
@@ -302,36 +427,44 @@
                 <div class="dropdown-item" onclick="setEncode('GBK')">GBK</div>
             </div>
         </div>
-        <!-- v1 desktop: open files from desktop icon menu, not SSH toolbar -->
-        <button type="button" id="btnToggleFiles" class="btn btn-secondary" style="display:none" aria-hidden="true" title="显示/隐藏左侧文件模块" onclick="toggleFilesModule()">
-            文件
+    </div>
+    <!-- v1 desktop: open files from desktop icon menu, not SSH toolbar -->
+    <button type="button" id="btnToggleFiles" class="btn btn-secondary" style="display:none" aria-hidden="true" title="显示/隐藏左侧文件模块" onclick="toggleFilesModule()">
+        文件
+    </button>
+    <a class="btn btn-secondary" data-toggle="collapse" href="#collapseExample" role="button" aria-expanded="false" aria-controls="collapseExample">
+        快捷键
+    </a>
+    <div class="btn-group" role="group" title="切换主题">
+        <button type="button" class="btn btn-secondary dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
+            主题
         </button>
-        <a class="btn btn-secondary" data-toggle="collapse" href="#collapseExample" role="button" aria-expanded="false" aria-controls="collapseExample">
-            快捷键
-        </a>
-        <div class="btn-group" role="group"  title="切换主题">
-            <button type="button" class="btn btn-secondary dropdown-toggle linux-encode" data-toggle="dropdown" aria-expanded="false">
-                切换主题
-            </button>
-            <div class="dropdown-menu">
-                <div class="dropdown-item" onclick="setTheme('dark')">暗黑</div>
-                <div class="dropdown-item" onclick="setTheme('blue')">深蓝</div>
-                <div class="dropdown-item" onclick="setTheme('white')">白色</div>
-                <div class="dropdown-item" onclick="setTheme('green')">绿色</div>
-            </div>
+        <div class="dropdown-menu dropdown-menu-right">
+            <div class="dropdown-item" onclick="setTheme('dark')">暗黑</div>
+            <div class="dropdown-item" onclick="setTheme('blue')">深蓝</div>
+            <div class="dropdown-item" onclick="setTheme('white')">白色</div>
+            <div class="dropdown-item" onclick="setTheme('green')">绿色</div>
         </div>
     </div>
-    <div class="collapse" id="collapseExample">
-        <div class="card card-body bg-dark">
-            <input id="shortcutSearch" class="form-control form-control-sm mb-2" placeholder="搜索命令">
-            <select id="shortcutFilter" class="form-control form-control-sm mb-2">
+    <div class="ssh-toolbar-spacer"></div>
+    <span class="ssh-toolbar-hint">终端自适应窗口大小</span>
+</header>
+<div class="collapse ssh-shortcut-panel" id="collapseExample">
+    <div class="card card-body bg-dark">
+        <div class="ssh-shortcut-filters">
+            <input id="shortcutSearch" class="form-control form-control-sm" placeholder="搜索命令" style="flex:1 1 auto;min-width:0">
+            <select id="shortcutFilter" class="form-control form-control-sm" style="flex:0 0 120px">
               <option value="all">全部</option>
               <option value="global">通用命令</option>
               <option value="session">本机常用</option>
             </select>
-            <ul class="list-group" id="shortcut"></ul>
         </div>
+        <ul class="list-group" id="shortcut"></ul>
     </div>
+</div>
+<div id="terminal" class="ssh-terminal"></div>
+<div id="cmdSuggest" class="cmd-suggest" style="display:none">
+  <ul id="cmdSuggestList"></ul>
 </div>
 <div id="sshConflictModal" style="display:none">
   <div class="ssh-conflict-box">
@@ -354,6 +487,6 @@
 <script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
 <script src="../js/websocket.js" charset="utf-8"></script>
 <script src="../js/cmd-suggest.js?v=7" charset="utf-8"></script>
-<script src="../js/ssh.js?v=13" charset="utf-8"></script>
+<script src="../js/ssh.js?v=16" charset="utf-8"></script>
 </body>
 </html>

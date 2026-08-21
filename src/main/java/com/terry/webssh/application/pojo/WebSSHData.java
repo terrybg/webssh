@@ -16,4 +16,8 @@ public class WebSSHData {
     private String tagId;
     // 命令
     private String command = "";
+    /** 终端列数（resize / connect） */
+    private Integer cols;
+    /** 终端行数（resize / connect） */
+    private Integer rows;
 }

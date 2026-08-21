@@ -25,21 +25,83 @@ term.open(document.getElementById('terminal'));*/
 var fitAddon=new window.FitAddon.FitAddon();
 term.loadAddon(fitAddon);
 term.open(document.getElementById('terminal'));
+
+function fitTerminal() {
+    try {
+        fitAddon.fit();
+    } catch (e) {
+        console.warn('fitAddon.fit failed', e);
+    }
+    sendTerminalResize();
+}
+
+var _lastSentCols = 0;
+var _lastSentRows = 0;
+var _resizeSendTimer = null;
+
+function sendTerminalResize() {
+    if (!term || !client) {
+        return;
+    }
+    var cols = term.cols;
+    var rows = term.rows;
+    if (!cols || !rows) {
+        return;
+    }
+    if (cols === _lastSentCols && rows === _lastSentRows) {
+        return;
+    }
+    // 尚未连上时只记尺寸，等 onConnect 用 connect 带过去
+    if (!client._connection) {
+        return;
+    }
+    _lastSentCols = cols;
+    _lastSentRows = rows;
+    try {
+        client.send({
+            operate: 'resize',
+            tagId: tagId,
+            cols: cols,
+            rows: rows
+        });
+    } catch (e) {
+        console.warn('send resize failed', e);
+    }
+}
+
+function scheduleTerminalResize() {
+    if (_resizeSendTimer) {
+        clearTimeout(_resizeSendTimer);
+    }
+    _resizeSendTimer = setTimeout(function () {
+        fitTerminal();
+    }, 40);
+}
+
 try {
-    fitAddon.fit();
+    fitTerminal();
 } catch (e) {
     console.warn('fitAddon.fit failed', e);
 }
 // term.write('Hello Remote Shell...');
 //reloadTerm();
 window.onresize = function(){
-    try {
-        fitAddon.fit();
-    } catch (e) {
-        console.warn('fitAddon.fit failed', e);
-    }
+    scheduleTerminalResize();
     // 获取浏览器窗口的宽度和高度
     // reloadTerm();
+};
+
+// 窗口拖拽改尺寸时 iframe 内也要重算行列，避免终端看起来「没拉满」
+if (typeof ResizeObserver !== 'undefined') {
+    try {
+        var termHost = document.getElementById('terminal');
+        if (termHost) {
+            var ro = new ResizeObserver(function () {
+                scheduleTerminalResize();
+            });
+            ro.observe(termHost);
+        }
+    } catch (eRo) { /* ignore */ }
 }
 function reloadTerm(){
     const screenWidth = window.innerWidth;
@@ -177,11 +239,17 @@ $(function (){
             term.paste(key);
         }
     });
-    // 展开快捷键面板时再拉一次，保证拿到最新命令
+    // 展开快捷键面板时再拉一次，保证拿到最新命令；收起/展开后都要重算终端尺寸
     $('#collapseExample').on('shown.bs.collapse', function () {
         loadShortcuts();
+        setTimeout(fitTerminal, 50);
     });
-})
+    $('#collapseExample').on('hidden.bs.collapse', function () {
+        setTimeout(fitTerminal, 50);
+    });
+    // 首屏布局稳定后再 fit 一次（顶栏占高后）
+    setTimeout(fitTerminal, 80);
+});
 function reload(){
     openTerminal();
 }
@@ -191,7 +259,17 @@ function openTerminal() {
         client.close();
         term.reset();
     }
-    const options = { operate: 'connect', tagId: tagId };
+    try {
+        fitAddon.fit();
+    } catch (eFit) { /* ignore */ }
+    const options = {
+        operate: 'connect',
+        tagId: tagId,
+        cols: term.cols || 120,
+        rows: term.rows || 40
+    };
+    _lastSentCols = options.cols;
+    _lastSentRows = options.rows;
     // 执行连接操作
     client.connect({
         onError: function (error) {
@@ -204,6 +282,15 @@ function openTerminal() {
             // 同步编码到后端（与顶部「切换编码」一致，默认 UTF-8）
             var enc = ($('.linux-encode').first().text() || 'UTF-8').trim();
             client.send({ operate: 'encoded', tagId: tagId, command: enc });
+            // 布局可能在连接后才稳定，再补一次尺寸
+            setTimeout(function () {
+                try {
+                    fitAddon.fit();
+                } catch (e2) { /* ignore */ }
+                _lastSentCols = 0;
+                _lastSentRows = 0;
+                sendTerminalResize();
+            }, 120);
             term.write('\r\n');
             term.write('\x1b[32m  ______\r\n');
             // term.write(' /\\__  _\\\r\n');
@@ -499,12 +586,21 @@ try {
         window.parent.postMessage({ type: 'webssh-query-files' }, '*');
     }
 } catch (e) { /* ignore */ }
-// 切换主题
-// let theme = 'dark';
+// 切换主题（仅改前端配色，不断开 SSH）
 function setTheme(theme){
     localStorage.setItem('xtermTheme', theme);
-    term.setOption('theme', getColor(theme))
-    openTerminal();
+    try {
+        if (term && typeof term.setOption === 'function') {
+            term.setOption('theme', getColor(theme));
+        } else if (term && term.options) {
+            term.options.theme = getColor(theme);
+            if (typeof term.refresh === 'function') {
+                term.refresh(0, term.rows - 1);
+            }
+        }
+    } catch (e) {
+        console.warn('setTheme failed', e);
+    }
 }
 
 function getColor(theme){

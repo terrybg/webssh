@@ -26,4 +26,9 @@ public class ConstantPool {
      * 发送指令：命令
      */
     public static final String WEBSSH_OPERATE_ENCODED = "encoded";
+
+    /**
+     * 发送指令：终端尺寸（cols/rows）同步到远端 PTY
+     */
+    public static final String WEBSSH_OPERATE_RESIZE = "resize";
 }

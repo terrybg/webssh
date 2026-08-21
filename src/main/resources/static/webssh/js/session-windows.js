@@ -144,9 +144,10 @@
             return url;
         }
         var sshUrl = 'ssh.html' + q;
+        var ssep = sshUrl.indexOf('?') >= 0 ? '&' : '?';
+        sshUrl += ssep + 'v=16';
         if (tid) {
-            var ssep = sshUrl.indexOf('?') >= 0 ? '&' : '?';
-            sshUrl += ssep + 'tagId=' + encodeURIComponent(tid);
+            sshUrl += '&tagId=' + encodeURIComponent(tid);
         }
         return sshUrl;
     }

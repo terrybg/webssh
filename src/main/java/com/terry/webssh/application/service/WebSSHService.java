@@ -6,6 +6,7 @@ import cn.hutool.core.thread.ThreadUtil;
 import cn.hutool.core.util.StrUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jcraft.jsch.Channel;
+import com.jcraft.jsch.ChannelShell;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
@@ -85,12 +86,14 @@ public class WebSSHService extends RemoteWebSocketHandler {
         if (ConstantPool.WEBSSH_OPERATE_CONNECT.equals(webSSHData.getOperate())) {
             // 登录推送到站端
             sshConnectInfo.setTagId(webSSHData.getTagId());
+            final int cols = normalizeCols(webSSHData.getCols());
+            final int rows = normalizeRows(webSSHData.getRows());
             // TODO 这里的线程池，同时只能10个连接
             ThreadUtil.execAsync(() -> {
                 try {
                     // 获取账号密码
                     Server server = webLoginMap.get(sshConnectInfo.getTagId());
-                    connectToSSH(sshConnectInfo, server);
+                    connectToSSH(sshConnectInfo, server, cols, rows);
                 } catch (Exception e) {
                     String msg = "ssh连接异常: " + e.getMessage();
                     log.error(msg);
@@ -116,11 +119,19 @@ public class WebSSHService extends RemoteWebSocketHandler {
             return;
         }
         if (ConstantPool.WEBSSH_OPERATE_ENCODED.equals(webSSHData.getOperate())) {
-            sshConnectInfo.setEncoded(webSSHData.getCommand());
-        } else {
-            log.error("不支持的操作");
-            close(session);
+            if (sshConnectInfo != null) {
+                sshConnectInfo.setEncoded(webSSHData.getCommand());
+            }
+            return;
         }
+        if (ConstantPool.WEBSSH_OPERATE_RESIZE.equals(webSSHData.getOperate())) {
+            if (sshConnectInfo != null) {
+                resizePty(sshConnectInfo.getChannel(), webSSHData.getCols(), webSSHData.getRows());
+            }
+            return;
+        }
+        log.error("不支持的操作");
+        close(session);
     }
 
     /**
@@ -147,7 +158,8 @@ public class WebSSHService extends RemoteWebSocketHandler {
      * @throws JSchException
      * @throws IOException
      */
-    private void connectToSSH(SSHConnectInfo sshConnectInfo, Server server) throws JSchException, IOException {
+    private void connectToSSH(SSHConnectInfo sshConnectInfo, Server server, int cols, int rows)
+            throws JSchException, IOException {
         Properties config = new Properties();
         config.put("StrictHostKeyChecking", "no");
         // 获取jsch的会话 读取配置文件参数
@@ -157,8 +169,10 @@ public class WebSSHService extends RemoteWebSocketHandler {
         session.setPassword(server.getPassword());
         // 连接超时30s
         session.connect(30000);
-        // 开启shell通道
-        Channel channel = session.openChannel("shell");
+        // 开启shell通道，并按浏览器终端尺寸初始化 PTY（否则远端默认约 80x24，全屏会换行错乱）
+        ChannelShell channel = (ChannelShell) session.openChannel("shell");
+        channel.setPtyType("xterm-256color");
+        channel.setPtySize(cols, rows, Math.max(cols * 8, 1), Math.max(rows * 16, 1));
         // 通道连接 超时时间3s
         channel.connect(3000);
         // 设置channel
@@ -196,6 +210,34 @@ public class WebSSHService extends RemoteWebSocketHandler {
             if (inputStream != null) {
                 inputStream.close();
             }
+        }
+    }
+
+    private static int normalizeCols(Integer cols) {
+        if (cols == null || cols < 20) {
+            return 120;
+        }
+        return Math.min(cols, 500);
+    }
+
+    private static int normalizeRows(Integer rows) {
+        if (rows == null || rows < 5) {
+            return 40;
+        }
+        return Math.min(rows, 300);
+    }
+
+    /** 将浏览器 xterm 行列同步到远端 shell PTY */
+    private static void resizePty(Channel channel, Integer cols, Integer rows) {
+        if (!(channel instanceof ChannelShell) || !channel.isConnected()) {
+            return;
+        }
+        int c = normalizeCols(cols);
+        int r = normalizeRows(rows);
+        try {
+            ((ChannelShell) channel).setPtySize(c, r, Math.max(c * 8, 1), Math.max(r * 16, 1));
+        } catch (Exception e) {
+            log.warn("resize pty failed: {}", e.getMessage());
         }
     }
 
