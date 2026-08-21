@@ -80,11 +80,20 @@
         try {
             tid = w.localStorage.getItem('tagId' + port) || '';
         } catch (e) { /* ignore */ }
-        var url = 'sftp.html' + q + sep + 'v=39&tagId=' + encodeURIComponent(tid) + '&folderWin=1';
+        var url = 'sftp.html' + q + sep + 'v=44&tagId=' + encodeURIComponent(tid) + '&folderWin=1';
         try {
-            var cache = w.__websshShellPwdCache;
-            if (cache && cache.path) {
-                url += '&cwd=' + encodeURIComponent(cache.path);
+            var sid = $pane.data('session-id') || $pane.attr('data-session-id') || '';
+            if (sid) {
+                var cacheMap = w.__websshShellPwdCacheBySession;
+                var entry = cacheMap && cacheMap[String(sid)];
+                if (entry && entry.path) {
+                    url += '&cwd=' + encodeURIComponent(entry.path);
+                } else {
+                    var lastMap = JSON.parse(w.localStorage.getItem('websshSftpLastCwd.v1') || '{}') || {};
+                    if (lastMap[String(sid)]) {
+                        url += '&cwd=' + encodeURIComponent(lastMap[String(sid)]);
+                    }
+                }
             }
         } catch (e2) { /* ignore */ }
         return url;

@@ -1198,9 +1198,9 @@
 <script src="../js/sessions.js?v=17" charset="utf-8"></script>
 <script src="../js/commands-ui.js?v=1" charset="utf-8"></script>
 <script src="../js/split-pane.js?v=5" charset="utf-8"></script>
-<script src="../js/session-windows.js?v=19" charset="utf-8"></script>
+<script src="../js/session-windows.js?v=20" charset="utf-8"></script>
 <script src="../js/session-layout.js?v=6" charset="utf-8"></script>
-<script src="../js/folder-windows.js?v=8" charset="utf-8"></script>
+<script src="../js/folder-windows.js?v=9" charset="utf-8"></script>
 <script>
     function loadSsh(query, route) {
         var q = query;
@@ -1871,6 +1871,19 @@ function notifyFilesVisible($pane, targetWin) {
                 }
                 window.SessionWindows.setTitle($ff, title);
                 $sw.data('cwd', path || '/');
+                // 按会话持久化最近目录
+                try {
+                    if (sid && path) {
+                        var lastMap = {};
+                        try {
+                            lastMap = JSON.parse(localStorage.getItem('websshSftpLastCwd.v1') || '{}') || {};
+                        } catch (eLm) {
+                            lastMap = {};
+                        }
+                        lastMap[String(sid)] = String(path);
+                        localStorage.setItem('websshSftpLastCwd.v1', JSON.stringify(lastMap));
+                    }
+                } catch (eSave) { /* ignore */ }
                 if (window.SessionLayout && typeof window.SessionLayout.save === 'function') {
                     window.SessionLayout.save();
                 }

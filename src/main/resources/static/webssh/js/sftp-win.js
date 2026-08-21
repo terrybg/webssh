@@ -3,7 +3,8 @@
  * 依赖 sftp.js 已暴露的全局函数与变量
  */
 (function (w) {
-    var FAV_KEY = 'websshSftpFavorites';
+    var FAV_STORE_KEY = 'websshSftpFavorites.v2';
+    var FAV_LEGACY_KEY = 'websshSftpFavorites';
     var pathHistory = [];
     var historyIndex = -1;
     var historyLock = false;
@@ -14,6 +15,72 @@
 
     function isFolderWindow() {
         return /(?:^|[?&])folderWin=1(?:&|$)/.test(window.location.search || '');
+    }
+
+    function resolveFavSessionId() {
+        try {
+            if (typeof sessionId !== 'undefined' && sessionId) {
+                return String(sessionId);
+            }
+        } catch (e0) { /* ignore */ }
+        try {
+            if (typeof getQueryParam === 'function') {
+                var q = getQueryParam('sessionId');
+                if (q) {
+                    return String(q);
+                }
+            }
+        } catch (e1) { /* ignore */ }
+        return '';
+    }
+
+    function loadFavoriteStore() {
+        try {
+            var raw = localStorage.getItem(FAV_STORE_KEY);
+            if (raw) {
+                var obj = JSON.parse(raw);
+                if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+                    return obj;
+                }
+            }
+        } catch (e) { /* ignore */ }
+        return {};
+    }
+
+    function saveFavoriteStore(store) {
+        localStorage.setItem(FAV_STORE_KEY, JSON.stringify(store || {}));
+    }
+
+    function loadFavorites() {
+        var sid = resolveFavSessionId();
+        if (!sid) {
+            return [];
+        }
+        var store = loadFavoriteStore();
+        if (Array.isArray(store[sid])) {
+            return store[sid].slice();
+        }
+        // 旧版全局收藏仅迁移到「第一次打开的会话」，避免所有服务器共用同一份
+        try {
+            var legacy = JSON.parse(localStorage.getItem(FAV_LEGACY_KEY) || 'null');
+            if (Array.isArray(legacy) && legacy.length) {
+                store[sid] = legacy.slice();
+                saveFavoriteStore(store);
+                localStorage.removeItem(FAV_LEGACY_KEY);
+                return store[sid].slice();
+            }
+        } catch (e2) { /* ignore */ }
+        return [];
+    }
+
+    function saveFavorites(list) {
+        var sid = resolveFavSessionId();
+        if (!sid) {
+            return;
+        }
+        var store = loadFavoriteStore();
+        store[sid] = list || [];
+        saveFavoriteStore(store);
     }
 
     function readParentClipboard() {

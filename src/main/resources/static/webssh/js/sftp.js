@@ -1259,6 +1259,21 @@ function notifyFolderWindowPath(path) {
     try {
         window.parent.postMessage({ type: 'webssh-folder-path', path: path || '/' }, '*');
     } catch (e) { /* ignore */ }
+    // 按会话记住最近目录，避免换服务器时串用上一台的路径
+    try {
+        var sid = (typeof sessionId !== 'undefined' && sessionId)
+            || (typeof getQueryParam === 'function' ? getQueryParam('sessionId') : null);
+        if (sid && path) {
+            var map = {};
+            try {
+                map = JSON.parse(localStorage.getItem('websshSftpLastCwd.v1') || '{}') || {};
+            } catch (eMap) {
+                map = {};
+            }
+            map[String(sid)] = String(path);
+            localStorage.setItem('websshSftpLastCwd.v1', JSON.stringify(map));
+        }
+    } catch (e2) { /* ignore */ }
 }
 
 var sessionExpiredReloginTried = false;
@@ -1367,16 +1382,45 @@ function triggerFile() {
     $('input[type=file]').trigger('click');
 }
 
+function resolveSftpSessionId() {
+    try {
+        if (typeof sessionId !== 'undefined' && sessionId) {
+            return String(sessionId);
+        }
+    } catch (e0) { /* ignore */ }
+    try {
+        if (typeof getQueryParam === 'function') {
+            var q = getQueryParam('sessionId');
+            if (q) {
+                return String(q);
+            }
+        }
+    } catch (e1) { /* ignore */ }
+    return '';
+}
+
 function fetchShellPwd() {
-    // 父页短缓存：多开文件窗时避免反复向 shell 注入 pwd 探测
+    var sid = resolveSftpSessionId();
+    // 父页短缓存：按 sessionId 隔离，避免多服务器串路径
     try {
         if (window.parent && window.parent !== window) {
-            var cache = window.parent.__websshShellPwdCache;
-            if (cache && cache.path && (Date.now() - (cache.at || 0) < 8000)) {
-                return $.Deferred().resolve(cache.path).promise();
+            var cacheMap = window.parent.__websshShellPwdCacheBySession;
+            if (!cacheMap || typeof cacheMap !== 'object') {
+                cacheMap = {};
+                window.parent.__websshShellPwdCacheBySession = cacheMap;
             }
-            if (window.parent.__websshShellPwdInflight) {
-                return window.parent.__websshShellPwdInflight;
+            // 兼容旧全局缓存：仅当当前无 sessionId 时才用
+            if (sid && cacheMap[sid] && cacheMap[sid].path
+                && (Date.now() - (cacheMap[sid].at || 0) < 8000)) {
+                return $.Deferred().resolve(cacheMap[sid].path).promise();
+            }
+            var inflightMap = window.parent.__websshShellPwdInflightBySession;
+            if (!inflightMap || typeof inflightMap !== 'object') {
+                inflightMap = {};
+                window.parent.__websshShellPwdInflightBySession = inflightMap;
+            }
+            if (sid && inflightMap[sid]) {
+                return inflightMap[sid];
             }
         }
     } catch (e0) { /* ignore */ }
@@ -1388,8 +1432,11 @@ function fetchShellPwd() {
         if (res && res.status === 200 && res.result) {
             var path = String(res.result).trim();
             try {
-                if (window.parent && window.parent !== window) {
-                    window.parent.__websshShellPwdCache = { path: path, at: Date.now() };
+                if (window.parent && window.parent !== window && sid) {
+                    if (!window.parent.__websshShellPwdCacheBySession) {
+                        window.parent.__websshShellPwdCacheBySession = {};
+                    }
+                    window.parent.__websshShellPwdCacheBySession[sid] = { path: path, at: Date.now() };
                 }
             } catch (e1) { /* ignore */ }
             return path;
@@ -1399,15 +1446,19 @@ function fetchShellPwd() {
         return null;
     }).always(function () {
         try {
-            if (window.parent && window.parent !== window) {
-                window.parent.__websshShellPwdInflight = null;
+            if (window.parent && window.parent !== window && sid
+                && window.parent.__websshShellPwdInflightBySession) {
+                window.parent.__websshShellPwdInflightBySession[sid] = null;
             }
         } catch (e2) { /* ignore */ }
     });
 
     try {
-        if (window.parent && window.parent !== window) {
-            window.parent.__websshShellPwdInflight = req;
+        if (window.parent && window.parent !== window && sid) {
+            if (!window.parent.__websshShellPwdInflightBySession) {
+                window.parent.__websshShellPwdInflightBySession = {};
+            }
+            window.parent.__websshShellPwdInflightBySession[sid] = req;
         }
     } catch (e3) { /* ignore */ }
     return req;

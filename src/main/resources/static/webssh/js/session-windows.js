@@ -119,7 +119,7 @@
         }
         var sep = q.indexOf('?') >= 0 ? '&' : '?';
         if (kind === 'sftp') {
-            var url = 'sftp.html' + q + sep + 'folderWin=1&v=43';
+            var url = 'sftp.html' + q + sep + 'folderWin=1&v=44';
             if (tid) {
                 url += '&tagId=' + encodeURIComponent(tid);
             }
@@ -133,13 +133,29 @@
                 url += '&cwd=' + encodeURIComponent(opts.cwd);
                 hasCwd = true;
             }
-            if (!hasCwd) {
+            // 仅使用「本会话」的 pwd 缓存 / 上次目录，禁止串用其它服务器路径
+            var sidForCwd = opts.sessionId;
+            if (sidForCwd == null && opts.session && opts.session.id != null) {
+                sidForCwd = opts.session.id;
+            }
+            if (!hasCwd && sidForCwd) {
                 try {
-                    var cache = w.__websshShellPwdCache;
-                    if (cache && cache.path) {
-                        url += '&cwd=' + encodeURIComponent(cache.path);
+                    var cacheMap = w.__websshShellPwdCacheBySession;
+                    var entry = cacheMap && cacheMap[String(sidForCwd)];
+                    if (entry && entry.path) {
+                        url += '&cwd=' + encodeURIComponent(entry.path);
+                        hasCwd = true;
                     }
                 } catch (e2) { /* ignore */ }
+            }
+            if (!hasCwd && sidForCwd) {
+                try {
+                    var lastMap = JSON.parse(w.localStorage.getItem('websshSftpLastCwd.v1') || '{}') || {};
+                    var last = lastMap[String(sidForCwd)];
+                    if (last) {
+                        url += '&cwd=' + encodeURIComponent(last);
+                    }
+                } catch (e3) { /* ignore */ }
             }
             return url;
         }
