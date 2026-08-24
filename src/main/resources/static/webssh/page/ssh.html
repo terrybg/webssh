@@ -145,6 +145,60 @@
             padding: 2px 0 0 2px;
             box-sizing: border-box;
         }
+        .ssh-find-bar {
+            display: none;
+            position: fixed;
+            top: 44px;
+            right: 16px;
+            z-index: 400;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 8px;
+            background: #2b2b2b;
+            border: 1px solid #555;
+            border-radius: 4px;
+            box-shadow: 0 6px 18px rgba(0,0,0,.45);
+            font-size: 12px;
+            color: #eee;
+        }
+        .ssh-find-bar input {
+            width: 180px;
+            height: 26px;
+            border: 1px solid #555;
+            background: #1a1a1a;
+            color: #eee;
+            border-radius: 3px;
+            padding: 0 8px;
+        }
+        .ssh-find-bar input:focus { outline: 1px solid #0d6efd; }
+        .ssh-find-bar button {
+            height: 26px;
+            min-width: 26px;
+            border: 1px solid #555;
+            background: #3a3a3a;
+            color: #eee;
+            border-radius: 3px;
+            cursor: pointer;
+            padding: 0 8px;
+        }
+        .ssh-find-bar button:hover { background: #4a4a4a; }
+        .ssh-find-bar .ssh-find-status {
+            min-width: 4.5em;
+            color: #bbb;
+            font-variant-numeric: tabular-nums;
+        }
+        .ssh-find-bar.no-hit input {
+            border-color: #e74c3c;
+        }
+        .ssh-finding .xterm-selection,
+        .ssh-finding .xterm .xterm-selection,
+        .ssh-finding .xterm-selection div,
+        .ssh-finding .xterm .xterm-selection div {
+            background: #ffcc00 !important;
+            background-color: #ffcc00 !important;
+            opacity: 0.85 !important;
+            outline: 2px solid #ff6600;
+        }
         #terminal.ssh-terminal .xterm-viewport {
             width: 100% !important;
         }
@@ -432,7 +486,7 @@
     <button type="button" id="btnToggleFiles" class="btn btn-secondary" style="display:none" aria-hidden="true" title="显示/隐藏左侧文件模块" onclick="toggleFilesModule()">
         文件
     </button>
-    <a class="btn btn-secondary" data-toggle="collapse" href="#collapseExample" role="button" aria-expanded="false" aria-controls="collapseExample">
+    <a class="btn btn-secondary" data-toggle="collapse" href="#collapseExample" role="button" aria-expanded="false" aria-controls="collapseExample" title="命令快捷键">
         快捷键
     </a>
     <div class="btn-group" role="group" title="切换主题">
@@ -447,7 +501,7 @@
         </div>
     </div>
     <div class="ssh-toolbar-spacer"></div>
-    <span class="ssh-toolbar-hint">终端自适应窗口大小</span>
+    <span class="ssh-toolbar-hint">Ctrl+F 查找会话内容</span>
 </header>
 <div class="collapse ssh-shortcut-panel" id="collapseExample">
     <div class="card card-body bg-dark">
@@ -463,6 +517,13 @@
     </div>
 </div>
 <div id="terminal" class="ssh-terminal"></div>
+<div id="sshFindBar" class="ssh-find-bar" role="search">
+    <input id="sshFindInput" type="text" placeholder="在会话中查找" autocomplete="off">
+    <span class="ssh-find-status" id="sshFindStatus"></span>
+    <button type="button" id="sshFindPrev" title="上一个（Shift+Enter / Shift+F3）">↑</button>
+    <button type="button" id="sshFindNext" title="下一个（Enter / F3）">↓</button>
+    <button type="button" id="sshFindClose" title="关闭（Esc）">×</button>
+</div>
 <div id="cmdSuggest" class="cmd-suggest" style="display:none">
   <ul id="cmdSuggestList"></ul>
 </div>
@@ -487,6 +548,6 @@
 <script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
 <script src="../js/websocket.js" charset="utf-8"></script>
 <script src="../js/cmd-suggest.js?v=7" charset="utf-8"></script>
-<script src="../js/ssh.js?v=16" charset="utf-8"></script>
+<script src="../js/ssh.js?v=23" charset="utf-8"></script>
 </body>
 </html>

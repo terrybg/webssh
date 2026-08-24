@@ -31,6 +31,12 @@
         '<circle cx="8" cy="11.4" r="0.85" fill="#fff"/>' +
         '</svg>';
 
+    var MONITOR_ICO =
+        '<svg class="sw-monitor-ico" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">' +
+        '<rect x="1.5" y="2" width="13" height="12" rx="1.5" fill="#1b4f72" stroke="#7fb3d5" stroke-width="1"/>' +
+        '<path fill="none" stroke="#7dcea0" stroke-width="1.2" d="M3.2 11.2 L5.4 7.6 L7.6 9.2 L10.2 5.2 L12.6 8.4"/>' +
+        '</svg>';
+
     var CAPTION_MIN =
         '<svg class="caption-ico caption-min" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8"/></svg>';
     var CAPTION_MAX =
@@ -83,6 +89,9 @@
         if (kind === 'help') {
             return HELP_ICO;
         }
+        if (kind === 'monitor') {
+            return MONITOR_ICO;
+        }
         return TERM_ICO;
     }
 
@@ -92,6 +101,9 @@
         }
         if (kind === 'help') {
             return '帮助';
+        }
+        if (kind === 'monitor') {
+            return '任务管理器';
         }
         return '终端';
     }
@@ -164,9 +176,16 @@
             }
             return url;
         }
+        if (kind === 'monitor') {
+            var murl = 'monitor.html' + q + sep + 'v=1';
+            if (tid) {
+                murl += '&tagId=' + encodeURIComponent(tid);
+            }
+            return murl;
+        }
         var sshUrl = 'ssh.html' + q;
         var ssep = sshUrl.indexOf('?') >= 0 ? '&' : '?';
-        sshUrl += ssep + 'v=16';
+        sshUrl += ssep + 'v=23';
         if (tid) {
             sshUrl += '&tagId=' + encodeURIComponent(tid);
         }
@@ -517,8 +536,8 @@
             $win.css({
                 left: off.left + 'px',
                 top: off.top + 'px',
-                width: (kind === 'sftp' ? 720 : 800) + 'px',
-                height: (kind === 'sftp' ? 480 : 520) + 'px',
+                width: (kind === 'sftp' ? 720 : (kind === 'monitor' ? 920 : 800)) + 'px',
+                height: (kind === 'sftp' ? 480 : (kind === 'monitor' ? 600 : 520)) + 'px',
                 zIndex: ++zCounter
             });
         }
@@ -551,7 +570,8 @@
         if (!$host.length) {
             return null;
         }
-        var kind = opts.kind === 'sftp' ? 'sftp' : (opts.kind === 'help' ? 'help' : 'ssh');
+        var kind = opts.kind === 'sftp' ? 'sftp'
+            : (opts.kind === 'help' ? 'help' : (opts.kind === 'monitor' ? 'monitor' : 'ssh'));
         var id = 'sw' + (++winSeq);
         var off = cascadeOffset($host.find('.session-win').length);
         var title = opts.title || defaultTitle(kind);
@@ -572,6 +592,10 @@
               '<div class="session-win-title folder-win-title">' +
                 iconForKind(kind) +
                 '<span class="session-win-title-text folder-win-title-text"></span>' +
+                '<span class="sw-signal off" title="正在探测延迟">' +
+                  '<span class="sw-signal-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>' +
+                  '<span class="sw-signal-ms">--</span>' +
+                '</span>' +
                 '<div class="session-win-actions folder-win-actions">' +
                   dockBtn +
                   '<button type="button" class="fw-btn sw-min fw-min" title="最小化">' + CAPTION_MIN + '</button>' +
@@ -595,19 +619,33 @@
         if (port != null) {
             $win.data('session-port', port);
         }
+        var tagId = '';
+        try {
+            if (opts.tagId) {
+                tagId = String(opts.tagId);
+            } else if (opts.session && typeof w.getWebsshStoredTagId === 'function') {
+                tagId = w.getWebsshStoredTagId(opts.session) || '';
+            } else if (port != null) {
+                tagId = w.localStorage.getItem('tagId' + port) || '';
+            }
+        } catch (eTag) { /* ignore */ }
+        if (tagId) {
+            $win.data('tag-id', tagId);
+        }
         if (kind === 'sftp' && opts.cwd) {
             $win.data('cwd', opts.cwd);
         }
         $win.css({
             left: off.left + 'px',
             top: off.top + 'px',
-            width: (opts.width || (kind === 'sftp' ? 720 : 800)) + 'px',
-            height: (opts.height || (kind === 'sftp' ? 480 : 520)) + 'px',
+            width: (opts.width || (kind === 'sftp' ? 720 : (kind === 'monitor' ? 920 : 800))) + 'px',
+            height: (opts.height || (kind === 'sftp' ? 480 : (kind === 'monitor' ? 600 : 520))) + 'px',
             zIndex: ++zCounter
         });
         $host.append($win);
         $win.find('.session-win-frame').attr('src', resolveSrc(opts));
         bindWindowChrome($win);
+        startSignalMonitor($win);
         focusWindow($win);
         updateTaskbar();
         return $win;
@@ -695,6 +733,137 @@
         }
     }
 
+    function tagIdForWindow($win) {
+        var cached = $win.data('tag-id');
+        if (cached) {
+            return String(cached);
+        }
+        var sid = $win.data('session-id') || $win.attr('data-session-id');
+        var port = $win.data('session-port');
+        var session = null;
+        try {
+            if (sid && w.sessionsCache && w.sessionsCache[sid]) {
+                session = w.sessionsCache[sid];
+            }
+        } catch (e0) { /* ignore */ }
+        try {
+            if (session && typeof w.getWebsshStoredTagId === 'function') {
+                var tid = w.getWebsshStoredTagId(session);
+                if (tid) {
+                    $win.data('tag-id', tid);
+                    return String(tid);
+                }
+            }
+            if (port != null) {
+                var fromPort = w.localStorage.getItem('tagId' + port) || '';
+                if (fromPort && fromPort !== 'null') {
+                    $win.data('tag-id', fromPort);
+                    return fromPort;
+                }
+            }
+        } catch (e1) { /* ignore */ }
+        return '';
+    }
+
+    function signalLevel(ms) {
+        if (ms == null || ms < 0) {
+            return { bars: 0, cls: 'off', label: '--' };
+        }
+        if (ms <= 40) {
+            return { bars: 5, cls: 'good', label: ms + 'ms' };
+        }
+        if (ms <= 80) {
+            return { bars: 4, cls: 'good', label: ms + 'ms' };
+        }
+        if (ms <= 150) {
+            return { bars: 3, cls: 'fair', label: ms + 'ms' };
+        }
+        if (ms <= 250) {
+            return { bars: 2, cls: 'fair', label: ms + 'ms' };
+        }
+        return { bars: 1, cls: 'poor', label: ms + 'ms' };
+    }
+
+    function paintSignal($win, ms, ok) {
+        var $sig = $win.find('.sw-signal');
+        if (!$sig.length) {
+            return;
+        }
+        var level = ok ? signalLevel(ms) : { bars: 0, cls: 'off', label: '--' };
+        $sig.removeClass('good fair poor off').addClass(level.cls);
+        $sig.attr('title', ok ? ('SSH 延迟 ' + level.label) : '无法探测延迟（未连接或超时）');
+        $sig.find('.sw-signal-ms').text(level.label);
+        $sig.find('.sw-signal-bars i').each(function (idx) {
+            $(this).toggleClass('on', idx < level.bars);
+        });
+    }
+
+    function pingWindowLatency($win) {
+        if (!$win || !$win.length || !$win.closest('body').length) {
+            return;
+        }
+        if ($win.data('signal-busy')) {
+            return;
+        }
+        var kind = $win.attr('data-kind') || $win.data('kind');
+        if (kind === 'help') {
+            return;
+        }
+        var tagId = tagIdForWindow($win);
+        if (!tagId) {
+            paintSignal($win, null, false);
+            return;
+        }
+        $win.data('signal-busy', true);
+        $.ajax({
+            url: baseUrl + '/latency',
+            method: 'GET',
+            data: { tagId: tagId },
+            timeout: 8000
+        }).done(function (res) {
+            if (res && res.status === 200 && res.result != null) {
+                paintSignal($win, Number(res.result), true);
+            } else {
+                paintSignal($win, null, false);
+            }
+        }).fail(function () {
+            paintSignal($win, null, false);
+        }).always(function () {
+            $win.data('signal-busy', false);
+        });
+    }
+
+    function startSignalMonitor($win) {
+        stopSignalMonitor($win);
+        var kind = $win.attr('data-kind') || $win.data('kind');
+        if (kind === 'help' || !$win.find('.sw-signal').length) {
+            $win.find('.sw-signal').hide();
+            return;
+        }
+        setTimeout(function () {
+            if ($win.closest('body').length) {
+                pingWindowLatency($win);
+            }
+        }, 1500);
+        var timer = setInterval(function () {
+            if (!$win.closest('body').length) {
+                stopSignalMonitor($win);
+                return;
+            }
+            pingWindowLatency($win);
+        }, 6000);
+        $win.data('signal-timer', timer);
+    }
+
+    function stopSignalMonitor($win) {
+        var timer = $win.data('signal-timer');
+        if (timer) {
+            clearInterval(timer);
+            $win.removeData('signal-timer');
+        }
+        $win.removeData('signal-busy');
+    }
+
     function closeWindow($win) {
         if (!$win || !$win.length) {
             return;
@@ -702,6 +871,7 @@
         var id = $win.data('win-id');
         var wasDocked = $win.hasClass('docked');
         $(document).off('.sw' + id).off('.swr' + id);
+        stopSignalMonitor($win);
         // 仅移除 DOM；不 logout、不清 localStorage tagId
         $win.remove();
         if (wasDocked) {
@@ -1142,7 +1312,8 @@
 
     function findRestoredWindow(entry) {
         var sid = String(entry.sessionId || '');
-        var kind = entry.kind === 'sftp' ? 'sftp' : 'ssh';
+        var kind = (entry.kind === 'sftp' || entry.kind === 'monitor' || entry.kind === 'help')
+            ? entry.kind : 'ssh';
         var $match = $();
         $allWindows().each(function () {
             var $w = $(this);
@@ -1191,7 +1362,12 @@
     }
 
     function openForRestoreEntry(entry, openFns, session) {
-        var opener = entry.kind === 'sftp' ? openFns.openSftp : openFns.openSsh;
+        var opener = openFns.openSsh;
+        if (entry.kind === 'sftp') {
+            opener = openFns.openSftp;
+        } else if (entry.kind === 'monitor') {
+            opener = openFns.openMonitor;
+        }
         if (typeof opener !== 'function') {
             return $.Deferred().reject('missing opener').promise();
         }

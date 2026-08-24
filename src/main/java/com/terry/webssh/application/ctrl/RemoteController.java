@@ -1384,5 +1384,51 @@ public class RemoteController {
         }
         return StatusContent.ok("成功！");
     }
+
+    /**
+     * SSH 往返延迟（毫秒）。走已登录会话执行空命令，反映到远端的实际时延。
+     */
+    @GetMapping("/latency")
+    public StatusContent<Long> latency(@RequestParam String tagId) {
+        Server server = WebSSHService.webLoginMap.get(tagId);
+        if (server == null) {
+            return StatusContent.error("未登录或会话已过期");
+        }
+        SSHConnectInfo info = WebSSHService.webSshMap.get(sshShareKey(server));
+        if (info == null) {
+            info = WebSSHService.webSshMap.get(server.getIp() + ":" + server.getPort());
+        }
+        Session session = info == null ? null : info.getSession();
+        if (session == null || !session.isConnected()) {
+            return StatusContent.error("SSH 未连接");
+        }
+        ChannelExec channel = null;
+        long started = System.nanoTime();
+        try {
+            channel = (ChannelExec) session.openChannel("exec");
+            channel.setCommand(":");
+            channel.setInputStream(null);
+            channel.connect(4000);
+            long deadline = System.currentTimeMillis() + 4000;
+            while (!channel.isClosed()) {
+                if (System.currentTimeMillis() > deadline) {
+                    return StatusContent.error("探测超时");
+                }
+                Thread.sleep(8);
+            }
+            long ms = Math.max(1L, (System.nanoTime() - started) / 1_000_000L);
+            return StatusContent.ok("成功！", ms);
+        } catch (Exception e) {
+            return StatusContent.error(e.getMessage() == null ? "探测失败" : e.getMessage());
+        } finally {
+            if (channel != null) {
+                try {
+                    channel.disconnect();
+                } catch (Exception ignored) {
+                    // ignore
+                }
+            }
+        }
+    }
 }
 

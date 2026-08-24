@@ -325,7 +325,7 @@
             var wid = $win.data('win-id') || '';
             html += '<button type="button" class="desktop-snap-assist-item" data-cand-idx="' + idx
                 + '" data-win-id="' + escapeHtml(wid) + '">'
-                + '<span class="assist-kind">' + (kind === 'sftp' ? '文件' : '终端') + '</span>'
+                + '<span class="assist-kind">' + (kind === 'sftp' ? '文件' : (kind === 'monitor' ? '监控' : '终端')) + '</span>'
                 + '<span class="assist-title">' + escapeHtml(title) + '</span></button>';
         });
         html += '</div></div>';
@@ -478,7 +478,7 @@
         }
         return {
             sessionId: String($w.data('session-id') || $w.attr('data-session-id') || ''),
-            kind: kind === 'sftp' ? 'sftp' : 'ssh',
+            kind: (kind === 'sftp' || kind === 'monitor') ? kind : 'ssh',
             mode: mode,
             title: String($w.data('title') || $w.find('.session-win-title-text').text() || ''),
             geometry: geom,

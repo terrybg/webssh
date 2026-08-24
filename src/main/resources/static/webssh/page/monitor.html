@@ -1,0 +1,349 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>服务器监控</title>
+    <style>
+        html, body { height: 100%; margin: 0; }
+        body {
+            font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+            font-size: 12px;
+            color: #1a1a1a;
+            background: #f3f3f3;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .tm-bar {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px 0;
+            background: #fff;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        .tm-tab {
+            border: 0;
+            background: transparent;
+            padding: 8px 14px 7px;
+            cursor: pointer;
+            color: #333;
+            border-bottom: 2px solid transparent;
+        }
+        .tm-tab.active {
+            color: #0b57d0;
+            border-bottom-color: #0b57d0;
+            font-weight: 600;
+        }
+        .tm-bar .spacer { flex: 1; }
+        .tm-meta { color: #666; }
+        .tm-btn {
+            border: 1px solid #d0d0d0;
+            background: #fff;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .tm-btn:hover { background: #f5f5f5; }
+        .tm-btn.danger { color: #b42318; }
+        .tm-btn:disabled { opacity: .45; cursor: default; }
+        .tm-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+        .tm-pane { display: none; flex: 1 1 auto; min-height: 0; }
+        .tm-pane.active { display: flex; flex-direction: column; }
+        .tm-tools {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+        }
+        .tm-tools input[type=search] {
+            flex: 1;
+            min-width: 0;
+            border: 1px solid #d0d0d0;
+            border-radius: 4px;
+            padding: 5px 8px;
+        }
+        .tm-table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; background: #fff; }
+        table.tm {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        table.tm th, table.tm td {
+            padding: 5px 8px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+            white-space: nowrap;
+        }
+        table.tm th {
+            position: sticky;
+            top: 0;
+            z-index: 4;
+            background: #fafafa;
+            cursor: pointer;
+            font-weight: 600;
+            box-shadow: 0 1px 0 #e5e5e5;
+            vertical-align: bottom;
+        }
+        table.tm th.sorted {
+            color: #0b57d0;
+            box-shadow: inset 0 0 0 2px #0b57d0;
+        }
+        table.tm th.sorted .th-name { color: #0b57d0; }
+        table.tm th.metric {
+            text-align: right;
+            min-width: 84px;
+            color: #1a1a1a;
+        }
+        table.tm th .th-total {
+            display: block;
+            font-size: 13px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.2;
+        }
+        table.tm th .th-name {
+            display: block;
+            margin-top: 2px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #444;
+        }
+        table.tm td.cmd {
+            max-width: 360px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        table.tm tr.selected td:not(.heat) { background: #cfe8ff !important; }
+        table.tm tr.selected td.heat {
+            box-shadow: inset 0 0 0 999px rgba(11, 87, 208, 0.42);
+        }
+        table.tm tbody tr:hover td:not(.heat) { background: #f3f8ff; }
+        table.tm tbody tr:hover td.heat {
+            box-shadow: inset 0 0 0 999px rgba(11, 87, 208, 0.14);
+        }
+        table.tm tbody tr.selected:hover td.heat {
+            box-shadow: inset 0 0 0 999px rgba(11, 87, 208, 0.42);
+        }
+        table.tm td.col-on {
+            box-shadow: inset 0 0 0 999px rgba(11, 87, 208, 0.16);
+        }
+        table.tm tr.selected td.col-on {
+            box-shadow: inset 0 0 0 999px rgba(11, 87, 208, 0.42);
+        }
+        .num { text-align: right !important; font-variant-numeric: tabular-nums; }
+        table.tm td.heat {
+            min-width: 76px;
+            font-variant-numeric: tabular-nums;
+            text-align: right;
+            position: relative;
+        }
+        .perf-layout {
+            flex: 1 1 auto;
+            min-height: 0;
+            display: flex;
+            overflow: hidden;
+            background: #fff;
+        }
+        .perf-nav {
+            flex: 0 0 220px;
+            overflow: auto;
+            border-right: 1px solid #e5e5e5;
+            background: #f7f7f7;
+            padding: 8px 0;
+        }
+        .perf-nav-item {
+            display: block;
+            width: 100%;
+            border: 0;
+            background: transparent;
+            text-align: left;
+            padding: 8px 12px 8px 10px;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+        }
+        .perf-nav-item:hover { background: #eee; }
+        .perf-nav-item.active {
+            background: #fff;
+            border-left-color: #0b57d0;
+        }
+        .perf-nav-item .nav-top {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .perf-nav-item .nav-val {
+            font-variant-numeric: tabular-nums;
+            color: #333;
+            font-weight: 600;
+        }
+        .perf-nav-item canvas {
+            display: block;
+            width: 100%;
+            height: 40px;
+            background: #fff;
+            border: 1px solid #e5e5e5;
+        }
+        .perf-detail {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: auto;
+            padding: 12px 16px 16px;
+        }
+        .perf-detail-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 8px;
+        }
+        .perf-detail-head h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .perf-detail-head .big {
+            font-size: 22px;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+        .perf-chart-box {
+            border: 1px solid #d0d0d0;
+            background: #fafafa;
+            height: 220px;
+        }
+        .perf-chart-box canvas { display: block; width: 100%; height: 220px; }
+        .perf-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px 24px;
+            margin-top: 14px;
+            font-size: 12px;
+        }
+        .perf-stats .k { color: #666; }
+        .perf-stats .v { font-variant-numeric: tabular-nums; }
+        .perf-disks { margin-top: 8px; }
+        .perf-disk-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 4px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .card { display: none; }
+        .bar { display: none; }
+        canvas.spark { display: none; }
+        .sub { color: #666; margin-top: 4px; line-height: 1.5; }
+        .disk-row { display: flex; justify-content: space-between; margin-top: 6px; }
+        .err {
+            padding: 24px;
+            color: #b42318;
+            text-align: center;
+        }
+        .foot { flex: 0 0 auto; padding: 6px 10px; color: #666; background: #fff; border-top: 1px solid #eee; }
+    </style>
+</head>
+<body>
+<div class="tm-bar">
+    <button type="button" class="tm-tab active" data-tab="proc">进程</button>
+    <button type="button" class="tm-tab" data-tab="perf">性能</button>
+    <button type="button" class="tm-tab" data-tab="ports">端口</button>
+    <span class="spacer"></span>
+    <span class="tm-meta" id="tmHost">连接中…</span>
+    <button type="button" class="tm-btn" id="btnRefresh">刷新</button>
+</div>
+<div class="tm-body">
+    <div class="tm-pane active" id="pane-proc">
+        <div class="tm-tools">
+            <input type="search" id="procSearch" placeholder="筛选进程名 / 命令 / PID / 用户">
+            <button type="button" class="tm-btn danger" id="btnKill" disabled>结束任务</button>
+        </div>
+        <div class="tm-table-wrap">
+            <table class="tm" id="procTable">
+                <thead>
+                <tr>
+                    <th data-k="name">名称</th>
+                    <th data-k="pid" class="num">PID</th>
+                    <th data-k="user">用户</th>
+                    <th data-k="cpu" class="num metric" id="thCpu">
+                        <span class="th-total" id="cpuHeadTotal">--</span>
+                        <span class="th-name">CPU</span>
+                    </th>
+                    <th data-k="mem" class="num metric" id="thMem">
+                        <span class="th-total" id="memHeadTotal">--</span>
+                        <span class="th-name">内存</span>
+                    </th>
+                    <th data-k="rss" class="num metric" id="thRss">
+                        <span class="th-total" id="rssHeadTotal">--</span>
+                        <span class="th-name">内存使用</span>
+                    </th>
+                    <th data-k="stat">状态</th>
+                    <th data-k="cmd">命令行</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+    <div class="tm-pane" id="pane-perf">
+        <div class="perf-layout">
+            <div class="perf-nav" id="perfNav">
+                <button type="button" class="perf-nav-item active" data-perf="cpu">
+                    <div class="nav-top"><span>CPU</span><span class="nav-val" id="navCpuVal">--</span></div>
+                    <canvas id="navCpuSpark"></canvas>
+                </button>
+                <button type="button" class="perf-nav-item" data-perf="mem">
+                    <div class="nav-top"><span>内存</span><span class="nav-val" id="navMemVal">--</span></div>
+                    <canvas id="navMemSpark"></canvas>
+                </button>
+                <button type="button" class="perf-nav-item" data-perf="disk">
+                    <div class="nav-top"><span>磁盘</span><span class="nav-val" id="navDiskVal">--</span></div>
+                    <canvas id="navDiskSpark"></canvas>
+                </button>
+                <button type="button" class="perf-nav-item" data-perf="net">
+                    <div class="nav-top"><span>以太网</span><span class="nav-val" id="navNetVal">--</span></div>
+                    <canvas id="navNetSpark"></canvas>
+                </button>
+                <div id="perfAccelNav"></div>
+            </div>
+            <div class="perf-detail">
+                <div class="perf-detail-head">
+                    <h3 id="perfTitle">CPU</h3>
+                    <div class="big" id="perfBig">--</div>
+                </div>
+                <div class="perf-chart-box">
+                    <canvas id="perfMainChart"></canvas>
+                </div>
+                <div class="perf-stats" id="perfStats"></div>
+                <div class="perf-disks" id="perfDisks"></div>
+            </div>
+        </div>
+    </div>
+    <div class="tm-pane" id="pane-ports">
+        <div class="tm-tools">
+            <input type="search" id="portSearch" placeholder="筛选协议 / 地址 / 进程 / PID">
+        </div>
+        <div class="tm-table-wrap">
+            <table class="tm" id="portTable">
+                <thead>
+                <tr>
+                    <th data-k="proto">协议</th>
+                    <th data-k="local">本地地址</th>
+                    <th data-k="pid" class="num">PID</th>
+                    <th data-k="process">进程</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<div class="foot" id="tmFoot">每 2 秒刷新一次</div>
+<script src="../js/jquery-3.4.1.min.js"></script>
+<script src="../js/common.js?v=3"></script>
+<script src="../js/monitor.js?v=6"></script>
+</body>
+</html>

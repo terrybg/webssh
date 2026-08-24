@@ -7,6 +7,12 @@
   var currentScope = 'global';
   var currentSessionId = null;
   var commandsCache = {};
+  var allCommands = [];
+  var searchQuery = '';
+  var sortKey = 'name';
+  var sortDir = 'asc';
+  var pageIndex = 1;
+  var pageSize = 20;
 
   function escapeHtml(value) {
     return String(value == null ? '' : value)
@@ -33,36 +39,103 @@
     $('#commandSubmitBtn').text('添加');
   }
 
+  function compareText(a, b) {
+    return String(a == null ? '' : a).localeCompare(String(b == null ? '' : b), 'zh', {
+      numeric: true,
+      sensitivity: 'base'
+    });
+  }
+
+  function filteredCommands() {
+    var q = searchQuery;
+    var list = allCommands;
+    if (q) {
+      list = list.filter(function (item) {
+        var name = String(item.name || '').toLowerCase();
+        var value = String(item.value || '').toLowerCase();
+        return name.indexOf(q) >= 0 || value.indexOf(q) >= 0;
+      });
+    }
+    var key = sortKey;
+    var dir = sortDir === 'desc' ? -1 : 1;
+    return list.slice().sort(function (a, b) {
+      var av = key === 'value' ? a.value : a.name;
+      var bv = key === 'value' ? b.value : b.name;
+      return compareText(av, bv) * dir;
+    });
+  }
+
+  function updateSortMarks() {
+    $('#commandTable thead th.sortable').each(function () {
+      var key = $(this).data('sort');
+      var mark = '';
+      if (key === sortKey) {
+        mark = sortDir === 'desc' ? '▼' : '▲';
+      }
+      $(this).find('.sort-mark').text(mark);
+    });
+  }
+
   function renderCommandTable(items) {
     commandsCache = {};
+    allCommands = Array.isArray(items) ? items.slice() : [];
+    allCommands.forEach(function (item) {
+      if (item && item.id) {
+        commandsCache[item.id] = item;
+      }
+    });
+    pageIndex = 1;
+    paintCommandPage();
+  }
+
+  function paintCommandPage() {
     var $tbody = $('#commandTableBody');
     $tbody.empty();
+    var filtered = filteredCommands();
+    var total = filtered.length;
+    var size = pageSize || 20;
+    var pages = Math.max(1, Math.ceil(total / size) || 1);
+    if (pageIndex > pages) {
+      pageIndex = pages;
+    }
+    if (pageIndex < 1) {
+      pageIndex = 1;
+    }
+    var start = (pageIndex - 1) * size;
+    var pageItems = filtered.slice(start, start + size);
 
-    if (!items.length) {
-      $('#commandEmptyState').show();
-      $('#commandTable').hide();
-      return;
+    if (!total) {
+      $('#commandEmptyState').text(allCommands.length ? '没有匹配的命令' : '暂无命令，请在下方添加').show();
+      $('#commandTableWrap').hide();
+      $('#commandPager').toggle(!!allCommands.length);
+    } else {
+      $('#commandEmptyState').hide();
+      $('#commandTableWrap').show();
+      $('#commandPager').show();
+      pageItems.forEach(function (item) {
+        var id = escapeHtml(item.id);
+        var name = escapeHtml(item.name);
+        var value = escapeHtml(item.value);
+        $tbody.append(
+          '<tr data-id="' + id + '">' +
+            '<td>' + name + '</td>' +
+            '<td><code class="command-value">' + value + '</code></td>' +
+            '<td class="command-actions">' +
+              '<button type="button" class="btn btn-sm btn-outline-secondary btn-edit-command">编辑</button> ' +
+              '<button type="button" class="btn btn-sm btn-outline-danger btn-delete-command">删除</button>' +
+            '</td>' +
+          '</tr>'
+        );
+      });
     }
 
-    $('#commandEmptyState').hide();
-    $('#commandTable').show();
-
-    items.forEach(function (item) {
-      commandsCache[item.id] = item;
-      var id = escapeHtml(item.id);
-      var name = escapeHtml(item.name);
-      var value = escapeHtml(item.value);
-      $tbody.append(
-        '<tr data-id="' + id + '">' +
-          '<td>' + name + '</td>' +
-          '<td><code class="command-value">' + value + '</code></td>' +
-          '<td class="command-actions">' +
-            '<button type="button" class="btn btn-sm btn-outline-secondary btn-edit-command">编辑</button> ' +
-            '<button type="button" class="btn btn-sm btn-outline-danger btn-delete-command">删除</button>' +
-          '</td>' +
-        '</tr>'
-      );
-    });
+    var from = total ? start + 1 : 0;
+    var to = start + pageItems.length;
+    $('#commandPagerInfo').text('共 ' + total + ' 条' + (total ? '，第 ' + from + '–' + to + ' 条' : ''));
+    $('#commandPageNum').text(pageIndex + ' / ' + pages);
+    $('#commandPagePrev').prop('disabled', pageIndex <= 1);
+    $('#commandPageNext').prop('disabled', pageIndex >= pages);
+    updateSortMarks();
   }
 
   function loadCommands() {
@@ -279,6 +352,12 @@
     }
 
     $('#commandModalTitle').text(options.title || (currentScope === 'global' ? '通用命令' : '常用命令'));
+    searchQuery = '';
+    sortKey = 'name';
+    sortDir = 'asc';
+    pageIndex = 1;
+    pageSize = parseInt($('#commandPageSize').val(), 10) || 20;
+    $('#commandSearch').val('');
     resetCommandForm();
     renderCommandTable([]);
     if (currentScope === 'session') {
@@ -329,6 +408,48 @@
     $('#commandImportCommonBtn').on('click', importCommonCommands);
     $('#cmdSettingsSaveBtn').on('click', saveSettings);
 
+    var searchTimer = null;
+    $('#commandSearch').on('input', function () {
+      var val = $.trim($(this).val()).toLowerCase();
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(function () {
+        searchQuery = val;
+        pageIndex = 1;
+        paintCommandPage();
+      }, 120);
+    });
+    $('#commandPageSize').on('change', function () {
+      pageSize = parseInt($(this).val(), 10) || 20;
+      pageIndex = 1;
+      paintCommandPage();
+    });
+    $('#commandPagePrev').on('click', function () {
+      if (pageIndex > 1) {
+        pageIndex -= 1;
+        paintCommandPage();
+        $('#commandTableWrap').scrollTop(0);
+      }
+    });
+    $('#commandPageNext').on('click', function () {
+      pageIndex += 1;
+      paintCommandPage();
+      $('#commandTableWrap').scrollTop(0);
+    });
+    $('#commandTable').on('click', 'thead th.sortable', function () {
+      var key = $(this).data('sort');
+      if (!key) {
+        return;
+      }
+      if (sortKey === key) {
+        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortKey = key;
+        sortDir = 'asc';
+      }
+      pageIndex = 1;
+      paintCommandPage();
+    });
+
     $('#commandForm').on('keydown', 'input, textarea', function (event) {
       if ((event.key === 'Enter' || event.keyCode === 13) && !event.shiftKey) {
         if (event.target && event.target.tagName === 'TEXTAREA') {
@@ -354,10 +475,22 @@
       }
     });
 
+    $('#commandModal').on('shown.bs.modal', function () {
+      $('#commandSearch').trigger('focus');
+    });
+    $('#commandModal').on('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key === 'f' || e.key === 'F' || e.keyCode === 70)) {
+        e.preventDefault();
+        $('#commandSearch').trigger('focus').trigger('select');
+      }
+    });
     $('#commandModal').on('hidden.bs.modal', function () {
       resetCommandForm();
       hideSettingsBar();
       commandsCache = {};
+      allCommands = [];
+      searchQuery = '';
+      $('#commandSearch').val('');
     });
   });
 

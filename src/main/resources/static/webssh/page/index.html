@@ -814,6 +814,52 @@
             font-weight: 500;
             letter-spacing: 0.01em;
         }
+        .sw-signal {
+            flex: 0 0 auto;
+            display: none;
+            align-items: center;
+            gap: 5px;
+            margin-right: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+            user-select: none;
+            cursor: default;
+        }
+        .session-win[data-kind="ssh"] .sw-signal,
+        .session-win[data-kind="sftp"] .sw-signal,
+        .session-win[data-kind="monitor"] .sw-signal {
+            display: inline-flex;
+        }
+        .sw-signal-bars {
+            display: inline-flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 12px;
+        }
+        .sw-signal-bars i {
+            display: block;
+            width: 3px;
+            border-radius: 1px;
+            background: currentColor;
+            opacity: 0.22;
+        }
+        .sw-signal-bars i:nth-child(1) { height: 4px; }
+        .sw-signal-bars i:nth-child(2) { height: 6px; }
+        .sw-signal-bars i:nth-child(3) { height: 8px; }
+        .sw-signal-bars i:nth-child(4) { height: 10px; }
+        .sw-signal-bars i:nth-child(5) { height: 12px; }
+        .sw-signal-bars i.on {
+            opacity: 1;
+        }
+        .sw-signal.good { color: #16a34a; }
+        .sw-signal.fair { color: #ca8a04; }
+        .sw-signal.poor { color: #dc2626; }
+        .sw-signal.off { color: #9ca3af; }
+        .sw-signal-ms {
+            min-width: 2.6em;
+        }
         .folder-win-actions,
         .session-win-actions {
             display: flex;
@@ -1024,6 +1070,75 @@
             text-align: center;
             padding-top: 40vh;
         }
+        #commandModal.modal {
+            overflow: hidden;
+        }
+        #commandModal .modal-dialog {
+            max-width: 900px;
+            width: calc(100% - 32px);
+            height: calc(100vh - 48px);
+            margin: 24px auto;
+            display: flex;
+            flex-direction: column;
+        }
+        #commandModal .modal-content {
+            max-height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #commandModal .modal-header,
+        #commandModal .modal-footer {
+            flex: 0 0 auto;
+        }
+        #commandModal .modal-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 8px;
+        }
+        #commandModal .command-toolbar {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        #commandModal .command-toolbar #commandSearch {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+        #commandModal .command-table-wrap {
+            flex: 1 1 auto;
+            min-height: 140px;
+            overflow: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+        }
+        #commandModal #commandTable {
+            margin-bottom: 0;
+        }
+        #commandModal #commandTable thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #f8f9fa;
+            white-space: nowrap;
+        }
+        #commandModal #commandTable thead th.sortable {
+            cursor: pointer;
+            user-select: none;
+        }
+        #commandModal #commandTable thead th.sortable:hover {
+            background: #eef2f6;
+        }
+        #commandModal #commandTable thead th .sort-mark {
+            color: #6c757d;
+            font-size: 11px;
+            margin-left: 4px;
+        }
         #commandModal .command-value {
             white-space: pre-wrap;
             word-break: break-all;
@@ -1036,6 +1151,26 @@
             padding: 16px 8px;
             text-align: center;
             color: #6c757d;
+        }
+        #commandPager {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding: 8px 0 4px;
+            font-size: 12px;
+            color: #555;
+        }
+        #commandPager .pager-btns .btn {
+            min-width: 2.2em;
+        }
+        #commandFormBlock {
+            flex: 0 0 auto;
+            border-top: 1px solid #dee2e6;
+            padding-top: 8px;
+            margin-top: 4px;
         }
     </style>
 </head>
@@ -1139,7 +1274,7 @@
                 </button>
             </div>
             <div class="modal-body">
-                <div id="commandSettingsBar" style="display:none" class="mb-3">
+                <div id="commandSettingsBar" style="display:none" class="mb-2">
                     <div class="form-check form-check-inline">
                         <input type="checkbox" id="cmdAutoCollect" class="form-check-input">
                         <label for="cmdAutoCollect">自动收集</label>
@@ -1149,30 +1284,51 @@
                     <button type="button" class="btn btn-sm btn-outline-primary ml-2" id="cmdSettingsSaveBtn">保存设置</button>
                     <div class="small text-muted mt-1">回车后按行数写入本机常用命令；超上限删最旧；相同命令不重复新增。</div>
                 </div>
+                <div class="command-toolbar">
+                    <input type="search" class="form-control form-control-sm" id="commandSearch"
+                           placeholder="搜索名称或命令内容（Ctrl+F）" autocomplete="off">
+                    <select id="commandPageSize" class="form-control form-control-sm" style="width:auto" title="每页条数">
+                        <option value="10">10 条/页</option>
+                        <option value="20" selected>20 条/页</option>
+                        <option value="50">50 条/页</option>
+                        <option value="100">100 条/页</option>
+                    </select>
+                </div>
                 <div id="commandEmptyState" style="display: none;">暂无命令，请在下方添加</div>
-                <table class="table table-sm table-hover" id="commandTable" style="display: none;">
-                    <thead>
-                    <tr>
-                        <th style="width: 22%;">名称</th>
-                        <th>命令内容</th>
-                        <th style="width: 140px;">操作</th>
-                    </tr>
-                    </thead>
-                    <tbody id="commandTableBody"></tbody>
-                </table>
-                <hr>
-                <h6 id="commandFormTitle">添加命令</h6>
-                <form id="commandForm" novalidate>
-                    <input type="hidden" id="commandId" value="">
-                    <div class="mb-3">
-                        <label for="commandName" class="form-label">名称</label>
-                        <input type="text" class="form-control" id="commandName" name="name" required>
+                <div class="command-table-wrap" id="commandTableWrap" style="display: none;">
+                    <table class="table table-sm table-hover" id="commandTable">
+                        <thead>
+                        <tr>
+                            <th class="sortable" data-sort="name" style="width: 22%;">名称<span class="sort-mark"></span></th>
+                            <th class="sortable" data-sort="value">命令内容<span class="sort-mark"></span></th>
+                            <th style="width: 140px;">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="commandTableBody"></tbody>
+                    </table>
+                </div>
+                <div id="commandPager" style="display: none;">
+                    <span id="commandPagerInfo">共 0 条</span>
+                    <div class="pager-btns btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-secondary" id="commandPagePrev">上一页</button>
+                        <button type="button" class="btn btn-outline-secondary" id="commandPageNum" disabled>1 / 1</button>
+                        <button type="button" class="btn btn-outline-secondary" id="commandPageNext">下一页</button>
                     </div>
-                    <div class="mb-3">
-                        <label for="commandValue" class="form-label">命令内容</label>
-                        <textarea class="form-control" id="commandValue" name="value" rows="3" required></textarea>
-                    </div>
-                </form>
+                </div>
+                <div id="commandFormBlock">
+                    <h6 id="commandFormTitle">添加命令</h6>
+                    <form id="commandForm" novalidate>
+                        <input type="hidden" id="commandId" value="">
+                        <div class="mb-2">
+                            <label for="commandName" class="form-label">名称</label>
+                            <input type="text" class="form-control form-control-sm" id="commandName" name="name" required>
+                        </div>
+                        <div class="mb-0">
+                            <label for="commandValue" class="form-label">命令内容</label>
+                            <textarea class="form-control form-control-sm" id="commandValue" name="value" rows="2" required></textarea>
+                        </div>
+                    </form>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-primary mr-auto" id="commandImportCommonBtn" title="从内置常见命令库合并导入（已存在的命令内容会跳过）">导入常见命令</button>
@@ -1195,12 +1351,12 @@
 <script src="../js/bootstrap/popper.min.js" charset="utf-8"></script>
 <script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
 <script src="../js/index.js?v=10" charset="utf-8"></script>
-<script src="../js/desktop.js?v=3" charset="utf-8"></script>
-<script src="../js/sessions.js?v=18" charset="utf-8"></script>
-<script src="../js/commands-ui.js?v=2" charset="utf-8"></script>
+<script src="../js/desktop.js?v=4" charset="utf-8"></script>
+<script src="../js/sessions.js?v=19" charset="utf-8"></script>
+<script src="../js/commands-ui.js?v=4" charset="utf-8"></script>
 <script src="../js/split-pane.js?v=5" charset="utf-8"></script>
-<script src="../js/session-windows.js?v=22" charset="utf-8"></script>
-<script src="../js/session-layout.js?v=6" charset="utf-8"></script>
+<script src="../js/session-windows.js?v=31" charset="utf-8"></script>
+<script src="../js/session-layout.js?v=7" charset="utf-8"></script>
 <script src="../js/folder-windows.js?v=11" charset="utf-8"></script>
 <script>
     function loadSsh(query, route) {

@@ -39,6 +39,7 @@
           SessionLayout.restore({
             openSsh: openSshWindow,
             openSftp: openFileWindow,
+            openMonitor: openMonitorWindow,
             resolveSession: function (id) {
               return sessionsCache[id] || null;
             }
@@ -463,6 +464,41 @@
     return dfd.promise();
   }
 
+  function openMonitorWindow(session) {
+    var dfd = $.Deferred();
+    if (!session) {
+      return dfd.reject('无效会话').promise();
+    }
+    if (!window.SessionWindows || typeof window.SessionWindows.open !== 'function') {
+      alert('会话窗口未加载');
+      return dfd.reject('会话窗口未加载').promise();
+    }
+    $('#loadingIndicator').show();
+    ensureLoggedIn(session)
+      .done(function (tagId) {
+        var q = workspaceIframeQuery(session);
+        var $win = SessionWindows.open({
+          kind: 'monitor',
+          sessionId: session.id,
+          port: session.port,
+          title: (session.name || session.ip || '服务器') + ' — 任务管理器',
+          query: q,
+          tagId: tagId,
+          width: 920,
+          height: 600
+        });
+        dfd.resolve($win);
+      })
+      .fail(function (msg) {
+        alert(msg || '登录失败');
+        dfd.reject(msg || '登录失败');
+      })
+      .always(function () {
+        $('#loadingIndicator').hide();
+      });
+    return dfd.promise();
+  }
+
   function openHelpWindow() {
     if (!window.SessionWindows || typeof window.SessionWindows.open !== 'function') {
       window.open('help.html', '_blank');
@@ -513,6 +549,40 @@
           query: q,
           tagId: tagId,
           cwd: openOpts.cwd || null
+        });
+        dfd.resolve($win);
+      })
+      .fail(function (msg) {
+        alert(msg || '登录失败');
+        dfd.reject(msg || '登录失败');
+      })
+      .always(function () {
+        $('#loadingIndicator').hide();
+      });
+    return dfd.promise();
+  }
+
+  function openMonitorWindow(session) {
+    var dfd = $.Deferred();
+    if (!session) {
+      return dfd.reject('无效会话').promise();
+    }
+    if (!window.SessionWindows || typeof window.SessionWindows.open !== 'function') {
+      alert('会话窗口未加载');
+      return dfd.reject('会话窗口未加载').promise();
+    }
+    $('#loadingIndicator').show();
+    ensureLoggedIn(session)
+      .done(function (tagId) {
+        var $win = SessionWindows.open({
+          kind: 'monitor',
+          sessionId: session.id,
+          port: session.port,
+          title: (session.name || session.ip || '服务器') + ' — 任务管理器',
+          query: workspaceIframeQuery(session),
+          tagId: tagId,
+          width: 920,
+          height: 600
         });
         dfd.resolve($win);
       })
@@ -577,6 +647,15 @@
         resolveSession(session.id, openFileWindow);
       } else if (session) {
         openFileWindow(session);
+      }
+    };
+    D.onOpenMonitor = function (session) {
+      if (session && session.id && sessionsCache[session.id]) {
+        openMonitorWindow(sessionsCache[session.id]);
+      } else if (session && session.id) {
+        resolveSession(session.id, openMonitorWindow);
+      } else if (session) {
+        openMonitorWindow(session);
       }
     };
     if (typeof D.bind === 'function') {
@@ -675,6 +754,7 @@
   window.connectRemote = connectRemote;
   window.openSshWindow = openSshWindow;
   window.openFileWindow = openFileWindow;
+  window.openMonitorWindow = openMonitorWindow;
   window.openHelpWindow = openHelpWindow;
   window.ensureLoggedIn = ensureLoggedIn;
   window.ensureSshSession = ensureSshSession;

@@ -197,7 +197,8 @@
       showMenu(
         [
           { action: 'remote', label: '远程' },
-          { action: 'files', label: '文件' }
+          { action: 'files', label: '文件' },
+          { action: 'monitor', label: '服务器监控' }
         ],
         e.pageX,
         e.pageY,
@@ -255,6 +256,8 @@
         invoke('onOpenRemote', session || { id: sid });
       } else if (action === 'files') {
         invoke('onOpenFiles', session || { id: sid });
+      } else if (action === 'monitor') {
+        invoke('onOpenMonitor', session || { id: sid });
       } else if (action === 'edit') {
         invoke('onEdit', session || { id: sid });
       } else if (action === 'delete') {
@@ -286,6 +289,7 @@
     hideMenus: hideMenus,
     onOpenRemote: null,
     onOpenFiles: null,
+    onOpenMonitor: null,
     onEdit: null,
     onDelete: null,
     onSessionCommands: null,

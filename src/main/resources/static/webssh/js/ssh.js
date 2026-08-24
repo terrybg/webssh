@@ -14,6 +14,7 @@ let term = new Terminal({
     //制表宽度
     tabStopWidth: 8,
     screenKeys: true,
+    allowProposedApi: true,
     theme: getColor(xtermTheme)
 });
 // 修改terminal的高度为body的高度
@@ -239,6 +240,247 @@ $(function (){
             term.paste(key);
         }
     });
+
+    var findMatches = [];
+    var findIndex = -1;
+    var findQuery = '';
+
+    function isFindBarOpen() {
+        return $('#sshFindBar').is(':visible');
+    }
+
+    function getTermBuffer() {
+        try {
+            if (!term || !term.buffer) {
+                return null;
+            }
+            if (term.buffer.active && typeof term.buffer.active.getLine === 'function') {
+                return term.buffer.active;
+            }
+            if (typeof term.buffer.getLine === 'function') {
+                return term.buffer;
+            }
+            return null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function scanFindMatches(query) {
+        var buf = getTermBuffer();
+        var hits = [];
+        if (!buf || !query) {
+            return hits;
+        }
+        var needle = query.toLowerCase();
+        var len = buf.length || 0;
+        for (var y = 0; y < len; y++) {
+            var line = buf.getLine(y);
+            if (!line || typeof line.translateToString !== 'function') {
+                continue;
+            }
+            var text = line.translateToString(true);
+            var hay = text.toLowerCase();
+            var from = 0;
+            while (from < hay.length) {
+                var at = hay.indexOf(needle, from);
+                if (at < 0) {
+                    break;
+                }
+                hits.push({ y: y, x: at, len: query.length, text: text.substr(at, query.length) });
+                from = at + Math.max(1, needle.length);
+            }
+        }
+        return hits;
+    }
+
+    function updateFindStatus() {
+        var $st = $('#sshFindStatus');
+        var $bar = $('#sshFindBar');
+        if (!findQuery) {
+            $st.text('');
+            $bar.removeClass('no-hit');
+            return;
+        }
+        if (!findMatches.length) {
+            $st.text('无匹配');
+            $bar.addClass('no-hit');
+            return;
+        }
+        $bar.removeClass('no-hit');
+        $st.text((findIndex + 1) + ' / ' + findMatches.length);
+    }
+
+    function applyFindTheme(on) {
+        $('body').toggleClass('ssh-finding', !!on);
+        $('#sshFindHits').remove();
+        if (!term || typeof term.setOption !== 'function') {
+            return;
+        }
+        try {
+            var base = getColor(xtermTheme) || {};
+            if (on) {
+                term.setOption('theme', $.extend({}, base, {
+                    selection: '#FFD400',
+                    selectionBackground: '#FFD400',
+                    selectionInactiveBackground: '#FFD400'
+                }));
+            } else {
+                term.setOption('theme', base);
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    function highlightFindMatch(m) {
+        if (!m || !term) {
+            return;
+        }
+        try {
+            if (typeof term.scrollToLine === 'function') {
+                term.scrollToLine(Math.max(0, m.y - 2));
+            }
+            var len = Math.max(1, m.len);
+            if (typeof term.select === 'function') {
+                term.select(m.x, m.y, len);
+                var selected = '';
+                try {
+                    selected = term.getSelection ? (term.getSelection() || '') : '';
+                } catch (e0) { /* ignore */ }
+                if (!selected) {
+                    var buf = getTermBuffer();
+                    var top = buf && (buf.viewportY != null) ? buf.viewportY : (buf && buf.baseY != null ? buf.baseY : 0);
+                    term.select(m.x, Math.max(0, m.y - top), len);
+                }
+            }
+            if (typeof term.refresh === 'function') {
+                term.refresh(0, term.rows - 1);
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    function jumpFind(delta) {
+        if (!findMatches.length) {
+            if (term && term.clearSelection) {
+                term.clearSelection();
+            }
+            updateFindStatus();
+            return;
+        }
+        findIndex = (findIndex + delta + findMatches.length) % findMatches.length;
+        highlightFindMatch(findMatches[findIndex]);
+        updateFindStatus();
+    }
+
+    function runFind(resetIndex) {
+        var q = $.trim($('#sshFindInput').val() || '');
+        findQuery = q;
+        findMatches = scanFindMatches(q);
+        if (resetIndex || findIndex < 0 || findIndex >= findMatches.length) {
+            findIndex = findMatches.length ? 0 : -1;
+        }
+        if (findMatches.length) {
+            highlightFindMatch(findMatches[findIndex]);
+        } else if (term && term.clearSelection) {
+            term.clearSelection();
+        }
+        updateFindStatus();
+    }
+
+    function openSessionFind() {
+        applyFindTheme(true);
+        $('#sshFindBar').css('display', 'flex');
+        var el = document.getElementById('sshFindInput');
+        if (el) {
+            el.focus();
+            el.select();
+        }
+        if ($.trim($('#sshFindInput').val() || '')) {
+            runFind(false);
+        }
+    }
+
+    function closeSessionFind() {
+        $('#sshFindBar').hide().removeClass('no-hit');
+        findMatches = [];
+        findIndex = -1;
+        applyFindTheme(false);
+        if (term && term.clearSelection) {
+            term.clearSelection();
+        }
+        if (term && term.focus) {
+            term.focus();
+        }
+    }
+
+    function isFindHotkey(e) {
+        return (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey
+            && (e.key === 'f' || e.key === 'F' || e.keyCode === 70);
+    }
+
+    function isFindNextHotkey(e) {
+        return !e.ctrlKey && !e.metaKey && !e.altKey
+            && (e.key === 'F3' || e.keyCode === 114);
+    }
+
+    // Xshell 风格：Ctrl+F 在会话输出中查找关键字
+    $(document).on('keydown.sessionFind', function (e) {
+        if (isFindHotkey(e)) {
+            if (e.target && e.target.id === 'sshFindInput') {
+                e.preventDefault();
+                $('#sshFindInput').select();
+                return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+            openSessionFind();
+            return;
+        }
+        if (isFindNextHotkey(e) && isFindBarOpen()) {
+            e.preventDefault();
+            jumpFind(e.shiftKey ? -1 : 1);
+            return;
+        }
+        if ((e.key === 'Escape' || e.keyCode === 27) && isFindBarOpen()
+            && (!e.target || e.target.id === 'sshFindInput')) {
+            e.preventDefault();
+            closeSessionFind();
+        }
+    });
+    if (term && typeof term.attachCustomKeyEventHandler === 'function') {
+        term.attachCustomKeyEventHandler(function (ev) {
+            if (ev.type !== 'keydown') {
+                return true;
+            }
+            if (isFindHotkey(ev)) {
+                openSessionFind();
+                return false;
+            }
+            if (isFindNextHotkey(ev) && isFindBarOpen()) {
+                jumpFind(ev.shiftKey ? -1 : 1);
+                return false;
+            }
+            if ((ev.key === 'Escape' || ev.keyCode === 27) && isFindBarOpen()) {
+                closeSessionFind();
+                return false;
+            }
+            return true;
+        });
+    }
+    $('#sshFindInput').on('input', function () {
+        runFind(true);
+    });
+    $('#sshFindInput').on('keydown', function (e) {
+        if (e.key === 'Enter' || e.keyCode === 13) {
+            e.preventDefault();
+            jumpFind(e.shiftKey ? -1 : 1);
+        } else if (e.key === 'Escape' || e.keyCode === 27) {
+            e.preventDefault();
+            closeSessionFind();
+        }
+    });
+    $('#sshFindPrev').on('click', function () { jumpFind(-1); });
+    $('#sshFindNext').on('click', function () { jumpFind(1); });
+    $('#sshFindClose').on('click', closeSessionFind);
     // 展开快捷键面板时再拉一次，保证拿到最新命令；收起/展开后都要重算终端尺寸
     $('#collapseExample').on('shown.bs.collapse', function () {
         loadShortcuts();
