@@ -431,8 +431,9 @@
     return ensureLoggedIn(session);
   }
 
-  function openSshWindow(session) {
+  function openSshWindow(session, openOpts) {
     var dfd = $.Deferred();
+    openOpts = openOpts || {};
     if (!session) {
       return dfd.reject('无效会话').promise();
     }
@@ -444,13 +445,17 @@
     ensureLoggedIn(session)
       .done(function (tagId) {
         var q = workspaceIframeQuery(session);
+        if (openOpts.cwd) {
+          q += (q.indexOf('?') >= 0 ? '&' : '?') + 'cwd=' + encodeURIComponent(openOpts.cwd);
+        }
         var $win = SessionWindows.open({
           kind: 'ssh',
           sessionId: session.id,
           port: session.port,
           title: session.name || session.ip || '终端',
           query: q,
-          tagId: tagId
+          tagId: tagId,
+          cwd: openOpts.cwd || null
         });
         dfd.resolve($win);
       })

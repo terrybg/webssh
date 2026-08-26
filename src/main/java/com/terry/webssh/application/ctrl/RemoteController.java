@@ -12,6 +12,10 @@ import com.terry.webssh.application.pojo.Server;
 import com.terry.webssh.application.pojo.StatusContent;
 import com.terry.webssh.application.service.WebSSHService;
 import com.terry.webssh.application.pojo.SftpFile;
+import com.terry.webssh.application.util.ArchiveExtract;
+import com.terry.webssh.application.util.DfDiskParser;
+import com.terry.webssh.application.util.DuScanService;
+import com.terry.webssh.application.util.RmOutputParser;
 import com.terry.webssh.util.ProgressInputStream;
 import lombok.extern.java.Log;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +32,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.HashMap;
 import java.util.Arrays;
 import java.util.Collections;
@@ -556,6 +561,115 @@ public class RemoteController {
         return StatusContent.ok("成功！", files);
     }
 
+    @PostMapping("/du/start")
+    public StatusContent<Map<String, Object>> duStart(@RequestParam("path") String path,
+                                                      @RequestParam("tagId") String tagId) {
+        Server server = WebSSHService.webLoginMap.get(tagId);
+        if (server == null) {
+            return StatusContent.error("未登录或会话已过期，请重新连接");
+        }
+        try {
+            path = URLDecoder.decode(path, "UTF-8");
+        } catch (Exception ignored) {
+            // keep original
+        }
+        if (StrUtil.isBlank(path)) {
+            path = "/";
+        }
+        if (!isSafeRemotePath(path)) {
+            return StatusContent.error("路径不合法");
+        }
+        SSHConnectInfo cache = getCacheSsh(server);
+        DuScanService.Job job = DuScanService.start(tagId, path, cache);
+        return StatusContent.ok("成功！", job.snapshot(0L));
+    }
+
+    @GetMapping("/du/status")
+    public StatusContent<Map<String, Object>> duStatus(@RequestParam("tagId") String tagId,
+                                                       @RequestParam(value = "since", required = false, defaultValue = "0") long since) {
+        if (WebSSHService.webLoginMap.get(tagId) == null) {
+            return StatusContent.error("未登录或会话已过期，请重新连接");
+        }
+        DuScanService.Job job = DuScanService.get(tagId);
+        if (job == null) {
+            Map<String, Object> empty = new LinkedHashMap<String, Object>();
+            empty.put("running", false);
+            empty.put("done", false);
+            empty.put("entries", Collections.emptyList());
+            empty.put("seq", 0L);
+            return StatusContent.ok("成功！", empty);
+        }
+        return StatusContent.ok("成功！", job.snapshot(since));
+    }
+
+    @PostMapping("/du/cancel")
+    public StatusContent<String> duCancel(@RequestParam("tagId") String tagId) {
+        DuScanService.cancel(tagId);
+        return StatusContent.ok("已取消");
+    }
+
+    /**
+     * 真实磁盘空间（TreeSize 风格）。兼容 GNU / BusyBox（算能 BM1684 等）。
+     */
+    @GetMapping("/df")
+    public StatusContent<Map<String, Object>> diskFree(@RequestParam("tagId") String tagId) {
+        Server server = WebSSHService.webLoginMap.get(tagId);
+        if (server == null) {
+            return StatusContent.error("未登录或会话已过期，请重新连接");
+        }
+        SSHConnectInfo cache = getCacheSsh(server);
+        Session session;
+        try {
+            synchronized (cache) {
+                session = cache.getSession();
+            }
+            if (session == null || !session.isConnected()) {
+                return StatusContent.error("SSH 已断开");
+            }
+            // 不长时间占 SFTP 锁；按兼容性从高到低尝试（BusyBox 无 -B1）
+            String[] cmds = new String[]{
+                    "df -Pk",
+                    "df -P -k",
+                    "df -P",
+                    "busybox df -Pk",
+                    "busybox df -P",
+                    "df -k",
+                    "df"
+            };
+            String raw = "";
+            String lastErr = "";
+            for (String cmd : cmds) {
+                try {
+                    String out = execCapture(session, "sh -c " + shellQuote(cmd + " 2>/dev/null"), 10000);
+                    if (out != null && out.trim().length() > 0) {
+                        List<Map<String, Object>> tryDisks = DfDiskParser.parse(out);
+                        if (!tryDisks.isEmpty()) {
+                            raw = out;
+                            break;
+                        }
+                        // 有输出但全被过滤时仍保留，便于区分「无真实盘」
+                        if (raw.isEmpty()) {
+                            raw = out;
+                        }
+                    }
+                } catch (Exception e) {
+                    lastErr = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+                }
+            }
+            if (raw == null || raw.trim().isEmpty()) {
+                return StatusContent.error(StrUtil.isBlank(lastErr)
+                        ? "无法执行 df（设备可能无该命令）"
+                        : ("df 失败: " + lastErr));
+            }
+            List<Map<String, Object>> disks = DfDiskParser.parse(raw);
+            Map<String, Object> body = new LinkedHashMap<String, Object>();
+            body.put("disks", disks);
+            return StatusContent.ok("成功！", body);
+        } catch (Exception e) {
+            return StatusContent.error(e.getMessage() == null ? "读取磁盘失败" : e.getMessage());
+        }
+    }
+
     private static String permissionText(int perm) {
         char[] chars = new char[9];
         chars[0] = (perm & 0400) != 0 ? 'r' : '-';
@@ -571,31 +685,126 @@ public class RemoteController {
     }
 
     /**
-     * 删除文件或目录（目录递归删除）
+     * 删除文件或目录。优先 {@code rm -rfv}（快 + 可流式进度）；失败则回退 SFTP 递归。
+     * 响应为 NDJSON：start / file / done / error。
+     * 参数：{@code path} 单路径，或 {@code sources} 多行路径。
      */
     @PostMapping("/rm")
-    public StatusContent<String> rm(@RequestParam("path") String path, @RequestParam("tagId") String tagId) {
+    public void rm(@RequestParam(value = "path", required = false) String path,
+                   @RequestParam(value = "sources", required = false) String sources,
+                   @RequestParam("tagId") String tagId,
+                   HttpServletResponse response) throws IOException {
+        response.setCharacterEncoding("UTF-8");
+        response.setContentType("application/x-ndjson;charset=UTF-8");
+        response.setHeader("Cache-Control", "no-cache, no-store");
+        response.setHeader("X-Accel-Buffering", "no");
+        PrintWriter writer = response.getWriter();
+
         Server server = WebSSHService.webLoginMap.get(tagId);
         if (server == null) {
-            return StatusContent.error("未登录或会话已过期");
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"未登录或会话已过期\"}");
+            return;
         }
-        if (StrUtil.isBlank(path) || "/".equals(path.trim())) {
-            return StatusContent.error("不允许删除根目录");
+        List<String> targets = new ArrayList<String>();
+        if (StrUtil.isNotBlank(sources)) {
+            for (String p : sources.split("\n")) {
+                if (StrUtil.isNotBlank(p)) {
+                    targets.add(p.trim());
+                }
+            }
+        } else if (StrUtil.isNotBlank(path)) {
+            targets.add(path.trim());
         }
+        if (targets.isEmpty()) {
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"未选择要删除的文件\"}");
+            return;
+        }
+        for (String p : targets) {
+            if (!isSafeRemotePath(p) || "/".equals(p)) {
+                writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":"
+                        + jsonQuote("不允许删除: " + p) + "}");
+                return;
+            }
+        }
+        StringBuilder label = new StringBuilder();
+        for (int i = 0; i < targets.size(); i++) {
+            if (i > 0) {
+                label.append(", ");
+            }
+            if (i >= 3) {
+                label.append("…共 ").append(targets.size()).append(" 项");
+                break;
+            }
+            label.append(targets.get(i));
+        }
+        writeUploadEvent(writer, "{\"phase\":\"start\",\"targets\":" + targets.size()
+                + ",\"label\":" + jsonQuote(label.toString()) + "}");
+
         SSHConnectInfo cache = getCacheSsh(server);
+        final int[] count = {0};
+        final String[] lastErr = {""};
         try {
             synchronized (cache) {
-                ChannelSftp ch = cache.getSftp().getClient();
-                deletePath(ch, path);
+                Session session = cache.getSession();
+                if (session == null || !session.isConnected()) {
+                    writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"SSH 已断开\"}");
+                    return;
+                }
+                StringBuilder args = new StringBuilder();
+                for (String p : targets) {
+                    args.append(' ').append(shellQuote(p));
+                }
+                String cmd = "rm -rfv --" + args;
+                boolean needFallback = false;
+                try {
+                    int code = execStreaming(session, cmd, 30 * 60 * 1000, new LineConsumer() {
+                        @Override
+                        public void onLine(String line) {
+                            String entry = RmOutputParser.parseRemoved(line);
+                            if (entry != null) {
+                                count[0]++;
+                                writeUploadEvent(writer, "{\"phase\":\"file\",\"path\":"
+                                        + jsonQuote(entry) + ",\"count\":" + count[0] + "}");
+                            } else if (line != null && !line.trim().isEmpty()) {
+                                String t = line.trim().toLowerCase();
+                                if (t.startsWith("rm:") || t.contains("permission denied")
+                                        || t.contains("cannot remove") || t.contains("not empty")
+                                        || t.contains("invalid option") || t.contains("unrecognized option")) {
+                                    lastErr[0] = line.trim();
+                                }
+                            }
+                        }
+                    });
+                    if (code != 0 && code != -1) {
+                        if (count[0] == 0) {
+                            needFallback = true;
+                        } else if (StrUtil.isNotBlank(lastErr[0])) {
+                            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":"
+                                    + jsonQuote("删除部分失败: " + lastErr[0]) + "}");
+                            return;
+                        }
+                    }
+                } catch (Exception shellEx) {
+                    needFallback = true;
+                }
+                if (needFallback) {
+                    count[0] = 0;
+                    ChannelSftp ch = cache.getSftp().getClient();
+                    for (String p : targets) {
+                        deletePathWithProgress(ch, p, writer, count);
+                    }
+                }
             }
-            return StatusContent.ok("删除成功");
+            writeUploadEvent(writer, "{\"phase\":\"done\",\"count\":" + count[0] + "}");
         } catch (Exception e) {
             invalidateSharedSftp(cache);
-            return StatusContent.error("删除失败: " + e.getMessage());
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":"
+                    + jsonQuote("删除失败: " + e.getMessage()) + "}");
         }
     }
 
-    private void deletePath(ChannelSftp ch, String path) throws SftpException {
+    private void deletePathWithProgress(ChannelSftp ch, String path, PrintWriter writer, int[] count)
+            throws SftpException {
         SftpATTRS attrs = ch.stat(path);
         if (attrs.isDir()) {
             @SuppressWarnings("unchecked")
@@ -606,11 +815,17 @@ public class RemoteController {
                     continue;
                 }
                 String child = path.endsWith("/") ? path + name : path + "/" + name;
-                deletePath(ch, child);
+                deletePathWithProgress(ch, child, writer, count);
             }
             ch.rmdir(path);
+            count[0]++;
+            writeUploadEvent(writer, "{\"phase\":\"file\",\"path\":" + jsonQuote(path)
+                    + ",\"count\":" + count[0] + "}");
         } else {
             ch.rm(path);
+            count[0]++;
+            writeUploadEvent(writer, "{\"phase\":\"file\",\"path\":" + jsonQuote(path)
+                    + ",\"count\":" + count[0] + "}");
         }
     }
 
@@ -1207,6 +1422,206 @@ public class RemoteController {
         }
     }
 
+    /**
+     * 解压 zip / tar / tar.gz / tgz / gz 到目标目录；NDJSON 流式进度（start / file / done / error）。
+     */
+    @PostMapping("/extract")
+    public void extract(@RequestParam("path") String path,
+                        @RequestParam("destDir") String destDir,
+                        @RequestParam("tagId") String tagId,
+                        HttpServletResponse response) throws IOException {
+        response.setCharacterEncoding("UTF-8");
+        response.setContentType("application/x-ndjson;charset=UTF-8");
+        response.setHeader("Cache-Control", "no-cache, no-store");
+        response.setHeader("X-Accel-Buffering", "no");
+        PrintWriter writer = response.getWriter();
+
+        Server server = WebSSHService.webLoginMap.get(tagId);
+        if (server == null) {
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"未登录或会话已过期\"}");
+            return;
+        }
+        if (StrUtil.isBlank(path) || !isSafeRemotePath(path)) {
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"压缩包路径不合法\"}");
+            return;
+        }
+        if (StrUtil.isBlank(destDir)) {
+            int idx = path.lastIndexOf('/');
+            destDir = idx <= 0 ? "/" : path.substring(0, idx);
+        }
+        if (!isSafeRemotePath(destDir)) {
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"目标目录不合法\"}");
+            return;
+        }
+        String name = path.substring(path.lastIndexOf('/') + 1);
+        ArchiveExtract.Kind kind = ArchiveExtract.detect(name);
+        if (kind == ArchiveExtract.Kind.UNKNOWN) {
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"不支持的压缩格式（支持 zip / tar / tar.gz / tgz / gz）\"}");
+            return;
+        }
+        String outName = ArchiveExtract.stripGzipName(name);
+        if (outName.contains("/") || outName.contains("\\") || outName.contains("..")) {
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"文件名不合法\"}");
+            return;
+        }
+        String gzipOut = joinRemote(destDir, outName);
+        String cmd = ArchiveExtract.buildVerboseCommand(
+                kind, shellQuote(path), shellQuote(destDir), shellQuote(gzipOut));
+        writeUploadEvent(writer, "{\"phase\":\"start\",\"archive\":" + jsonQuote(path)
+                + ",\"dest\":" + jsonQuote(destDir) + "}");
+        SSHConnectInfo cache = getCacheSsh(server);
+        final int[] count = {0};
+        final String[] lastErr = {""};
+        try {
+            synchronized (cache) {
+                Session session = cache.getSession();
+                if (session == null || !session.isConnected()) {
+                    writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"SSH 已断开\"}");
+                    return;
+                }
+                if (kind == ArchiveExtract.Kind.GZIP_FILE) {
+                    String err = execCommand(session, cmd);
+                    if (StrUtil.isNotBlank(err)) {
+                        writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":"
+                                + jsonQuote("解压失败: " + err) + "}");
+                        return;
+                    }
+                    count[0] = 1;
+                    writeUploadEvent(writer, "{\"phase\":\"file\",\"path\":" + jsonQuote(outName)
+                            + ",\"count\":1}");
+                } else {
+                    int code = execStreaming(session, cmd, 30 * 60 * 1000, new LineConsumer() {
+                        @Override
+                        public void onLine(String line) {
+                            String entry = ArchiveExtract.parseProgressLine(line);
+                            if (entry != null) {
+                                count[0]++;
+                                writeUploadEvent(writer, "{\"phase\":\"file\",\"path\":"
+                                        + jsonQuote(entry) + ",\"count\":" + count[0] + "}");
+                            } else if (line != null && !line.trim().isEmpty()) {
+                                String t = line.trim().toLowerCase();
+                                if (t.contains("error") || t.contains("cannot") || t.contains("failed")
+                                        || t.startsWith("tar:") || t.startsWith("unzip:")) {
+                                    lastErr[0] = line.trim();
+                                }
+                            }
+                        }
+                    });
+                    if (code != 0 && code != -1) {
+                        String msg = StrUtil.isNotBlank(lastErr[0]) ? lastErr[0] : ("exit " + code);
+                        writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":"
+                                + jsonQuote("解压失败: " + msg) + "}");
+                        return;
+                    }
+                }
+            }
+            writeUploadEvent(writer, "{\"phase\":\"done\",\"dest\":" + jsonQuote(destDir)
+                    + ",\"count\":" + count[0] + "}");
+        } catch (Exception e) {
+            invalidateSharedSftp(cache);
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":"
+                    + jsonQuote("解压失败: " + e.getMessage()) + "}");
+        }
+    }
+
+    private interface LineConsumer {
+        void onLine(String line);
+    }
+
+    private static int execStreaming(Session session, String command, int timeoutMs, LineConsumer consumer)
+            throws Exception {
+        ChannelExec exec = (ChannelExec) session.openChannel("exec");
+        exec.setCommand(command);
+        InputStream in = exec.getInputStream();
+        InputStream err = exec.getErrStream();
+        exec.connect(Math.min(15000, timeoutMs));
+        byte[] buf = new byte[4096];
+        StringBuilder lineBuf = new StringBuilder();
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (true) {
+            boolean readAny = false;
+            while (in.available() > 0) {
+                int n = in.read(buf);
+                if (n <= 0) {
+                    break;
+                }
+                readAny = true;
+                appendStreamingLines(lineBuf, new String(buf, 0, n, StandardCharsets.UTF_8), consumer);
+            }
+            while (err.available() > 0) {
+                int n = err.read(buf);
+                if (n <= 0) {
+                    break;
+                }
+                readAny = true;
+                appendStreamingLines(lineBuf, new String(buf, 0, n, StandardCharsets.UTF_8), consumer);
+            }
+            if (exec.isClosed()) {
+                while (in.available() > 0) {
+                    int n = in.read(buf);
+                    if (n <= 0) {
+                        break;
+                    }
+                    appendStreamingLines(lineBuf, new String(buf, 0, n, StandardCharsets.UTF_8), consumer);
+                }
+                while (err.available() > 0) {
+                    int n = err.read(buf);
+                    if (n <= 0) {
+                        break;
+                    }
+                    appendStreamingLines(lineBuf, new String(buf, 0, n, StandardCharsets.UTF_8), consumer);
+                }
+                if (lineBuf.length() > 0) {
+                    consumer.onLine(lineBuf.toString());
+                    lineBuf.setLength(0);
+                }
+                break;
+            }
+            if (System.currentTimeMillis() > deadline) {
+                exec.disconnect();
+                throw new IllegalStateException("解压超时");
+            }
+            if (!readAny) {
+                Thread.sleep(30);
+            }
+        }
+        exec.disconnect();
+        return exec.getExitStatus();
+    }
+
+    private static void appendStreamingLines(StringBuilder lineBuf, String chunk, LineConsumer consumer) {
+        lineBuf.append(chunk);
+        int idx;
+        while ((idx = indexOfNewline(lineBuf)) >= 0) {
+            String line = lineBuf.substring(0, idx);
+            lineBuf.delete(0, idx + 1);
+            if (line.endsWith("\r")) {
+                line = line.substring(0, line.length() - 1);
+            }
+            consumer.onLine(line);
+        }
+    }
+
+    private static int indexOfNewline(StringBuilder sb) {
+        for (int i = 0; i < sb.length(); i++) {
+            char c = sb.charAt(i);
+            if (c == '\n') {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static String joinRemote(String dir, String name) {
+        if (dir == null || "/".equals(dir)) {
+            return "/" + name;
+        }
+        if (dir.endsWith("/")) {
+            return dir + name;
+        }
+        return dir + "/" + name;
+    }
+
     private static boolean isSafeRemotePath(String path) {
         if (StrUtil.isBlank(path) || !path.startsWith("/")) {
             return false;
@@ -1217,6 +1632,51 @@ public class RemoteController {
 
     private static String shellQuote(String s) {
         return "'" + String.valueOf(s).replace("'", "'\"'\"'") + "'";
+    }
+
+    private static String execCapture(Session session, String command, int timeoutMs) throws Exception {
+        ChannelExec exec = (ChannelExec) session.openChannel("exec");
+        exec.setCommand(command);
+        InputStream in = exec.getInputStream();
+        InputStream err = exec.getErrStream();
+        exec.connect(Math.min(15000, timeoutMs));
+        byte[] buf = new byte[4096];
+        StringBuilder out = new StringBuilder();
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (true) {
+            while (in.available() > 0) {
+                int n = in.read(buf);
+                if (n <= 0) {
+                    break;
+                }
+                out.append(new String(buf, 0, n, StandardCharsets.UTF_8));
+                if (out.length() > 1024 * 1024) {
+                    break;
+                }
+            }
+            while (err.available() > 0) {
+                if (err.read(buf) < 0) {
+                    break;
+                }
+            }
+            if (exec.isClosed()) {
+                while (in.available() > 0) {
+                    int n = in.read(buf);
+                    if (n <= 0) {
+                        break;
+                    }
+                    out.append(new String(buf, 0, n, StandardCharsets.UTF_8));
+                }
+                break;
+            }
+            if (System.currentTimeMillis() > deadline) {
+                exec.disconnect();
+                throw new IllegalStateException("扫描超时");
+            }
+            Thread.sleep(20);
+        }
+        exec.disconnect();
+        return out.toString();
     }
 
     private static String execCommand(Session session, String command) throws Exception {

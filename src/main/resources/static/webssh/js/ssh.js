@@ -552,6 +552,7 @@ function openTerminal() {
             term.write('    \'\\/__//__/  \\/____/ \\/___/   \\/_____/\\/_____/\\/_/\\/_/\r\n');
             term.write('\x1b[0m\r\n');
             term.write('\t\t\x1b[31mWelcome 远程调试 终端\x1b[0m\r\n');
+            scheduleInitialCd();
 
         },
         onClose: function () {
@@ -580,10 +581,58 @@ function setEncode(encode){
 }
 /** 打开浮动文件窗口（可多开）；按钮高亮表示已有窗口或侧栏停靠 */
 function toggleFilesModule() {
+    openFilesAtShellCwd();
+}
+
+function openFilesAtShellCwd() {
     if (!window.parent || window.parent === window) {
         return;
     }
-    window.parent.postMessage({ type: 'webssh-toggle-files' }, '*');
+    function send(path) {
+        window.parent.postMessage({
+            type: 'webssh-open-files',
+            path: path || '/',
+            sessionId: resolveSessionId()
+        }, '*');
+    }
+    fetchShellPwdForUpload()
+        .done(function (pwd) {
+            send(pwd || '/');
+        })
+        .fail(function () {
+            send('/');
+        });
+}
+
+function scheduleInitialCd() {
+    var startCwd = null;
+    try {
+        if (typeof getQueryParam === 'function') {
+            startCwd = getQueryParam('cwd');
+        }
+        if (!startCwd && typeof getUrlParameter === 'function') {
+            startCwd = getUrlParameter('cwd');
+        }
+    } catch (e0) { /* ignore */ }
+    if (!startCwd || startCwd === '/') {
+        return;
+    }
+    var path = String(startCwd);
+    setTimeout(function () {
+        try {
+            if (!client || !tagId) {
+                return;
+            }
+            var quoted = path.replace(/'/g, "'\"'\"'");
+            client.send({
+                operate: 'command',
+                tagId: tagId,
+                command: "cd '" + quoted + "'\n"
+            });
+        } catch (e1) {
+            console.warn('initial cd failed', e1);
+        }
+    }, 500);
 }
 
 function currentTagIdForUpload() {
@@ -806,12 +855,14 @@ function uploadFilesToShellCwd(fileList) {
 })();
 
 function setFilesButtonVisible(/* visible */) {
-    var $btn = $('#btnToggleFiles');
+    var $btn = $('#btnOpenFiles');
+    if (!$btn.length) {
+        $btn = $('#btnToggleFiles');
+    }
     if (!$btn.length) {
         return;
     }
-    // v1: keep toolbar「文件」hidden; open files from desktop icon → 文件
-    $btn.hide().attr('aria-hidden', 'true');
+    $btn.show().attr('aria-hidden', 'false');
 }
 
 window.addEventListener('message', function (e) {

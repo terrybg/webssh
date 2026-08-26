@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="../css/xterm2.css" />
     <link rel="stylesheet" href="../js/bootstrap/bootstrap.min.css"/>
     <link rel="stylesheet" href="../iconfont/iconfont.css">
+    <link rel="stylesheet" href="../font/bootstrap-icons.css">
     <style>
         html, body {
             height: 100%;
@@ -72,6 +73,11 @@
         }
         .ssh-toolbar .iconfont {
             font-size: 14px;
+        }
+        .ssh-toolbar .bi {
+            font-size: 14px;
+            margin-right: 4px;
+            vertical-align: -1px;
         }
         .ssh-toolbar-spacer {
             flex: 1 1 auto;
@@ -486,6 +492,9 @@
     <button type="button" id="btnToggleFiles" class="btn btn-secondary" style="display:none" aria-hidden="true" title="显示/隐藏左侧文件模块" onclick="toggleFilesModule()">
         文件
     </button>
+    <button type="button" id="btnOpenFiles" class="btn btn-secondary" title="在当前目录打开新的文件管理器" onclick="openFilesAtShellCwd()">
+        <i class="bi bi-folder2-open" aria-hidden="true"></i> 文件管理
+    </button>
     <a class="btn btn-secondary" data-toggle="collapse" href="#collapseExample" role="button" aria-expanded="false" aria-controls="collapseExample" title="命令快捷键">
         快捷键
     </a>
@@ -548,6 +557,6 @@
 <script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
 <script src="../js/websocket.js" charset="utf-8"></script>
 <script src="../js/cmd-suggest.js?v=7" charset="utf-8"></script>
-<script src="../js/ssh.js?v=23" charset="utf-8"></script>
+<script src="../js/ssh.js?v=24" charset="utf-8"></script>
 </body>
 </html>

@@ -171,16 +171,46 @@
         }
         .perf-nav-item .nav-top {
             display: flex;
-            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
             font-size: 12px;
             font-weight: 600;
             margin-bottom: 4px;
         }
+        .perf-nav-item .nav-ico {
+            flex: 0 0 18px;
+            width: 18px;
+            height: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #555;
+        }
+        .perf-nav-item .nav-ico svg {
+            width: 16px;
+            height: 16px;
+            display: block;
+        }
+        .perf-nav-item .nav-label {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
         .perf-nav-item .nav-val {
+            flex: 0 0 auto;
             font-variant-numeric: tabular-nums;
             color: #333;
             font-weight: 600;
         }
+        .perf-nav-item.active .nav-ico {
+            color: #0b57d0;
+        }
+        .perf-nav-item[data-perf^="gpu"] .nav-ico { color: #76b900; }
+        .perf-nav-item[data-perf^="npu"] .nav-ico { color: #e67e22; }
+        .perf-nav-item.active[data-perf^="gpu"] .nav-ico { color: #76b900; }
+        .perf-nav-item.active[data-perf^="npu"] .nav-ico { color: #e67e22; }
         .perf-nav-item canvas {
             display: block;
             width: 100%;
@@ -292,19 +322,35 @@
         <div class="perf-layout">
             <div class="perf-nav" id="perfNav">
                 <button type="button" class="perf-nav-item active" data-perf="cpu">
-                    <div class="nav-top"><span>CPU</span><span class="nav-val" id="navCpuVal">--</span></div>
+                    <div class="nav-top">
+                        <span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M5 1h1v2h4V1h1v2h2v2h2v1h-2v4h2v1h-2v2H11v2h-1v-2H6v2H5v-2H3v-2H1v-1h2V5H1V4h2V2h2V1zm1 3v8h4V4H6z"/></svg></span>
+                        <span class="nav-label">CPU</span>
+                        <span class="nav-val" id="navCpuVal">--</span>
+                    </div>
                     <canvas id="navCpuSpark"></canvas>
                 </button>
                 <button type="button" class="perf-nav-item" data-perf="mem">
-                    <div class="nav-top"><span>内存</span><span class="nav-val" id="navMemVal">--</span></div>
+                    <div class="nav-top">
+                        <span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 4h14v8H1V4zm2 2v4h2V6H3zm4 0v4h2V6H7zm4 0v4h2V6h-2z"/></svg></span>
+                        <span class="nav-label">内存</span>
+                        <span class="nav-val" id="navMemVal">--</span>
+                    </div>
                     <canvas id="navMemSpark"></canvas>
                 </button>
                 <button type="button" class="perf-nav-item" data-perf="disk">
-                    <div class="nav-top"><span>磁盘</span><span class="nav-val" id="navDiskVal">--</span></div>
+                    <div class="nav-top">
+                        <span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm1 2v6h10V5H3zm8 1.5a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg></span>
+                        <span class="nav-label">磁盘</span>
+                        <span class="nav-val" id="navDiskVal">--</span>
+                    </div>
                     <canvas id="navDiskSpark"></canvas>
                 </button>
                 <button type="button" class="perf-nav-item" data-perf="net">
-                    <div class="nav-top"><span>以太网</span><span class="nav-val" id="navNetVal">--</span></div>
+                    <div class="nav-top">
+                        <span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a7 7 0 1 1 0 14A7 7 0 0 1 8 1zm0 1.5a5.5 5.5 0 0 0-1.6 10.75c.4-1.7.9-3.55 1.6-4.75.7 1.2 1.2 3.05 1.6 4.75A5.5 5.5 0 0 0 8 2.5zm0 1.2c.55 1.05 1.15 2.7 1.55 4.3H6.45C6.85 6.4 7.45 4.75 8 3.7z"/></svg></span>
+                        <span class="nav-label">以太网</span>
+                        <span class="nav-val" id="navNetVal">--</span>
+                    </div>
                     <canvas id="navNetSpark"></canvas>
                 </button>
                 <div id="perfAccelNav"></div>
@@ -344,6 +390,6 @@
 <div class="foot" id="tmFoot">每 2 秒刷新一次</div>
 <script src="../js/jquery-3.4.1.min.js"></script>
 <script src="../js/common.js?v=3"></script>
-<script src="../js/monitor.js?v=6"></script>
+<script src="../js/monitor.js?v=7"></script>
 </body>
 </html>

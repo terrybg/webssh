@@ -930,6 +930,8 @@
             flex: 1 1 auto;
             min-height: 0;
             background: #fff;
+            position: relative;
+            overflow: hidden;
         }
         .folder-win-frame,
         .session-win-frame {
@@ -939,15 +941,53 @@
             display: block;
         }
         .folder-win-resize,
-        .session-win-resize {
+        .session-win-resize,
+        .win-resize-handles {
             position: absolute;
+            inset: 0;
+            z-index: 6;
+            pointer-events: none;
+        }
+        .win-rh {
+            position: absolute;
+            pointer-events: auto;
+            background: transparent;
+            z-index: 7;
+        }
+        .win-rh.n { top: -3px; left: 8px; right: 8px; height: 6px; cursor: ns-resize; }
+        .win-rh.s { bottom: -3px; left: 8px; right: 8px; height: 6px; cursor: ns-resize; }
+        .win-rh.e { right: -3px; top: 8px; bottom: 8px; width: 6px; cursor: ew-resize; }
+        .win-rh.w { left: -3px; top: 8px; bottom: 8px; width: 6px; cursor: ew-resize; }
+        .win-rh.ne { top: -3px; right: -3px; width: 12px; height: 12px; cursor: nesw-resize; }
+        .win-rh.nw { top: -3px; left: -3px; width: 12px; height: 12px; cursor: nwse-resize; }
+        .win-rh.se { bottom: -3px; right: -3px; width: 12px; height: 12px; cursor: nwse-resize; }
+        .win-rh.sw { bottom: -3px; left: -3px; width: 12px; height: 12px; cursor: nesw-resize; }
+        .folder-win.maximized .win-resize-handles,
+        .folder-win.docked .win-resize-handles,
+        .folder-win.minimized .win-resize-handles,
+        .session-win.maximized .win-resize-handles,
+        .session-win.docked .win-resize-handles,
+        .session-win.minimized .win-resize-handles,
+        .session-win.snapped .win-resize-handles,
+        .desktop-dock-strip .session-win.docked .win-resize-handles,
+        .folder-win.docked .folder-win-resize,
+        .session-win.snapped .session-win-resize {
+            display: none !important;
+        }
+        .win-focus-shield {
+            position: absolute;
+            left: 0;
+            top: 0;
             right: 0;
             bottom: 0;
-            width: 14px;
-            height: 14px;
-            cursor: nwse-resize;
-            background: linear-gradient(135deg, transparent 55%, rgba(0,0,0,.22) 55%);
-            opacity: 0.55;
+            z-index: 3;
+            background: transparent;
+            cursor: default;
+        }
+        .folder-win.focused > .folder-win-body > .win-focus-shield,
+        .session-win.focused > .session-win-body > .win-focus-shield,
+        .folder-win.focused > .folder-win-body > .win-focus-shield {
+            display: none;
         }
         .folder-taskbar {
             position: absolute;
@@ -1069,6 +1109,106 @@
             color: #fff;
             text-align: center;
             padding-top: 40vh;
+        }
+        #commandModal.modal {
+            overflow: hidden;
+        }
+        /* Windows 11 content dialog style */
+        .win11-dialog .modal-content {
+            border: 1px solid #ebebeb;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18), 0 0 1px rgba(0, 0, 0, 0.12);
+            background: #f3f3f3;
+            overflow: hidden;
+            font-family: "Segoe UI Variable", "Segoe UI", "Microsoft YaHei", sans-serif;
+        }
+        .win11-dialog .modal-header {
+            border-bottom: 1px solid #e5e5e5;
+            background: #f9f9f9;
+            padding: 14px 18px 12px;
+            align-items: center;
+        }
+        .win11-dialog .modal-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1a1a1a;
+            letter-spacing: 0;
+        }
+        .win11-dialog .modal-header .close {
+            padding: 6px 10px;
+            margin: -4px -6px -4px auto;
+            border-radius: 4px;
+            opacity: 0.7;
+            font-size: 22px;
+            font-weight: 300;
+            line-height: 1;
+            text-shadow: none;
+        }
+        .win11-dialog .modal-header .close:hover {
+            opacity: 1;
+            background: #e81123;
+            color: #fff;
+        }
+        .win11-dialog .modal-body {
+            background: #f3f3f3;
+            padding: 16px 18px;
+            color: #1a1a1a;
+        }
+        .win11-dialog .modal-footer {
+            border-top: 1px solid #e5e5e5;
+            background: #f9f9f9;
+            padding: 12px 18px;
+            gap: 8px;
+        }
+        .win11-dialog .form-label,
+        .win11-dialog label.form-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #5d5d5d;
+            margin-bottom: 4px;
+        }
+        .win11-dialog .form-control,
+        .win11-dialog .form-control:focus {
+            border-radius: 4px;
+            border: 1px solid #8a8a8a;
+            background: #fff;
+            box-shadow: none;
+            font-size: 13px;
+            height: calc(1.5em + 0.75rem + 2px);
+        }
+        .win11-dialog .form-control:focus {
+            border-color: #005fb8;
+            box-shadow: 0 0 0 1px #005fb8;
+        }
+        .win11-dialog .btn {
+            border-radius: 4px;
+            font-size: 13px;
+            min-width: 80px;
+            padding: 6px 14px;
+        }
+        .win11-dialog .btn-primary {
+            background: #005fb8;
+            border-color: #005fb8;
+        }
+        .win11-dialog .btn-primary:hover {
+            background: #00529c;
+            border-color: #00529c;
+        }
+        .win11-dialog .btn-secondary {
+            background: #fff;
+            border: 1px solid #8a8a8a;
+            color: #1a1a1a;
+        }
+        .win11-dialog .btn-secondary:hover {
+            background: #f5f5f5;
+            border-color: #666;
+            color: #1a1a1a;
+        }
+        .win11-dialog .mb-3 {
+            margin-bottom: 14px !important;
+        }
+        #sessionModal.win11-dialog .modal-dialog {
+            max-width: 420px;
         }
         #commandModal.modal {
             overflow: hidden;
@@ -1221,8 +1361,8 @@
 <div id="desktopMenu" aria-hidden="true"></div>
 
 <!-- 添加 / 修改会话 -->
-<div class="modal fade" id="sessionModal" tabindex="-1" aria-labelledby="sessionModalTitle" aria-hidden="true">
-    <div class="modal-dialog">
+<div class="modal fade win11-dialog" id="sessionModal" tabindex="-1" aria-labelledby="sessionModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="sessionModalTitle">添加会话</h5>
@@ -1264,7 +1404,7 @@
 </div>
 
 <!-- 通用 / 会话常用命令 -->
-<div class="modal fade" id="commandModal" tabindex="-1" aria-labelledby="commandModalTitle" aria-hidden="true">
+<div class="modal fade win11-dialog" id="commandModal" tabindex="-1" aria-labelledby="commandModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
@@ -1352,12 +1492,12 @@
 <script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
 <script src="../js/index.js?v=10" charset="utf-8"></script>
 <script src="../js/desktop.js?v=4" charset="utf-8"></script>
-<script src="../js/sessions.js?v=19" charset="utf-8"></script>
+<script src="../js/sessions.js?v=20" charset="utf-8"></script>
 <script src="../js/commands-ui.js?v=4" charset="utf-8"></script>
 <script src="../js/split-pane.js?v=5" charset="utf-8"></script>
-<script src="../js/session-windows.js?v=31" charset="utf-8"></script>
+<script src="../js/session-windows.js?v=39" charset="utf-8"></script>
 <script src="../js/session-layout.js?v=7" charset="utf-8"></script>
-<script src="../js/folder-windows.js?v=11" charset="utf-8"></script>
+<script src="../js/folder-windows.js?v=18" charset="utf-8"></script>
 <script>
     function loadSsh(query, route) {
         var q = query;
@@ -1979,6 +2119,35 @@ function notifyFilesVisible($pane, targetWin) {
                     rightWin.dispatchEvent(new Event('resize'));
                 }
             } catch (err) { /* ignore */ }
+            return;
+        }
+        if (data.type === 'webssh-open-files' || data.type === 'webssh-open-terminal') {
+            var openSid = data.sessionId
+                || $frame.closest('.session-win').data('session-id')
+                || $frame.closest('.session-win').attr('data-session-id')
+                || window.currentSessionId;
+            var openPath = data.path || '/';
+            var openCache = window.sessionsCache || {};
+            function withSession(session) {
+                if (!session) {
+                    return;
+                }
+                if (data.type === 'webssh-open-terminal' && typeof window.openSshWindow === 'function') {
+                    window.openSshWindow(session, { cwd: openPath });
+                } else if (typeof window.openFileWindow === 'function') {
+                    window.openFileWindow(session, { cwd: openPath });
+                }
+            }
+            if (openSid && openCache[openSid]) {
+                withSession(openCache[openSid]);
+            } else if (openSid && typeof window.resolveSession === 'function') {
+                window.resolveSession(openSid, withSession);
+            } else if (openSid) {
+                withSession({
+                    id: openSid,
+                    port: $frame.closest('.session-win').data('session-port') || window.currentSessionPort || 22
+                });
+            }
             return;
         }
         if (data.type === 'webssh-query-files') {

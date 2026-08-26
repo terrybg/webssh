@@ -195,8 +195,28 @@
         return out;
     }
 
+    function syncStatusBar() {
+        var $text = $('#sftpStatusText');
+        if (!$text.length) {
+            return;
+        }
+        var total = 0;
+        if (typeof isSearchMode !== 'undefined' && isSearchMode) {
+            total = (typeof searchItems !== 'undefined' && searchItems) ? searchItems.length : 0;
+        } else {
+            total = (typeof currentItems !== 'undefined' && currentItems) ? currentItems.length : 0;
+        }
+        var selected = getSelectedRels().length;
+        if (selected > 0) {
+            $text.text(total + ' 个项目' + '　选中了 ' + selected + ' 个项目');
+        } else {
+            $text.text(total + ' 个项目');
+        }
+    }
+
     function clearSelection() {
         $('#fileView tr, #fileView .icon-tile, #fileView .content-row').removeClass('selected cut-item');
+        syncStatusBar();
     }
 
     function selectOnly(rel) {
@@ -217,6 +237,7 @@
         if (clipboard && clipboard.op === 'cut') {
             applyCutVisual();
         }
+        syncStatusBar();
     }
 
     function applyCutVisual() {
@@ -513,12 +534,52 @@
         }
         var current = normalizeDirPath(curDir());
 
-        function rowHtml(nodePath, depth) {
+        function mergedKids(nodePath) {
+            var map = {};
+            (treeChildren[nodePath] || []).forEach(function (ch) {
+                map[ch.path] = { name: ch.name, path: ch.path, dir: true };
+            });
+            if (typeof scanChildrenForPath === 'function' && scanEnabled) {
+                (scanChildrenForPath(nodePath) || []).forEach(function (ch) {
+                    if (!ch || !ch.path) {
+                        return;
+                    }
+                    var prev = map[ch.path];
+                    map[ch.path] = {
+                        name: ch.name,
+                        path: ch.path,
+                        dir: prev ? (prev.dir || !!ch.dir) : !!ch.dir
+                    };
+                });
+            }
+            var list = [];
+            Object.keys(map).forEach(function (k) {
+                list.push(map[k]);
+            });
+            list.sort(function (a, b) {
+                if (scanEnabled && typeof scanCache !== 'undefined') {
+                    var sa = Number(scanCache.sizes[a.path]) || 0;
+                    var sb = Number(scanCache.sizes[b.path]) || 0;
+                    if (sb !== sa) {
+                        return sb - sa;
+                    }
+                }
+                if (!!a.dir !== !!b.dir) {
+                    return a.dir ? -1 : 1;
+                }
+                return String(a.name).localeCompare(String(b.name), 'zh');
+            });
+            return list;
+        }
+
+        function rowHtml(nodePath, depth, isFile) {
             var active = nodePath === current;
             var expanded = !!treeExpanded[nodePath];
-            var kids = treeChildren[nodePath];
+            var kids = isFile ? [] : mergedKids(nodePath);
             var twisty;
-            if (kids && kids.length === 0) {
+            if (isFile || (treeChildren[nodePath] && kids.length === 0 && !scanEnabled)) {
+                twisty = '<span class="tree-twisty empty"></span>';
+            } else if (!isFile && treeChildren[nodePath] && kids.length === 0) {
                 twisty = '<span class="tree-twisty empty"></span>';
             } else {
                 twisty = '<span class="tree-twisty' + (expanded ? ' open' : '') + '" data-toggle="'
@@ -526,26 +587,33 @@
                     + (expanded ? '▼' : '▶') + '</span>';
             }
             var label = nodePath === '/' ? 'Linux (/)' : shortName(nodePath);
-            return '<div class="tree-row' + (active ? ' active' : '') + '" data-path="'
-                + escapeHtml(nodePath) + '" style="--depth:' + depth + '">'
+            var sizeText = typeof scanSizeLabelForPath === 'function' ? scanSizeLabelForPath(nodePath) : '';
+            var icon = isFile
+                ? '<i class="bi bi-file-earmark tree-file"></i>'
+                : '<i class="bi bi-folder-fill tree-folder"></i>';
+            return '<div class="tree-row' + (active ? ' active' : '') + (isFile ? ' is-file' : '')
+                + '" data-path="' + escapeHtml(nodePath) + '" data-file="' + (isFile ? '1' : '0')
+                + '" style="--depth:' + depth + '">'
                 + twisty
-                + '<i class="bi bi-folder-fill tree-folder"></i>'
-                + '<span class="tree-label">' + escapeHtml(label) + '</span></div>';
+                + icon
+                + (sizeText ? '<span class="tree-size">' + escapeHtml(sizeText) + '</span>' : '')
+                + '<span class="tree-label">' + escapeHtml(label) + '</span>'
+                + '</div>';
         }
 
-        function walk(nodePath, depth) {
-            var expanded = !!treeExpanded[nodePath];
-            var html = rowHtml(nodePath, depth);
-            if (!expanded) {
+        function walk(nodePath, depth, isFile) {
+            var html = rowHtml(nodePath, depth, !!isFile);
+            if (isFile || !treeExpanded[nodePath]) {
                 return html;
             }
-            if (!treeChildren[nodePath]) {
+            var kids = mergedKids(nodePath);
+            if (!treeChildren[nodePath] && !(scanEnabled && kids.length)) {
                 loadTreeChildren(nodePath);
                 html += '<div class="tree-loading" style="--depth:' + (depth + 1) + '">加载中…</div>';
                 return html;
             }
-            treeChildren[nodePath].forEach(function (ch) {
-                html += walk(ch.path, depth + 1);
+            kids.forEach(function (ch) {
+                html += walk(ch.path, depth + 1, !ch.dir);
             });
             return html;
         }
@@ -682,34 +750,6 @@
         });
     }
 
-    function deleteSelectedMulti() {
-        var rels = getSelectedRels();
-        if (!rels.length) {
-            return;
-        }
-        if (!window.confirm('确定删除选中的 ' + rels.length + ' 项？')) {
-            return;
-        }
-        var i = 0;
-        function next() {
-            if (i >= rels.length) {
-                reload();
-                return;
-            }
-            var rel = rels[i++];
-            sftpApi('rm', { path: absOf(rel) }).then(function (res) {
-                if (!res || res.status !== 200) {
-                    alert((res && res.message) || ('删除失败: ' + rel));
-                }
-                next();
-            }, function () {
-                alert('删除失败: ' + rel);
-                next();
-            });
-        }
-        next();
-    }
-
     function newEmptyFile() {
         showPromptModal('新建文件', '新建文本文档.txt', function (val) {
             if (!val) {
@@ -775,7 +815,9 @@
             '名称: ' + item.name,
             '类型: ' + fileTypeLabel(item),
             '位置: ' + abs,
-            '大小: ' + (isDirItem(item) ? '文件夹' : (formatSize(item.size, false) || '0 B')),
+            '大小: ' + (typeof formatItemSize === 'function' && formatItemSize(item)
+                ? formatItemSize(item)
+                : (isDirItem(item) ? '文件夹' : (formatSize(item.size, false) || '0 B'))),
             '修改时间: ' + (item.modifyTime || '-'),
             '权限: ' + (item.permissions || '-') + (item.permissionText ? ' (' + item.permissionText + ')' : ''),
             '所有者: ' + (item.owner || '-'),
@@ -788,31 +830,340 @@
     function compressSelected() {
         var rels = getSelectedRels();
         if (!rels.length) {
-            showSftpToast('未选中文件');
+            showSftpToast('未选中文件', { error: true });
             return;
         }
         var sources = rels.map(absOf).join('\n');
         var defaultName = (rels.length === 1 ? basenameOf(rels[0]) : 'archive') + '.zip';
         showPromptModal('压缩为', defaultName, function (name) {
             if (!name) {
+                showSftpToast('已取消压缩');
                 return;
             }
+            showSftpToast('正在压缩…', { sticky: true });
             sftpApi('compress', {
                 sources: sources,
                 destDir: curDir(),
                 archiveName: name
             }).then(function (res) {
+                clearSftpToast();
                 if (!res || res.status !== 200) {
-                    alert((res && res.message) || '压缩失败');
+                    showSftpToast((res && res.message) || '压缩失败', { error: true });
                     return;
                 }
                 var saved = res.result ? String(res.result) : name;
                 var base = saved.substring(saved.lastIndexOf('/') + 1);
-                showSftpToast('压缩完成');
+                showSftpToast('压缩完成：' + base);
                 reload({ selectNames: [base] });
             }, function (xhr) {
-                alert((xhr.responseJSON && xhr.responseJSON.message) || '压缩失败');
+                clearSftpToast();
+                showSftpToast((xhr.responseJSON && xhr.responseJSON.message) || '压缩失败', { error: true });
             });
+        });
+    }
+
+    function isArchiveName(name) {
+        name = String(name || '').toLowerCase();
+        return /\.(tar\.gz|tgz|tar\.bz2|tar\.xz|tar|zip|gz)$/.test(name);
+    }
+
+    function archiveFolderName(fileName) {
+        var n = String(fileName || '');
+        var lower = n.toLowerCase();
+        var suffixes = ['.tar.gz', '.tar.bz2', '.tar.xz', '.tgz', '.tar', '.zip', '.gz'];
+        for (var i = 0; i < suffixes.length; i++) {
+            var s = suffixes[i];
+            if (lower.endsWith(s) && n.length > s.length) {
+                return n.substring(0, n.length - s.length);
+            }
+        }
+        return n || 'extracted';
+    }
+
+    function resolveExtractDest(input) {
+        var raw = String(input || '').trim();
+        if (!raw || raw === '.') {
+            return curDir();
+        }
+        if (raw.charAt(0) === '/') {
+            return normalizeDirPath(raw);
+        }
+        return joinPath(curDir(), raw);
+    }
+
+    function showTaskOverlay(opts) {
+        opts = opts || {};
+        var $o = $('#extractOverlay');
+        $o.removeClass('done has-error').addClass('show').attr('aria-hidden', 'false');
+        $('#extractTitle').removeClass('error').text(opts.title || '处理中');
+        $('#extractLabel1').text(opts.label1 || '');
+        $('#extractArchive').text(opts.line1 || '');
+        $('#extractLabel2').text(opts.label2 || '');
+        $('#extractDest').text(opts.line2 || '');
+        $('#extractCurrent').text(opts.current || '准备中…');
+        $('#extractMeta').text(opts.meta || '已处理 0 项');
+        $o.data('metaVerb', opts.metaVerb || '已处理');
+        $o.data('doneTitle', opts.doneTitle || '完成');
+        $o.data('failTitle', opts.failTitle || '失败');
+    }
+
+    function updateTaskOverlay(entry, count) {
+        if (entry) {
+            $('#extractCurrent').text(entry);
+        }
+        var verb = $('#extractOverlay').data('metaVerb') || '已处理';
+        $('#extractMeta').text(verb + ' ' + (count || 0) + ' 项');
+    }
+
+    function finishTaskOverlay(ok, message) {
+        var $o = $('#extractOverlay');
+        if (ok) {
+            $o.addClass('done').removeClass('has-error');
+            $('#extractTitle').removeClass('error').text($o.data('doneTitle') || '完成');
+            if (message) {
+                $('#extractCurrent').text(message);
+            }
+        } else {
+            $o.addClass('has-error').removeClass('done');
+            $('#extractTitle').addClass('error').text($o.data('failTitle') || '失败');
+            $('#extractCurrent').text(message || '操作失败');
+        }
+    }
+
+    function hideExtractOverlay() {
+        $('#extractOverlay').removeClass('show done has-error').attr('aria-hidden', 'true');
+    }
+
+    function showExtractOverlay(archive, dest) {
+        showTaskOverlay({
+            title: '正在解压',
+            label1: '压缩包',
+            line1: archive,
+            label2: '解压到',
+            line2: dest,
+            current: '准备中…',
+            meta: '已解压 0 项',
+            metaVerb: '已解压',
+            doneTitle: '解压完成',
+            failTitle: '解压失败'
+        });
+    }
+
+    function updateExtractOverlay(entry, count) {
+        updateTaskOverlay(entry, count);
+    }
+
+    function finishExtractOverlay(ok, message) {
+        finishTaskOverlay(ok, message);
+    }
+
+    function postNdjson(url, body, handlers) {
+        handlers = handlers || {};
+        var xhr = new XMLHttpRequest();
+        var consumed = 0;
+        var finished = false;
+        function consume(text) {
+            var chunk = text.slice(consumed);
+            var parts = chunk.split('\n');
+            if (!chunk.endsWith('\n')) {
+                parts.pop();
+            }
+            var advanced = 0;
+            parts.forEach(function (line) {
+                advanced += line.length + 1;
+                line = (line || '').trim();
+                if (!line) {
+                    return;
+                }
+                var ev;
+                try {
+                    ev = JSON.parse(line);
+                } catch (e) {
+                    return;
+                }
+                if (ev && typeof handlers.onEvent === 'function') {
+                    handlers.onEvent(ev);
+                }
+            });
+            consumed += advanced;
+        }
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 3 || xhr.readyState === 4) {
+                if (xhr.responseText) {
+                    consume(xhr.responseText);
+                }
+            }
+            if (xhr.readyState === 4 && !finished) {
+                finished = true;
+                if (typeof handlers.onComplete === 'function') {
+                    handlers.onComplete(xhr);
+                }
+            }
+        };
+        xhr.open('POST', url);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+        xhr.send(body);
+        return xhr;
+    }
+
+    function deleteRemotePaths(absPaths) {
+        var list = (absPaths || []).filter(Boolean);
+        if (!list.length) {
+            return;
+        }
+        var label = list.length === 1
+            ? list[0]
+            : (list.slice(0, 3).join(', ') + (list.length > 3 ? (' …共 ' + list.length + ' 项') : ''));
+        showTaskOverlay({
+            title: '正在删除',
+            label1: '目标',
+            line1: label,
+            label2: '方式',
+            line2: '远程 rm -rf（递归，流式进度）',
+            current: '准备中…',
+            meta: '已删除 0 项',
+            metaVerb: '已删除',
+            doneTitle: '删除完成',
+            failTitle: '删除失败'
+        });
+        var count = 0;
+        var failed = false;
+        postNdjson(
+            baseUrl + '/rm?tagId=' + encodeURIComponent(currentTagId()),
+            'sources=' + encodeURIComponent(list.join('\n')),
+            {
+                onEvent: function (ev) {
+                    if (ev.phase === 'start') {
+                        if (ev.label) {
+                            $('#extractArchive').text(ev.label);
+                        }
+                        $('#extractCurrent').text('开始删除…');
+                    } else if (ev.phase === 'file') {
+                        count = ev.count || (count + 1);
+                        updateTaskOverlay(ev.path || '', count);
+                    } else if (ev.phase === 'done') {
+                        count = ev.count != null ? ev.count : count;
+                        updateTaskOverlay(null, count);
+                        finishTaskOverlay(true, '已删除 ' + count + ' 项');
+                    } else if (ev.phase === 'error') {
+                        failed = true;
+                        finishTaskOverlay(false, ev.message || '删除失败');
+                    }
+                },
+                onComplete: function (xhr) {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        if (!$('#extractOverlay').hasClass('done') && !$('#extractOverlay').hasClass('has-error')) {
+                            finishTaskOverlay(true, '已删除 ' + count + ' 项');
+                        }
+                        if ($('#extractOverlay').hasClass('done')) {
+                            showSftpToast('删除完成');
+                            setTimeout(function () {
+                                hideExtractOverlay();
+                                reload();
+                            }, 500);
+                        } else if (failed) {
+                            showSftpToast($('#extractCurrent').text() || '删除失败', { error: true });
+                        }
+                    } else if (!$('#extractOverlay').hasClass('has-error')) {
+                        finishTaskOverlay(false, '删除失败（HTTP ' + xhr.status + '）');
+                        showSftpToast('删除失败', { error: true });
+                    }
+                }
+            }
+        );
+    }
+
+    function deleteSelectedMulti() {
+        var rels = getSelectedRels();
+        if (!rels.length) {
+            return;
+        }
+        if (!window.confirm('确定删除选中的 ' + rels.length + ' 项？')) {
+            return;
+        }
+        deleteRemotePaths(rels.map(absOf));
+    }
+
+    function extractSelected(forcedRel) {
+        var rels = getSelectedRels();
+        if ((!rels || !rels.length) && forcedRel) {
+            rels = [forcedRel];
+        }
+        if (rels.length !== 1) {
+            showSftpToast('请选择一个压缩包', { error: true });
+            return;
+        }
+        var rel = rels[0];
+        var name = basenameOf(rel);
+        if (!isArchiveName(name)) {
+            showSftpToast('不支持的压缩格式（zip / tar / tar.gz / gz）', { error: true });
+            return;
+        }
+        var archivePath = absOf(rel);
+        var defaultDest = joinPath(curDir(), archiveFolderName(name));
+        showPromptModal('解压到', defaultDest, function (destInput) {
+            if (destInput == null) {
+                return;
+            }
+            var dest = resolveExtractDest(destInput);
+            if (!dest || dest.charAt(0) !== '/') {
+                showSftpToast('目标目录不合法', { error: true });
+                return;
+            }
+            showExtractOverlay(archivePath, dest);
+            var finalDest = dest;
+            var fileCount = 0;
+            postNdjson(
+                baseUrl + '/extract?tagId=' + encodeURIComponent(currentTagId()),
+                'path=' + encodeURIComponent(archivePath) + '&destDir=' + encodeURIComponent(dest),
+                {
+                    onEvent: function (ev) {
+                        if (ev.phase === 'start') {
+                            if (ev.dest) {
+                                finalDest = ev.dest;
+                                $('#extractDest').text(ev.dest);
+                            }
+                            if (ev.archive) {
+                                $('#extractArchive').text(ev.archive);
+                            }
+                            $('#extractCurrent').text('开始解压…');
+                        } else if (ev.phase === 'file') {
+                            fileCount = ev.count || (fileCount + 1);
+                            updateExtractOverlay(ev.path || '', fileCount);
+                        } else if (ev.phase === 'done') {
+                            finalDest = ev.dest || finalDest;
+                            fileCount = ev.count != null ? ev.count : fileCount;
+                            updateExtractOverlay(null, fileCount);
+                            finishExtractOverlay(true, '已解压到 ' + finalDest + '（共 ' + fileCount + ' 项）');
+                        } else if (ev.phase === 'error') {
+                            finishExtractOverlay(false, ev.message || '解压失败');
+                        }
+                    },
+                    onComplete: function (xhr) {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            if (!$('#extractOverlay').hasClass('done') && !$('#extractOverlay').hasClass('has-error')) {
+                                finishExtractOverlay(true, '已解压到 ' + finalDest);
+                            }
+                            if ($('#extractOverlay').hasClass('done')) {
+                                showSftpToast('解压完成');
+                                setTimeout(function () {
+                                    hideExtractOverlay();
+                                    if (normalizeDirPath(finalDest) === normalizeDirPath(curDir())) {
+                                        reload();
+                                    } else {
+                                        navigateTo(finalDest);
+                                    }
+                                }, 700);
+                            }
+                        } else if (!$('#extractOverlay').hasClass('has-error')) {
+                            finishExtractOverlay(false, '解压失败（HTTP ' + xhr.status + '）');
+                            showSftpToast('解压失败', { error: true });
+                        } else {
+                            showSftpToast($('#extractCurrent').text() || '解压失败', { error: true });
+                        }
+                    }
+                }
+            );
         });
     }
 
@@ -929,6 +1280,12 @@
         html += '<a class="ctx-item" href="javascript:void(0)" data-action="delete">删除<span class="ctx-key">Del</span></a>'
             + '<div class="ctx-sep"></div>'
             + '<a class="ctx-item" href="javascript:void(0)" data-action="compress">压缩</a>';
+        if (!multi && !isDir) {
+            var selName = getSelectedRels()[0] ? basenameOf(getSelectedRels()[0]) : '';
+            if (isArchiveName(selName)) {
+                html += '<a class="ctx-item" href="javascript:void(0)" data-action="extract">解压到…</a>';
+            }
+        }
         if (!multi) {
             html += '<a class="ctx-item" href="javascript:void(0)" data-action="chmod">修改权限</a>'
                 + '<a class="ctx-item" href="javascript:void(0)" data-action="props">属性</a>'
@@ -953,6 +1310,7 @@
             if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
                 clearSelection();
                 $row.addClass('selected');
+                syncStatusBar();
             }
             return;
         }
@@ -963,6 +1321,7 @@
         if (e.ctrlKey || e.metaKey) {
             $row.toggleClass('selected');
             lastAnchorPath = name;
+            syncStatusBar();
             return;
         }
         selectOnly(name);
@@ -1019,6 +1378,7 @@
                 }
                 $(this).toggleClass('selected', hit);
             });
+            syncStatusBar();
         });
         $(document).on('mouseup.winbox', function () {
             if (!boxSelect) {
@@ -1030,6 +1390,7 @@
             if (sel.length) {
                 lastAnchorPath = sel[0];
             }
+            syncStatusBar();
         });
     }
 
@@ -1498,6 +1859,7 @@
             .attr('draggable', 'true');
         applyCutVisual();
         syncNavButtons();
+        syncStatusBar();
         return r;
     };
 
@@ -1529,12 +1891,26 @@
     };
 
     var _deleteSelected = w.deleteSelected;
-    w.deleteSelected = function () {
-        if (getSelectedRels().length > 1) {
+    w.deleteSelected = function (relPath) {
+        var rels = getSelectedRels();
+        if (rels.length > 1) {
             deleteSelectedMulti();
             return;
         }
-        return _deleteSelected.apply(this, arguments);
+        var name = relPath || (rels[0] || (typeof getSelectedName === 'function' ? getSelectedName() : null));
+        if (!name) {
+            showSftpToast('未选中文件', { error: true });
+            return;
+        }
+        var item = findItemByPath(name);
+        var label = basenameOf(name);
+        var tip = item && isDirItem(item)
+            ? ('确定删除文件夹「' + label + '」及其全部内容？')
+            : ('确定删除「' + label + '」？');
+        if (!window.confirm(tip)) {
+            return;
+        }
+        deleteRemotePaths([absOf(name)]);
     };
 
     var _reload = w.reload;
@@ -1554,6 +1930,7 @@
         $('#btnNavForward').on('click', function () { goHistory(1); });
         $('#btnNavUp').on('click', function () { goUp(); });
         $('#btnFav').on('click', function () { toggleFavorite(curDir()); });
+        $('#extractOverlayClose').on('click', hideExtractOverlay);
         $('#sftpBreadcrumbs').on('click', 'a', function (e) {
             e.preventDefault();
             e.stopPropagation();
@@ -1599,11 +1976,21 @@
                 return;
             }
             var p = $(this).data('path');
-            if (p) {
-                navigateTo(p);
+            if (!p) {
+                return;
             }
+            if (String($(this).data('file')) === '1') {
+                var parent = parentDirOf(p);
+                var name = baseNameOf(p);
+                navigateTo(parent || '/', { selectNames: [name] });
+                return;
+            }
+            navigateTo(p);
         });
         $('#sftpTree').on('dblclick.tree', '.tree-row', function () {
+            if (String($(this).data('file')) === '1') {
+                return;
+            }
             var p = normalizeDirPath(String($(this).data('path') || ''));
             if (!p) {
                 return;
@@ -1663,6 +2050,11 @@
                 e.stopImmediatePropagation();
                 hideFileContextMenu();
                 compressSelected();
+            } else if (action === 'extract') {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                hideFileContextMenu();
+                extractSelected();
             } else if (action === 'edit') {
                 e.preventDefault();
                 e.stopImmediatePropagation();
@@ -1785,6 +2177,12 @@
     w.SftpWin = {
         getSelectedRels: getSelectedRels,
         syncNavButtons: syncNavButtons,
-        pushRenameUndo: pushRenameUndo
+        pushRenameUndo: pushRenameUndo,
+        compressSelected: compressSelected,
+        extractSelected: extractSelected
+    };
+
+    w.refreshSftpTree = function () {
+        paintTreeDom();
     };
 })(window);

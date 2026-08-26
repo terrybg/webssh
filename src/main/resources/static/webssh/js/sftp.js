@@ -14,6 +14,11 @@ var SEARCH_DEPTH_MAX = 5;
 var currentItems = [];
 var searchItems = [];
 var isSearchMode = false;
+var scanEnabled = false;
+var scanCache = { sizes: {}, isDir: {}, children: {} };
+var scanSeq = 0;
+var scanPollTimer = null;
+var scanRunning = false;
 var searchToken = 0;
 var searchTimer = null;
 var sortKey = 'name';
@@ -64,6 +69,10 @@ function formatSize(bytes, isDir) {
     if (isDir) {
         return '';
     }
+    return formatBytes(bytes);
+}
+
+function formatBytes(bytes) {
     var n = Number(bytes) || 0;
     if (n < 1024) {
         return n + ' B';
@@ -75,6 +84,444 @@ function formatSize(bytes, isDir) {
         return (n / (1024 * 1024)).toFixed(1) + ' MB';
     }
     return (n / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+}
+
+function formatItemSize(item) {
+    if (!item) {
+        return '';
+    }
+    var path = item.fullPath || joinPath($('#currentPath').val() || '/', item.name);
+    if (scanEnabled && scanCache.sizes[path] != null) {
+        return formatBytes(scanCache.sizes[path]);
+    }
+    if (isDirItem(item)) {
+        if (!scanEnabled) {
+            return '';
+        }
+        if (scanRunning) {
+            return '…';
+        }
+        return '';
+    }
+    return formatBytes(item.size) || '0 B';
+}
+
+function parentDirOf(path) {
+    var p = String(path || '/');
+    if (p === '/') {
+        return '';
+    }
+    var i = p.lastIndexOf('/');
+    if (i <= 0) {
+        return '/';
+    }
+    return p.substring(0, i);
+}
+
+function baseNameOf(path) {
+    var p = String(path || '');
+    if (p === '/') {
+        return '/';
+    }
+    var i = p.lastIndexOf('/');
+    return i < 0 ? p : p.substring(i + 1);
+}
+
+function scanSizeLabelForPath(path) {
+    if (!scanEnabled) {
+        return '';
+    }
+    path = String(path || '/');
+    if (scanCache.sizes[path] != null) {
+        return formatBytes(scanCache.sizes[path]);
+    }
+    return scanRunning ? '…' : '';
+}
+
+function scanChildrenForPath(parent) {
+    return scanCache.children[parent] || [];
+}
+
+function ingestScanEntries(entries) {
+    if (!entries || !entries.length) {
+        return;
+    }
+    entries.forEach(function (row) {
+        var path = row.path;
+        if (!path) {
+            return;
+        }
+        var n = Number(row.size) || 0;
+        var prevSize = scanCache.sizes[path];
+        if (prevSize == null || n > prevSize) {
+            scanCache.sizes[path] = n;
+        }
+        scanCache.isDir[path] = !!(scanCache.isDir[path] || row.dir);
+        if (row.seq) {
+            scanSeq = Math.max(scanSeq, Number(row.seq) || 0);
+        }
+        if (path === '/') {
+            return;
+        }
+        var parent = parentDirOf(path);
+        var name = baseNameOf(path);
+        var list = scanCache.children[parent];
+        if (!list) {
+            list = [];
+            scanCache.children[parent] = list;
+        }
+        var found = false;
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].name === name) {
+                list[i].size = scanCache.sizes[path];
+                list[i].dir = !!(list[i].dir || row.dir);
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            list.push({
+                name: name,
+                path: path,
+                dir: !!row.dir,
+                size: scanCache.sizes[path]
+            });
+        }
+        var p = parent;
+        while (p) {
+            var kids = scanCache.children[p] || [];
+            var sum = 0;
+            for (var k = 0; k < kids.length; k++) {
+                sum += Number(scanCache.sizes[kids[k].path]) || 0;
+            }
+            var parentSize = Number(scanCache.sizes[p]) || 0;
+            if (sum > parentSize) {
+                scanCache.sizes[p] = sum;
+            }
+            p = parentDirOf(p);
+        }
+    });
+}
+
+function applyScanToItems(path) {
+    path = path || $('#currentPath').val() || '/';
+    (currentItems || []).forEach(function (it) {
+        var p = joinPath(path, it.name);
+        it.fullPath = p;
+        if (scanCache.sizes[p] != null) {
+            it.size = scanCache.sizes[p];
+            it.scanReady = true;
+        } else if (!isDirItem(it)) {
+            it.scanReady = true;
+        } else {
+            it.scanReady = false;
+        }
+    });
+}
+
+function syncScanButton() {
+    var $btn = $('#btnScanSize');
+    if (!$btn.length) {
+        return;
+    }
+    $btn.toggleClass('active', !!scanEnabled);
+    $btn.toggleClass('scanning', !!scanRunning);
+    var $label = $btn.find('.nav-tool-label');
+    if (!$label.length) {
+        $label = $btn;
+    }
+    if (scanRunning) {
+        $label.text('扫描中');
+    } else {
+        $label.text('磁盘空间扫描');
+    }
+}
+
+function updateScanProgress(info) {
+    var $box = $('#scanProgress');
+    if (!$box.length) {
+        return;
+    }
+    if (!scanEnabled || !scanRunning) {
+        $box.attr('hidden', 'hidden');
+        return;
+    }
+    $box.removeAttr('hidden');
+    var path = (info && info.currentPath) ? info.currentPath : '';
+    var n = (info && info.dirsDone) ? info.dirsDone : 0;
+    var phase = (info && info.currentPhase) ? info.currentPhase : '';
+    var since = (info && info.currentSinceMs) ? Number(info.currentSinceMs) : 0;
+    var elapsed = since > 0 ? Math.max(0, Math.floor((Date.now() - since) / 1000)) : 0;
+    var parts = [];
+    if (path) {
+        parts.push(path);
+    }
+    if (phase === 'find') {
+        parts.push('列出子目录…');
+    } else if (phase === 'du') {
+        parts.push('统计大小…');
+    }
+    if (elapsed >= 8) {
+        parts.push('大目录，已用时 ' + elapsed + 's');
+    } else if (elapsed > 0) {
+        parts.push('已用时 ' + elapsed + 's');
+    }
+    if (n) {
+        parts.push('已扫 ' + n + ' 个目录');
+    }
+    $('#scanProgressPath').text(parts.length ? parts.join('  ·  ') : '…');
+}
+
+function stopScanPoll() {
+    if (scanPollTimer) {
+        clearTimeout(scanPollTimer);
+        scanPollTimer = null;
+    }
+}
+
+function pollScanStatus() {
+    stopScanPoll();
+    if (!scanEnabled) {
+        return;
+    }
+    $.ajax({
+        url: baseUrl + '/du/status?tagId=' + encodeURIComponent(currentTagId())
+            + '&since=' + encodeURIComponent(String(scanSeq)),
+        method: 'GET',
+        timeout: 15000,
+        success: function (response) {
+            if (!scanEnabled) {
+                return;
+            }
+            var info = (response && response.result) ? response.result : {};
+            ingestScanEntries(info.entries);
+            if (info.cancelled) {
+                scanRunning = false;
+            } else {
+                scanRunning = !!info.running;
+            }
+            if (info.error && !info.running && typeof showSftpToast === 'function') {
+                showSftpToast(info.error);
+            } else if (info.lastIssue && info.running && typeof showSftpToast === 'function') {
+                // show at most once per issue text
+                if (pollScanStatus._lastIssue !== info.lastIssue) {
+                    pollScanStatus._lastIssue = info.lastIssue;
+                    showSftpToast(info.lastIssue);
+                }
+            }
+            applyScanToItems($('#currentPath').val() || '/');
+            if (!isSearchMode) {
+                paintFileView();
+            }
+            if (typeof window.refreshSftpTree === 'function') {
+                window.refreshSftpTree();
+            }
+            syncScanButton();
+            updateScanProgress(info);
+            if (info.more || info.running) {
+                scanPollTimer = setTimeout(pollScanStatus, info.more ? 120 : 400);
+            } else {
+                scanRunning = false;
+                syncScanButton();
+                updateScanProgress(info);
+            }
+        },
+        error: function () {
+            if (!scanEnabled) {
+                return;
+            }
+            scanPollTimer = setTimeout(pollScanStatus, 1500);
+        }
+    });
+}
+
+function startRecursiveScan(path) {
+    path = path || $('#currentPath').val() || '/';
+    scanRunning = true;
+    syncScanButton();
+    updateScanProgress({ currentPath: path, dirsDone: 0 });
+    $.ajax({
+        url: baseUrl + '/du/start',
+        method: 'POST',
+        data: { path: path, tagId: currentTagId() },
+        timeout: 15000,
+        success: function (response) {
+            if (!response || response.status !== 200) {
+                scanRunning = false;
+                syncScanButton();
+                updateScanProgress({});
+                if (typeof showSftpToast === 'function') {
+                    showSftpToast((response && response.message) ? response.message : '扫描失败');
+                }
+                return;
+            }
+            var info = response.result || {};
+            ingestScanEntries(info.entries);
+            scanRunning = info.running !== false;
+            applyScanToItems(path);
+            paintFileView();
+            if (typeof window.refreshSftpTree === 'function') {
+                window.refreshSftpTree();
+            }
+            syncScanButton();
+            updateScanProgress(info);
+            pollScanStatus();
+        },
+        error: function () {
+            scanRunning = false;
+            syncScanButton();
+            updateScanProgress({});
+            if (typeof showSftpToast === 'function') {
+                showSftpToast('扫描失败');
+            }
+        }
+    });
+}
+
+function stopSizeScan() {
+    if (!scanRunning) {
+        return;
+    }
+    scanRunning = false;
+    stopScanPoll();
+    $.post(baseUrl + '/du/cancel', { tagId: currentTagId() });
+    syncScanButton();
+    updateScanProgress({});
+    if (typeof showSftpToast === 'function') {
+        showSftpToast('已停止扫描');
+    }
+}
+
+function refreshDiskUsage() {
+    var $msg = $('#sftpDiskMsg');
+    var $table = $('#sftpDiskTable');
+    var $body = $('#sftpDiskBody');
+    var $btn = $('#btnRefreshDisks');
+    if (!$msg.length) {
+        return;
+    }
+    $btn.prop('disabled', true);
+    $msg.removeClass('error').text('加载中…').removeAttr('hidden');
+    $table.attr('hidden', 'hidden');
+    $.ajax({
+        url: baseUrl + '/df?tagId=' + encodeURIComponent(currentTagId()),
+        method: 'GET',
+        dataType: 'json',
+        timeout: 20000,
+        success: function (response) {
+            $btn.prop('disabled', false);
+            if (!response || response.status !== 200) {
+                $msg.addClass('error').text((response && response.message) ? response.message : '读取磁盘失败');
+                return;
+            }
+            var disks = (response.result && response.result.disks) ? response.result.disks : [];
+            if (!disks.length) {
+                $msg.removeClass('error').text('未发现真实磁盘');
+                return;
+            }
+            var html = '';
+            disks.forEach(function (d) {
+                var name = String(d.name || '');
+                var device = String(d.device || '');
+                var pct = (d.pctAvail != null) ? Number(d.pctAvail) : 0;
+                html += '<tr class="disk-row" data-path="' + escapeAttr(name) + '" title="' + escapeAttr(name + (device ? ' (' + device + ')' : '')) + '">'
+                    + '<td><span class="disk-name">' + escapeHtml(name) + '</span>'
+                    + (device ? '<span class="disk-dev">' + escapeHtml(device) + '</span>' : '')
+                    + '</td>'
+                    + '<td class="num">' + escapeHtml(formatBytes(d.total)) + '</td>'
+                    + '<td class="num">' + escapeHtml(formatBytes(d.used)) + '</td>'
+                    + '<td class="num">' + escapeHtml(formatBytes(d.avail)) + '</td>'
+                    + '<td class="num">' + pct + '%</td>'
+                    + '</tr>';
+            });
+            $body.html(html);
+            $msg.attr('hidden', 'hidden').text('');
+            $table.removeAttr('hidden');
+        },
+        error: function (xhr, textStatus) {
+            $btn.prop('disabled', false);
+            var msg = '读取磁盘失败';
+            if (textStatus === 'timeout') {
+                msg = '读取超时，请稍后重试';
+            } else if (xhr && xhr.status === 404) {
+                msg = '接口未加载，请重启 WebSSH 服务';
+            } else if (xhr && xhr.responseJSON && xhr.responseJSON.message) {
+                msg = xhr.responseJSON.message;
+            } else if (xhr && xhr.status) {
+                msg = '读取磁盘失败 (' + xhr.status + ')';
+            }
+            $msg.addClass('error').text(msg);
+        }
+    });
+}
+
+function escapeAttr(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function openTerminalAtCurrentPath() {
+    var path = $('#currentPath').val() || '/';
+    if (!window.parent || window.parent === window) {
+        if (typeof showSftpToast === 'function') {
+            showSftpToast('请在桌面文件窗口中使用');
+        }
+        return;
+    }
+    window.parent.postMessage({
+        type: 'webssh-open-terminal',
+        path: path,
+        sessionId: (typeof getQueryParam === 'function' ? getQueryParam('sessionId') : null)
+            || (typeof sessionId !== 'undefined' ? sessionId : null),
+        tagId: (typeof currentTagId === 'function' ? currentTagId() : null)
+            || (typeof tagId !== 'undefined' ? tagId : null)
+    }, '*');
+}
+
+function syncDiskPanel() {
+    var $panel = $('#sftpDiskPanel');
+    if (!$panel.length) {
+        return;
+    }
+    if (scanEnabled) {
+        $panel.removeAttr('hidden');
+        refreshDiskUsage();
+    } else {
+        $panel.attr('hidden', 'hidden');
+    }
+}
+
+function toggleSizeScan() {
+    if (scanEnabled) {
+        scanEnabled = false;
+        scanRunning = false;
+        stopScanPoll();
+        $.post(baseUrl + '/du/cancel', { tagId: currentTagId() });
+        syncScanButton();
+        updateScanProgress({});
+        syncDiskPanel();
+        paintFileView();
+        if (typeof window.refreshSftpTree === 'function') {
+            window.refreshSftpTree();
+        }
+        return;
+    }
+    scanEnabled = true;
+    syncScanButton();
+    syncDiskPanel();
+    applyScanToItems($('#currentPath').val() || '/');
+    paintFileView();
+    if (typeof window.refreshSftpTree === 'function') {
+        window.refreshSftpTree();
+    }
+    var hasData = Object.keys(scanCache.sizes).length > 0;
+    if (hasData) {
+        return;
+    }
+    startRecursiveScan($('#currentPath').val() || '/');
 }
 
 function fileTypeLabel(item) {
@@ -246,8 +693,14 @@ function isDirItem(item) {
 
 function sortedItems(items) {
     return items.slice().sort(function (a, b) {
-        // 按大小：文件夹沉底，只对文件比大小（避免空大小文件夹夹在中间）
         if (sortKey === 'size') {
+            if (scanEnabled) {
+                var scanned = (Number(a.size) || 0) - (Number(b.size) || 0);
+                if (scanned !== 0) {
+                    return sortAsc ? scanned : -scanned;
+                }
+                return String(a.name || '').localeCompare(String(b.name || ''), 'zh');
+            }
             var ad = isDirItem(a);
             var bd = isDirItem(b);
             if (ad !== bd) {
@@ -558,7 +1011,7 @@ function paintContentView($view, path) {
             + '<div class="name-text">' + escapeHtml(item.name) + '</div>'
             + '<div class="content-sub">' + escapeHtml(fileTypeLabel(item))
             + ' · ' + escapeHtml(item.modifyTime || '')
-            + (item.dir ? '' : (' · ' + escapeHtml(formatSize(item.size, false) || '0 B')))
+            + (formatItemSize(item) ? (' · ' + escapeHtml(formatItemSize(item))) : '')
             + (item.permissions ? (' · ' + escapeHtml(item.permissions)) : '')
             + '</div></div></div>';
     });
@@ -610,7 +1063,7 @@ function paintDetailsView($view, path) {
             + '<i class="bi ' + icon + '"></i><span class="name-text">' + escapeHtml(item.name)
             + '</span>' + hint + '</td>'
             + '<td>' + escapeHtml(item.modifyTime || '') + '</td>'
-            + '<td>' + escapeHtml(formatSize(item.size, item.dir)) + '</td>'
+            + '<td>' + escapeHtml(formatItemSize(item)) + '</td>'
             + '<td>' + escapeHtml(fileTypeLabel(item)) + '</td>'
             + '<td class="col-perm">' + perm + '</td>'
             + '<td>' + escapeHtml(item.owner || '') + '</td>'
@@ -661,6 +1114,7 @@ function paintIconsView($view, path) {
             + (item.dir ? '1' : '0') + '">'
             + '<div class="thumb">' + thumb + '</div>'
             + '<div class="label name-text">' + escapeHtml(item.name) + '</div>'
+            + (formatItemSize(item) ? ('<div class="tile-size">' + escapeHtml(formatItemSize(item)) + '</div>') : '')
             + '</div>';
     });
     resetThumbQueue();
@@ -674,9 +1128,14 @@ function paintIconsView($view, path) {
     });
 }
 
-function navigateTo(path) {
+function navigateTo(path, opts) {
+    opts = opts || {};
     clearSearchUi(false);
-    renderFileList(path);
+    renderFileList(path, function () {
+        if (opts.selectNames && opts.selectNames.length) {
+            selectFilesByNames(opts.selectNames);
+        }
+    });
 }
 
 function clearSearchUi(repaint) {
@@ -898,8 +1357,8 @@ function showFileHoverTip(pageX, pageY, item) {
     if (item.modifyTime) {
         lines.push('<div class="tip-row">修改日期: ' + escapeHtml(item.modifyTime) + '</div>');
     }
-    if (!item.dir) {
-        lines.push('<div class="tip-row">大小: ' + escapeHtml(formatSize(item.size, false) || '0 B') + '</div>');
+    if (!isDirItem(item) || (scanEnabled && item.scanReady)) {
+        lines.push('<div class="tip-row">大小: ' + escapeHtml(formatItemSize(item) || '0 B') + '</div>');
     }
     if (item.permissions) {
         lines.push('<div class="tip-row">权限: ' + escapeHtml(item.permissions)
@@ -943,6 +1402,29 @@ function handleCtrlWheel(e) {
 
 $(function () {
     syncViewMenu();
+    syncScanButton();
+    $('#btnScanSize').on('click', function () {
+        toggleSizeScan();
+    });
+    $('#btnOpenTerminal').on('click', function () {
+        openTerminalAtCurrentPath();
+    });
+    $('#btnStopScan').on('click', function () {
+        stopSizeScan();
+    });
+    $('#btnRefreshDisks').on('click', function () {
+        if (scanEnabled) {
+            refreshDiskUsage();
+        }
+    });
+    $('#sftpDiskBody').on('click', 'tr.disk-row', function () {
+        var path = $(this).attr('data-path');
+        if (path) {
+            clearSearchUi(false);
+            renderFileList(path);
+        }
+    });
+    syncDiskPanel();
     // 首屏：URL cwd 优先；否则先 /，再异步切到 shell cwd（避免无权限的 /root）
     syncToShellCwd($('#currentPath').val() || '/');
 
@@ -975,7 +1457,7 @@ $(function () {
     function hideFileContextMenu() {
         contextFileName = null;
         contextMenuKind = null;
-        $('#fileContextMenu').hide().empty();
+        $('#fileContextMenu').hide();
     }
 
     function showFileContextMenu(pageX, pageY, name, kind, isDir) {
@@ -1094,14 +1576,14 @@ $(function () {
         }
         e.preventDefault();
         e.stopPropagation();
-        $('#fileView tr, #fileView .icon-tile').removeClass('selected');
+        $('#fileView tr, #fileView .icon-tile, #fileView .content-row').removeClass('selected');
         $(this).addClass('selected');
         var isDir = String($(this).data('dir')) === '1' || $(this).hasClass('folder');
         showFileContextMenu(e.pageX, e.pageY, String(name), 'item', isDir);
     });
 
     $(document).on('contextmenu', '#fileView', function (e) {
-        if ($(e.target).closest('tr, .icon-tile, thead').length) {
+        if ($(e.target).closest('tr, .icon-tile, .content-row, thead').length) {
             return;
         }
         e.preventDefault();
@@ -1125,6 +1607,24 @@ $(function () {
         }
         if (action === 'upload') {
             triggerFile();
+            return;
+        }
+        if (action === 'compress') {
+            e.stopImmediatePropagation();
+            if (window.SftpWin && typeof window.SftpWin.compressSelected === 'function') {
+                window.SftpWin.compressSelected();
+            } else {
+                showSftpToast('压缩功能未加载', { error: true });
+            }
+            return;
+        }
+        if (action === 'extract') {
+            e.stopImmediatePropagation();
+            if (window.SftpWin && typeof window.SftpWin.extractSelected === 'function') {
+                window.SftpWin.extractSelected(name);
+            } else {
+                showSftpToast('解压功能未加载', { error: true });
+            }
             return;
         }
         if (!name && kind !== 'blank') {
@@ -1355,6 +1855,9 @@ function renderFileList(path, afterLoad) {
             sessionExpiredReloginTried = false;
             var list = response.result || [];
             currentItems = list;
+            if (scanEnabled) {
+                applyScanToItems(path);
+            }
             if (!isSearchMode) {
                 paintFileView();
             }
@@ -2316,16 +2819,32 @@ function mkdirHere() {
     });
 }
 
-function showSftpToast(msg) {
+function showSftpToast(msg, opts) {
+    opts = opts || {};
     var $t = $('#sftpToast');
     if (!$t.length) {
         $t = $('<div id="sftpToast" role="status" aria-live="polite"></div>').appendTo('body');
     }
-    $t.text(msg).addClass('show');
+    $t.removeClass('error sticky').text(msg || '').addClass('show');
+    if (opts.error) {
+        $t.addClass('error');
+    }
+    if (opts.sticky) {
+        $t.addClass('sticky');
+    }
     clearTimeout(showSftpToast._timer);
+    if (opts.sticky) {
+        return;
+    }
+    var ms = opts.duration || (opts.error ? 4500 : 2200);
     showSftpToast._timer = setTimeout(function () {
-        $t.removeClass('show');
-    }, 1800);
+        $t.removeClass('show error sticky');
+    }, ms);
+}
+
+function clearSftpToast() {
+    clearTimeout(showSftpToast._timer);
+    $('#sftpToast').removeClass('show error sticky');
 }
 
 function copyPathSelected(relPath) {

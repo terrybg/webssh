@@ -159,6 +159,13 @@
     return null;
   }
 
+  function accelIcon(kind) {
+    if (kind === 'npu') {
+      return '<span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 2h10v3H3V2zm0 4.5h10V12H9.5v2H6.5v-2H3V6.5zM5 8v2.5h6V8H5z"/></svg></span>';
+    }
+    return '<span class="nav-ico" aria-hidden="true"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12v7H9.5v1.5H11V13H5v-1.5h1.5V10H2V3zm1.5 1.5v4h9v-4h-9z"/></svg></span>';
+  }
+
   function ensureAccelNav() {
     var list = accelerators();
     var key = list.map(function (a) { return a.id; }).join('|');
@@ -171,7 +178,8 @@
       var html = '';
       list.forEach(function (a) {
         html += '<button type="button" class="perf-nav-item" data-perf="' + esc(a.id) + '">'
-          + '<div class="nav-top"><span>' + esc(a.label || a.name) + '</span>'
+          + '<div class="nav-top">' + accelIcon(a.kind)
+          + '<span class="nav-label">' + esc(a.label || a.name) + '</span>'
           + '<span class="nav-val" id="navVal-' + esc(a.id) + '">--</span></div>'
           + '<canvas id="navSpark-' + esc(a.id) + '"></canvas></button>';
       });

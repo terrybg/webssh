@@ -86,7 +86,7 @@
                 tid = w.localStorage.getItem('tagId' + port) || '';
             }
         } catch (e) { /* ignore */ }
-        var url = 'sftp.html' + q + sep + 'v=45&tagId=' + encodeURIComponent(tid) + '&folderWin=1';
+            var url = 'sftp.html' + q + sep + 'v=62&tagId=' + encodeURIComponent(tid) + '&folderWin=1';
         try {
             var sid = $pane.data('session-id') || $pane.attr('data-session-id') || '';
             if (sid) {
@@ -231,8 +231,18 @@
               '</div>' +
               '<div class="folder-win-body">' +
                 '<iframe class="folder-win-frame" src=""></iframe>' +
+                '<div class="win-focus-shield" title="点击激活窗口"></div>' +
               '</div>' +
-              '<div class="folder-win-resize"></div>' +
+              '<div class="win-resize-handles folder-win-resize">' +
+                '<div class="win-rh n" data-edge="n"></div>' +
+                '<div class="win-rh s" data-edge="s"></div>' +
+                '<div class="win-rh e" data-edge="e"></div>' +
+                '<div class="win-rh w" data-edge="w"></div>' +
+                '<div class="win-rh ne" data-edge="ne"></div>' +
+                '<div class="win-rh nw" data-edge="nw"></div>' +
+                '<div class="win-rh se" data-edge="se"></div>' +
+                '<div class="win-rh sw" data-edge="sw"></div>' +
+              '</div>' +
             '</div>'
         );
         $win.find('.folder-win-title-text').text(title);
@@ -482,16 +492,21 @@
         });
 
         var resizing = false;
-        var rsx, rsy, rw, rh;
-        $win.find('.folder-win-resize').on('mousedown', function (e) {
+        var edge = '';
+        var rsx, rsy, rl, rt, rw, rh;
+        $win.find('.win-rh').on('mousedown', function (e) {
             if ($win.hasClass('maximized') || $win.hasClass('docked')) {
                 return;
             }
             resizing = true;
+            edge = String($(this).attr('data-edge') || 'se');
             rsx = e.clientX;
             rsy = e.clientY;
+            rl = parseInt($win.css('left'), 10) || 0;
+            rt = parseInt($win.css('top'), 10) || 0;
             rw = $win.outerWidth();
             rh = $win.outerHeight();
+            focusWindow($win);
             $('body').addClass('folder-win-dragging');
             e.preventDefault();
             e.stopPropagation();
@@ -500,9 +515,31 @@
             if (!resizing) {
                 return;
             }
+            var dx = e.clientX - rsx;
+            var dy = e.clientY - rsy;
+            var left = rl;
+            var top = rt;
+            var width = rw;
+            var height = rh;
+            if (edge.indexOf('e') >= 0) {
+                width = Math.max(420, rw + dx);
+            }
+            if (edge.indexOf('s') >= 0) {
+                height = Math.max(280, rh + dy);
+            }
+            if (edge.indexOf('w') >= 0) {
+                width = Math.max(420, rw - dx);
+                left = rl + (rw - width);
+            }
+            if (edge.indexOf('n') >= 0) {
+                height = Math.max(280, rh - dy);
+                top = rt + (rh - height);
+            }
             $win.css({
-                width: Math.max(420, rw + e.clientX - rsx) + 'px',
-                height: Math.max(280, rh + e.clientY - rsy) + 'px'
+                left: Math.max(0, left) + 'px',
+                top: Math.max(0, top) + 'px',
+                width: width + 'px',
+                height: height + 'px'
             });
         });
         $(document).on('mouseup.fwr' + id, function () {
@@ -510,7 +547,14 @@
                 return;
             }
             resizing = false;
+            edge = '';
             $('body').removeClass('folder-win-dragging');
+        });
+
+        $win.find('.win-focus-shield').on('mousedown', function (e) {
+            focusWindow($win);
+            e.preventDefault();
+            e.stopPropagation();
         });
     }
 
