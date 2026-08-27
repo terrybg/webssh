@@ -1217,8 +1217,11 @@
                     </a>
                 </div>
             </div>
-            <button type="button" class="nav-tool nav-tool-text" id="btnScanSize" title="扫描当前目录整棵子树大小（仅第一次点击开始；浏览子目录不再重扫）">
+            <button type="button" class="nav-tool nav-tool-text" id="btnScanSize" title="扫描当前目录整棵子树大小；浏览子目录不重扫，完成后可用「重新扫描」">
                 <i class="bi bi-hdd" aria-hidden="true"></i><span class="nav-tool-label">磁盘空间扫描</span>
+            </button>
+            <button type="button" class="nav-tool nav-tool-text" id="btnRescanSize" hidden title="清空已有统计，从当前目录重新扫描整棵子树">
+                <i class="bi bi-arrow-clockwise" aria-hidden="true"></i><span class="nav-tool-label">重新扫描</span>
             </button>
             <button type="button" class="nav-tool nav-tool-text" id="btnOpenTerminal" title="在当前目录打开新的命令行会话">
                 <i class="bi bi-terminal" aria-hidden="true"></i><span class="nav-tool-label">打开终端</span>
@@ -1440,7 +1443,8 @@
 <script src="../js/bootstrap/popper.min.js" charset="utf-8"></script>
 <script src="../js/bootstrap/bootstrap.min.js" charset="utf-8"></script>
 <script src="../js/websocket.js" charset="utf-8"></script>
-<script src="../js/sftp.js?v=57" charset="utf-8"></script>
-<script src="../js/sftp-win.js?v=21" charset="utf-8"></script>
+<script src="../js/operation-reporter.js?v=1" charset="utf-8"></script>
+<script src="../js/sftp.js?v=62" charset="utf-8"></script>
+<script src="../js/sftp-win.js?v=24" charset="utf-8"></script>
 </body>
 </html>

@@ -15,6 +15,7 @@ import com.terry.webssh.application.pojo.SftpFile;
 import com.terry.webssh.application.util.ArchiveExtract;
 import com.terry.webssh.application.util.DfDiskParser;
 import com.terry.webssh.application.util.DuScanService;
+import com.terry.webssh.application.util.FileOpJob;
 import com.terry.webssh.application.util.RmOutputParser;
 import com.terry.webssh.util.ProgressInputStream;
 import lombok.extern.java.Log;
@@ -140,6 +141,74 @@ public class RemoteController {
         writer.write(jsonLine);
         writer.write('\n');
         writer.flush();
+    }
+
+    /** Stream job events to client; returns immediately if client disconnects (job keeps running). */
+    private void pipeJobToResponse(FileOpJob job, PrintWriter writer) {
+        writeUploadEvent(writer, "{\"phase\":\"job\",\"jobId\":" + jsonQuote(job.id)
+                + ",\"cwd\":" + jsonQuote(job.cwd) + ",\"kind\":" + jsonQuote(job.kind) + "}");
+        int known = 0;
+        while (true) {
+            List<String> batch = job.eventsSince(known);
+            for (String line : batch) {
+                writeUploadEvent(writer, line);
+                if (writer.checkError()) {
+                    return;
+                }
+            }
+            known += batch.size();
+            if (job.isFinished() && known >= job.eventCount()) {
+                break;
+            }
+            job.awaitEvents(known, 400L);
+            if (writer.checkError()) {
+                return;
+            }
+        }
+    }
+
+    private static String parentDirOf(String path) {
+        if (path == null || path.isEmpty() || "/".equals(path)) {
+            return "/";
+        }
+        int idx = path.lastIndexOf('/');
+        if (idx <= 0) {
+            return "/";
+        }
+        return path.substring(0, idx);
+    }
+
+    @GetMapping("/op/status")
+    public StatusContent<Map<String, Object>> opStatus(@RequestParam("id") String id) {
+        FileOpJob job = FileOpJob.get(id);
+        if (job == null) {
+            return StatusContent.error("任务不存在或已过期");
+        }
+        return StatusContent.ok("成功！", job.snapshot());
+    }
+
+    @PostMapping("/op/cancel")
+    public StatusContent<String> opCancel(@RequestParam("id") String id) {
+        if (!FileOpJob.cancel(id)) {
+            return StatusContent.error("任务不存在");
+        }
+        return StatusContent.ok("已取消");
+    }
+
+    @PostMapping("/op/pause")
+    public StatusContent<String> opPause(@RequestParam("id") String id) {
+        if (!FileOpJob.pause(id)) {
+            return StatusContent.error("任务不存在或已结束");
+        }
+        return StatusContent.ok("已暂停");
+    }
+
+    @PostMapping("/op/resume")
+    public StatusContent<String> opResume(@RequestParam("id") String id) {
+        if (!FileOpJob.resume(id)) {
+            return StatusContent.error("任务不存在或已结束");
+        }
+        return StatusContent.ok("已继续");
     }
 
     /**
@@ -608,6 +677,18 @@ public class RemoteController {
         return StatusContent.ok("已取消");
     }
 
+    @PostMapping("/du/pause")
+    public StatusContent<String> duPause(@RequestParam("tagId") String tagId) {
+        DuScanService.pause(tagId);
+        return StatusContent.ok("已暂停");
+    }
+
+    @PostMapping("/du/resume")
+    public StatusContent<String> duResume(@RequestParam("tagId") String tagId) {
+        DuScanService.resume(tagId);
+        return StatusContent.ok("已继续");
+    }
+
     /**
      * 真实磁盘空间（TreeSize 风格）。兼容 GNU / BusyBox（算能 BM1684 等）。
      */
@@ -686,7 +767,7 @@ public class RemoteController {
 
     /**
      * 删除文件或目录。优先 {@code rm -rfv}（快 + 可流式进度）；失败则回退 SFTP 递归。
-     * 响应为 NDJSON：start / file / done / error。
+     * 后台 Job + NDJSON：job / start / file / done / error；刷新后可续接。
      * 参数：{@code path} 单路径，或 {@code sources} 多行路径。
      */
     @PostMapping("/rm")
@@ -737,17 +818,36 @@ public class RemoteController {
             }
             label.append(targets.get(i));
         }
-        writeUploadEvent(writer, "{\"phase\":\"start\",\"targets\":" + targets.size()
-                + ",\"label\":" + jsonQuote(label.toString()) + "}");
+        String cwd = parentDirOf(targets.get(0));
+        FileOpJob job = FileOpJob.create("delete", tagId, cwd,
+                targets.size() == 1 ? ("删除 " + targets.get(0)) : ("删除 " + targets.size() + " 项"));
+        job.setProgress(0, label.toString(), true);
+        final SSHConnectInfo cache = getCacheSsh(server);
+        final List<String> targetList = targets;
+        final String labelStr = label.toString();
+        FileOpJob.submit(job, new Runnable() {
+            @Override
+            public void run() {
+                runDeleteJob(job, cache, targetList, labelStr);
+            }
+        });
+        pipeJobToResponse(job, writer);
+    }
 
-        SSHConnectInfo cache = getCacheSsh(server);
+    private void runDeleteJob(FileOpJob job, SSHConnectInfo cache, List<String> targets, String labelStr) {
+        job.emit("{\"phase\":\"start\",\"targets\":" + targets.size()
+                + ",\"label\":" + jsonQuote(labelStr) + ",\"jobId\":" + jsonQuote(job.id) + "}");
         final int[] count = {0};
         final String[] lastErr = {""};
         try {
             synchronized (cache) {
+                if (job.checkControl()) {
+                    return;
+                }
                 Session session = cache.getSession();
                 if (session == null || !session.isConnected()) {
-                    writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"SSH 已断开\"}");
+                    job.emit("{\"phase\":\"error\",\"message\":\"SSH 已断开\"}");
+                    job.fail("SSH 已断开");
                     return;
                 }
                 StringBuilder args = new StringBuilder();
@@ -760,10 +860,14 @@ public class RemoteController {
                     int code = execStreaming(session, cmd, 30 * 60 * 1000, new LineConsumer() {
                         @Override
                         public void onLine(String line) {
+                            if (job.checkControl()) {
+                                return;
+                            }
                             String entry = RmOutputParser.parseRemoved(line);
                             if (entry != null) {
                                 count[0]++;
-                                writeUploadEvent(writer, "{\"phase\":\"file\",\"path\":"
+                                job.setProgress(0, entry + " · 已删除 " + count[0] + " 项", true);
+                                job.emit("{\"phase\":\"file\",\"path\":"
                                         + jsonQuote(entry) + ",\"count\":" + count[0] + "}");
                             } else if (line != null && !line.trim().isEmpty()) {
                                 String t = line.trim().toLowerCase();
@@ -775,12 +879,16 @@ public class RemoteController {
                             }
                         }
                     });
+                    if (job.checkControl()) {
+                        return;
+                    }
                     if (code != 0 && code != -1) {
                         if (count[0] == 0) {
                             needFallback = true;
                         } else if (StrUtil.isNotBlank(lastErr[0])) {
-                            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":"
-                                    + jsonQuote("删除部分失败: " + lastErr[0]) + "}");
+                            String msg = "删除部分失败: " + lastErr[0];
+                            job.emit("{\"phase\":\"error\",\"message\":" + jsonQuote(msg) + "}");
+                            job.fail(msg);
                             return;
                         }
                     }
@@ -791,40 +899,53 @@ public class RemoteController {
                     count[0] = 0;
                     ChannelSftp ch = cache.getSftp().getClient();
                     for (String p : targets) {
-                        deletePathWithProgress(ch, p, writer, count);
+                        if (job.checkControl()) {
+                            return;
+                        }
+                        deletePathWithProgress(ch, p, job, count);
                     }
                 }
             }
-            writeUploadEvent(writer, "{\"phase\":\"done\",\"count\":" + count[0] + "}");
+            job.emit("{\"phase\":\"done\",\"count\":" + count[0] + "}");
+            job.succeed("已删除 " + count[0] + " 项");
         } catch (Exception e) {
             invalidateSharedSftp(cache);
-            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":"
-                    + jsonQuote("删除失败: " + e.getMessage()) + "}");
+            String msg = "删除失败: " + e.getMessage();
+            job.emit("{\"phase\":\"error\",\"message\":" + jsonQuote(msg) + "}");
+            job.fail(msg);
         }
     }
 
-    private void deletePathWithProgress(ChannelSftp ch, String path, PrintWriter writer, int[] count)
+    private void deletePathWithProgress(ChannelSftp ch, String path, FileOpJob job, int[] count)
             throws SftpException {
+        if (job.checkControl()) {
+            return;
+        }
         SftpATTRS attrs = ch.stat(path);
         if (attrs.isDir()) {
             @SuppressWarnings("unchecked")
             Vector<ChannelSftp.LsEntry> entries = ch.ls(path);
             for (ChannelSftp.LsEntry entry : entries) {
+                if (job.checkControl()) {
+                    return;
+                }
                 String name = entry.getFilename();
                 if (".".equals(name) || "..".equals(name)) {
                     continue;
                 }
                 String child = path.endsWith("/") ? path + name : path + "/" + name;
-                deletePathWithProgress(ch, child, writer, count);
+                deletePathWithProgress(ch, child, job, count);
             }
             ch.rmdir(path);
             count[0]++;
-            writeUploadEvent(writer, "{\"phase\":\"file\",\"path\":" + jsonQuote(path)
+            job.setProgress(0, path + " · 已删除 " + count[0] + " 项", true);
+            job.emit("{\"phase\":\"file\",\"path\":" + jsonQuote(path)
                     + ",\"count\":" + count[0] + "}");
         } else {
             ch.rm(path);
             count[0]++;
-            writeUploadEvent(writer, "{\"phase\":\"file\",\"path\":" + jsonQuote(path)
+            job.setProgress(0, path + " · 已删除 " + count[0] + " 项", true);
+            job.emit("{\"phase\":\"file\",\"path\":" + jsonQuote(path)
                     + ",\"count\":" + count[0] + "}");
         }
     }
@@ -1015,7 +1136,7 @@ public class RemoteController {
 
     /**
      * 跨会话/跨服务器复制（服务端 SFTP 流式中转，始终复制不删除源）。
-     * 响应为 NDJSON：start / file / progress / done / error。
+     * 后台 Job + NDJSON，刷新后可续接。同会话快捷路径仍为内联 NDJSON。
      */
     @PostMapping("/crossCopy")
     public void crossCopy(@RequestParam("sourceTagId") String sourceTagId,
@@ -1066,49 +1187,71 @@ public class RemoteController {
             writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"未选择文件\"}");
             return;
         }
+        for (String src : list) {
+            if (!isSafeRemotePath(src) || src.equals("/")) {
+                writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":"
+                        + jsonQuote("非法路径: " + src) + "}");
+                return;
+            }
+        }
         String destDirNorm = destDir.endsWith("/") ? destDir : destDir + "/";
-        SSHConnectInfo srcCache = getCacheSsh(srcServer);
-        SSHConnectInfo dstCache = getCacheSsh(dstServer);
+        FileOpJob job = FileOpJob.create("copy", destTagId, destDirNorm,
+                "跨服务器复制（" + list.size() + " 项）");
+        job.setProgress(0, destDirNorm, false);
+        final SSHConnectInfo srcCache = getCacheSsh(srcServer);
+        final SSHConnectInfo dstCache = getCacheSsh(dstServer);
+        final List<String> listFinal = list;
+        final String destFinal = destDirNorm;
+        FileOpJob.submit(job, new Runnable() {
+            @Override
+            public void run() {
+                runCrossCopyJob(job, srcCache, dstCache, listFinal, destFinal);
+            }
+        });
+        pipeJobToResponse(job, writer);
+    }
+
+    private void runCrossCopyJob(FileOpJob job, SSHConnectInfo srcCache, SSHConnectInfo dstCache,
+                                 List<String> list, String destDirNorm) {
         ChannelSftp srcCh = null;
         ChannelSftp dstCh = null;
         List<String> resultNames = new ArrayList<>();
         try {
             srcCh = openTempSftp(srcCache.getSession());
             dstCh = openTempSftp(dstCache.getSession());
-            for (String src : list) {
-                if (!isSafeRemotePath(src) || src.equals("/")) {
-                    writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":"
-                            + jsonQuote("非法路径: " + src) + "}");
-                    return;
-                }
-            }
             long batchTotal = 0L;
             int fileCount = 0;
             for (String src : list) {
+                if (job.checkControl()) {
+                    return;
+                }
                 batchTotal += measureRemoteBytes(srcCh, src);
                 fileCount += countRemoteFiles(srcCh, src);
             }
-            writeUploadEvent(writer, "{\"phase\":\"start\",\"total\":" + batchTotal
-                    + ",\"fileCount\":" + fileCount + "}");
-
+            job.emit("{\"phase\":\"start\",\"total\":" + batchTotal
+                    + ",\"fileCount\":" + fileCount + ",\"jobId\":" + jsonQuote(job.id) + "}");
             final long[] batchLoaded = {0L};
-            final PrintWriter out = writer;
             final long total = batchTotal;
             for (String src : list) {
+                if (job.checkControl()) {
+                    return;
+                }
                 String base = src.substring(src.lastIndexOf('/') + 1);
                 if (remoteExists(dstCh, destDirNorm + base)) {
                     base = uniqueCopyBaseName(dstCh, destDirNorm, base);
                 }
                 String dest = destDirNorm + base;
-                copyRemoteRecursiveWithProgress(srcCh, dstCh, src, dest, batchLoaded, total, out);
+                copyRemoteRecursiveWithProgress(srcCh, dstCh, src, dest, batchLoaded, total, job);
                 resultNames.add(base);
             }
-            writeUploadEvent(writer, "{\"phase\":\"done\",\"status\":200,\"message\":\"复制成功\",\"result\":"
+            job.emit("{\"phase\":\"done\",\"status\":200,\"message\":\"复制成功\",\"result\":"
                     + jsonQuote(String.join("\n", resultNames)) + "}");
+            job.succeed("复制完成");
         } catch (Exception e) {
             e.printStackTrace();
             String msg = e.getMessage() == null ? "跨服务器复制失败" : ("跨服务器复制失败: " + e.getMessage());
-            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":" + jsonQuote(msg) + "}");
+            job.emit("{\"phase\":\"error\",\"message\":" + jsonQuote(msg) + "}");
+            job.fail(msg);
         } finally {
             closeQuietly(srcCh);
             closeQuietly(dstCh);
@@ -1156,8 +1299,11 @@ public class RemoteController {
     private void copyRemoteRecursiveWithProgress(ChannelSftp src, ChannelSftp dst,
                                                  String srcPath, String destPath,
                                                  long[] batchLoaded, long batchTotal,
-                                                 PrintWriter writer)
+                                                 FileOpJob job)
             throws SftpException, IOException {
+        if (job.checkControl()) {
+            return;
+        }
         SftpATTRS attrs = src.stat(srcPath);
         if (attrs.isDir()) {
             try {
@@ -1170,29 +1316,34 @@ public class RemoteController {
             @SuppressWarnings("unchecked")
             Vector<ChannelSftp.LsEntry> entries = src.ls(srcPath);
             for (ChannelSftp.LsEntry entry : entries) {
+                if (job.checkControl()) {
+                    return;
+                }
                 String name = entry.getFilename();
                 if (".".equals(name) || "..".equals(name)) {
                     continue;
                 }
                 String childSrc = srcPath.endsWith("/") ? srcPath + name : srcPath + "/" + name;
                 String childDst = destPath.endsWith("/") ? destPath + name : destPath + "/" + name;
-                copyRemoteRecursiveWithProgress(src, dst, childSrc, childDst, batchLoaded, batchTotal, writer);
+                copyRemoteRecursiveWithProgress(src, dst, childSrc, childDst, batchLoaded, batchTotal, job);
             }
             return;
         }
         long fileTotal = Math.max(0L, attrs.getSize());
         String baseName = srcPath.substring(srcPath.lastIndexOf('/') + 1);
-        writeUploadEvent(writer, "{\"phase\":\"file\",\"name\":" + jsonQuote(baseName)
+        job.emit("{\"phase\":\"file\",\"name\":" + jsonQuote(baseName)
                 + ",\"fileTotal\":" + fileTotal
                 + ",\"batchLoaded\":" + batchLoaded[0]
                 + ",\"batchTotal\":" + batchTotal + "}");
-        writeUploadEvent(writer, "{\"phase\":\"progress\",\"name\":" + jsonQuote(baseName)
+        job.emit("{\"phase\":\"progress\",\"name\":" + jsonQuote(baseName)
                 + ",\"fileLoaded\":0,\"fileTotal\":" + fileTotal
                 + ",\"batchLoaded\":" + batchLoaded[0]
                 + ",\"batchTotal\":" + batchTotal + "}");
         try (InputStream raw = src.get(srcPath); OutputStream out = dst.put(destPath)) {
             ProgressInputStream pin = new ProgressInputStream(raw, fileTotal, (loaded, tot) -> {
-                writeUploadEvent(writer, "{\"phase\":\"progress\",\"name\":" + jsonQuote(baseName)
+                int pct = batchTotal > 0 ? (int) (((batchLoaded[0] + loaded) * 100L) / batchTotal) : 0;
+                job.setProgress(pct, baseName, false);
+                job.emit("{\"phase\":\"progress\",\"name\":" + jsonQuote(baseName)
                         + ",\"fileLoaded\":" + loaded
                         + ",\"fileTotal\":" + tot
                         + ",\"batchLoaded\":" + (batchLoaded[0] + loaded)
@@ -1201,6 +1352,9 @@ public class RemoteController {
             byte[] buf = new byte[8192];
             int n;
             while ((n = pin.read(buf)) >= 0) {
+                if (job.checkControl()) {
+                    return;
+                }
                 if (n > 0) {
                     out.write(buf, 0, n);
                 }
@@ -1208,7 +1362,9 @@ public class RemoteController {
             out.flush();
         }
         batchLoaded[0] += fileTotal;
-        writeUploadEvent(writer, "{\"phase\":\"progress\",\"name\":" + jsonQuote(baseName)
+        int pctDone = batchTotal > 0 ? (int) ((batchLoaded[0] * 100L) / batchTotal) : 100;
+        job.setProgress(pctDone, baseName, false);
+        job.emit("{\"phase\":\"progress\",\"name\":" + jsonQuote(baseName)
                 + ",\"fileLoaded\":" + fileTotal + ",\"fileTotal\":" + fileTotal
                 + ",\"batchLoaded\":" + batchLoaded[0]
                 + ",\"batchTotal\":" + batchTotal + "}");
@@ -1347,16 +1503,24 @@ public class RemoteController {
     }
 
     /**
-     * 压缩选中项为 zip（写在 destDir 下）
+     * 压缩选中项为 zip（写在 destDir 下）。后台 Job + NDJSON 进度，刷新后可续接。
      */
     @PostMapping("/compress")
-    public StatusContent<String> compress(@RequestParam("sources") String sources,
-                                          @RequestParam("destDir") String destDir,
-                                          @RequestParam("tagId") String tagId,
-                                          @RequestParam(value = "archiveName", required = false) String archiveName) {
+    public void compress(@RequestParam("sources") String sources,
+                         @RequestParam("destDir") String destDir,
+                         @RequestParam("tagId") String tagId,
+                         @RequestParam(value = "archiveName", required = false) String archiveName,
+                         HttpServletResponse response) throws IOException {
+        response.setCharacterEncoding("UTF-8");
+        response.setContentType("application/x-ndjson;charset=UTF-8");
+        response.setHeader("Cache-Control", "no-cache, no-store");
+        response.setHeader("X-Accel-Buffering", "no");
+        PrintWriter writer = response.getWriter();
+
         Server server = WebSSHService.webLoginMap.get(tagId);
         if (server == null) {
-            return StatusContent.error("未登录或会话已过期");
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"未登录或会话已过期\"}");
+            return;
         }
         String[] parts = sources.split("\n");
         List<String> names = new ArrayList<>();
@@ -1367,7 +1531,8 @@ public class RemoteController {
             }
             p = p.trim();
             if (!isSafeRemotePath(p)) {
-                return StatusContent.error("非法路径");
+                writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"非法路径\"}");
+                return;
             }
             int idx = p.lastIndexOf('/');
             String dir = idx <= 0 ? "/" : p.substring(0, idx);
@@ -1375,12 +1540,14 @@ public class RemoteController {
             if (parent == null) {
                 parent = dir;
             } else if (!parent.equals(dir)) {
-                return StatusContent.error("只能压缩同一目录下的项目");
+                writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"只能压缩同一目录下的项目\"}");
+                return;
             }
             names.add(name);
         }
         if (names.isEmpty()) {
-            return StatusContent.error("未选择文件");
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"未选择文件\"}");
+            return;
         }
         if (StrUtil.isBlank(destDir)) {
             destDir = parent == null ? "/" : parent;
@@ -1389,20 +1556,42 @@ public class RemoteController {
             archiveName = (names.size() == 1 ? names.get(0) : "archive") + ".zip";
         }
         if (archiveName.contains("/") || archiveName.contains("\\")) {
-            return StatusContent.error("压缩包名称不合法");
+            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"压缩包名称不合法\"}");
+            return;
         }
+        final String destDirFinal = destDir;
+        final String archiveNameFinal = archiveName;
+        final String parentFinal = parent;
+        final List<String> namesFinal = names;
+        FileOpJob job = FileOpJob.create("compress", tagId, destDirFinal, "压缩 " + archiveNameFinal);
+        job.setProgress(0, archiveNameFinal, true);
+        final SSHConnectInfo cache = getCacheSsh(server);
+        FileOpJob.submit(job, new Runnable() {
+            @Override
+            public void run() {
+                runCompressJob(job, cache, parentFinal, destDirFinal, archiveNameFinal, namesFinal);
+            }
+        });
+        pipeJobToResponse(job, writer);
+    }
+
+    private void runCompressJob(FileOpJob job, SSHConnectInfo cache, String parent,
+                                String destDir, String archiveName, List<String> names) {
         String zipPath = destDir.endsWith("/") ? destDir + archiveName : destDir + "/" + archiveName;
         StringBuilder args = new StringBuilder();
         for (String n : names) {
             args.append(' ').append(shellQuote(n));
         }
-        String cmd = "cd " + shellQuote(parent) + " && zip -r -q " + shellQuote(zipPath) + args;
-        SSHConnectInfo cache = getCacheSsh(server);
+        job.emit("{\"phase\":\"start\",\"archive\":" + jsonQuote(zipPath)
+                + ",\"jobId\":" + jsonQuote(job.id) + "}");
         try {
             synchronized (cache) {
+                if (job.checkControl()) {
+                    return;
+                }
+                String cmd = "cd " + shellQuote(parent) + " && zip -r -q " + shellQuote(zipPath) + args;
                 String err = execCommand(cache.getSession(), cmd);
                 if (StrUtil.isNotBlank(err) && !err.contains("adding:")) {
-                    // zip 可能不存在，回退 tar.gz
                     String tarName = archiveName.endsWith(".zip")
                             ? archiveName.substring(0, archiveName.length() - 4) + ".tar.gz"
                             : archiveName + ".tar.gz";
@@ -1410,20 +1599,28 @@ public class RemoteController {
                     String tarCmd = "cd " + shellQuote(parent) + " && tar -czf " + shellQuote(tarPath) + args;
                     String err2 = execCommand(cache.getSession(), tarCmd);
                     if (StrUtil.isNotBlank(err2)) {
-                        return StatusContent.error("压缩失败: " + (StrUtil.blankToDefault(err, "") + " " + err2).trim());
+                        String msg = "压缩失败: " + (StrUtil.blankToDefault(err, "") + " " + err2).trim();
+                        job.emit("{\"phase\":\"error\",\"message\":" + jsonQuote(msg) + "}");
+                        job.fail(msg);
+                        return;
                     }
-                    return StatusContent.ok("压缩成功", tarPath);
+                    job.emit("{\"phase\":\"done\",\"result\":" + jsonQuote(tarPath) + "}");
+                    job.succeed("压缩完成：" + tarName);
+                    return;
                 }
             }
-            return StatusContent.ok("压缩成功", zipPath);
+            job.emit("{\"phase\":\"done\",\"result\":" + jsonQuote(zipPath) + "}");
+            job.succeed("压缩完成：" + archiveName);
         } catch (Exception e) {
             invalidateSharedSftp(cache);
-            return StatusContent.error("压缩失败: " + e.getMessage());
+            String msg = "压缩失败: " + e.getMessage();
+            job.emit("{\"phase\":\"error\",\"message\":" + jsonQuote(msg) + "}");
+            job.fail(msg);
         }
     }
 
     /**
-     * 解压 zip / tar / tar.gz / tgz / gz 到目标目录；NDJSON 流式进度（start / file / done / error）。
+     * 解压 zip / tar / tar.gz / tgz / gz 到目标目录；后台 Job + NDJSON，刷新后可续接。
      */
     @PostMapping("/extract")
     public void extract(@RequestParam("path") String path,
@@ -1464,39 +1661,64 @@ public class RemoteController {
             writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"文件名不合法\"}");
             return;
         }
+        final String pathFinal = path;
+        final String destDirFinal = destDir;
+        final String outNameFinal = outName;
+        final ArchiveExtract.Kind kindFinal = kind;
+        FileOpJob job = FileOpJob.create("extract", tagId, destDirFinal, "解压 " + name);
+        job.setProgress(0, path, true);
+        final SSHConnectInfo cache = getCacheSsh(server);
+        FileOpJob.submit(job, new Runnable() {
+            @Override
+            public void run() {
+                runExtractJob(job, cache, pathFinal, destDirFinal, outNameFinal, kindFinal);
+            }
+        });
+        pipeJobToResponse(job, writer);
+    }
+
+    private void runExtractJob(FileOpJob job, SSHConnectInfo cache, String path, String destDir,
+                               String outName, ArchiveExtract.Kind kind) {
         String gzipOut = joinRemote(destDir, outName);
         String cmd = ArchiveExtract.buildVerboseCommand(
                 kind, shellQuote(path), shellQuote(destDir), shellQuote(gzipOut));
-        writeUploadEvent(writer, "{\"phase\":\"start\",\"archive\":" + jsonQuote(path)
-                + ",\"dest\":" + jsonQuote(destDir) + "}");
-        SSHConnectInfo cache = getCacheSsh(server);
+        job.emit("{\"phase\":\"start\",\"archive\":" + jsonQuote(path)
+                + ",\"dest\":" + jsonQuote(destDir) + ",\"jobId\":" + jsonQuote(job.id) + "}");
         final int[] count = {0};
         final String[] lastErr = {""};
         try {
             synchronized (cache) {
+                if (job.checkControl()) {
+                    return;
+                }
                 Session session = cache.getSession();
                 if (session == null || !session.isConnected()) {
-                    writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":\"SSH 已断开\"}");
+                    job.emit("{\"phase\":\"error\",\"message\":\"SSH 已断开\"}");
+                    job.fail("SSH 已断开");
                     return;
                 }
                 if (kind == ArchiveExtract.Kind.GZIP_FILE) {
                     String err = execCommand(session, cmd);
                     if (StrUtil.isNotBlank(err)) {
-                        writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":"
-                                + jsonQuote("解压失败: " + err) + "}");
+                        String msg = "解压失败: " + err;
+                        job.emit("{\"phase\":\"error\",\"message\":" + jsonQuote(msg) + "}");
+                        job.fail(msg);
                         return;
                     }
                     count[0] = 1;
-                    writeUploadEvent(writer, "{\"phase\":\"file\",\"path\":" + jsonQuote(outName)
-                            + ",\"count\":1}");
+                    job.emit("{\"phase\":\"file\",\"path\":" + jsonQuote(outName) + ",\"count\":1}");
                 } else {
                     int code = execStreaming(session, cmd, 30 * 60 * 1000, new LineConsumer() {
                         @Override
                         public void onLine(String line) {
+                            if (job.checkControl()) {
+                                return;
+                            }
                             String entry = ArchiveExtract.parseProgressLine(line);
                             if (entry != null) {
                                 count[0]++;
-                                writeUploadEvent(writer, "{\"phase\":\"file\",\"path\":"
+                                job.setProgress(0, entry + " · 已解压 " + count[0] + " 项", true);
+                                job.emit("{\"phase\":\"file\",\"path\":"
                                         + jsonQuote(entry) + ",\"count\":" + count[0] + "}");
                             } else if (line != null && !line.trim().isEmpty()) {
                                 String t = line.trim().toLowerCase();
@@ -1507,20 +1729,26 @@ public class RemoteController {
                             }
                         }
                     });
+                    if (job.checkControl()) {
+                        return;
+                    }
                     if (code != 0 && code != -1) {
                         String msg = StrUtil.isNotBlank(lastErr[0]) ? lastErr[0] : ("exit " + code);
-                        writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":"
-                                + jsonQuote("解压失败: " + msg) + "}");
+                        String full = "解压失败: " + msg;
+                        job.emit("{\"phase\":\"error\",\"message\":" + jsonQuote(full) + "}");
+                        job.fail(full);
                         return;
                     }
                 }
             }
-            writeUploadEvent(writer, "{\"phase\":\"done\",\"dest\":" + jsonQuote(destDir)
+            job.emit("{\"phase\":\"done\",\"dest\":" + jsonQuote(destDir)
                     + ",\"count\":" + count[0] + "}");
+            job.succeed("已解压 " + count[0] + " 项");
         } catch (Exception e) {
             invalidateSharedSftp(cache);
-            writeUploadEvent(writer, "{\"phase\":\"error\",\"message\":"
-                    + jsonQuote("解压失败: " + e.getMessage()) + "}");
+            String msg = "解压失败: " + e.getMessage();
+            job.emit("{\"phase\":\"error\",\"message\":" + jsonQuote(msg) + "}");
+            job.fail(msg);
         }
     }
 

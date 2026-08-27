@@ -36,11 +36,15 @@ public final class DuScanService {
     }
 
     public static Job start(String tagId, String root, SSHConnectInfo cache) {
+        return start(tagId, root, cache, false);
+    }
+
+    public static Job start(String tagId, String root, SSHConnectInfo cache, boolean force) {
         Job running = JOBS.get(tagId);
-        if (running != null && running.running) {
+        if (!force && running != null && running.running) {
             return running;
         }
-        if (running != null && running.done && !running.cancelled
+        if (!force && running != null && running.done && !running.cancelled
                 && root.equals(running.root) && running.entryCount() > 0) {
             return running;
         }
@@ -68,6 +72,40 @@ public final class DuScanService {
         Job job = JOBS.get(tagId);
         if (job != null) {
             job.cancelled = true;
+            job.paused = false;
+            synchronized (job) {
+                job.notifyAll();
+            }
+        }
+    }
+
+    public static void pause(String tagId) {
+        Job job = JOBS.get(tagId);
+        if (job != null && job.running && !job.done) {
+            job.paused = true;
+        }
+    }
+
+    public static void resume(String tagId) {
+        Job job = JOBS.get(tagId);
+        if (job != null) {
+            job.paused = false;
+            synchronized (job) {
+                job.notifyAll();
+            }
+        }
+    }
+
+    private static void awaitIfPaused(Job job) {
+        synchronized (job) {
+            while (job.paused && !job.cancelled) {
+                try {
+                    job.wait(400L);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
         }
     }
 
@@ -143,6 +181,10 @@ public final class DuScanService {
             }
             while (!job.cancelled && !queue.isEmpty() && job.dirsDone < MAX_DIRS
                     && job.entryCount() < MAX_ENTRIES) {
+                awaitIfPaused(job);
+                if (job.cancelled) {
+                    break;
+                }
                 String dir = queue.poll();
                 if (dir == null || !seen.add(dir) || skipPath(dir)) {
                     continue;
@@ -308,6 +350,7 @@ public final class DuScanService {
         public volatile boolean running = true;
         public volatile boolean done = false;
         public volatile boolean cancelled = false;
+        public volatile boolean paused = false;
         public volatile String currentPath = "";
         public volatile String currentPhase = "";
         public volatile long currentSinceMs = 0L;
@@ -415,6 +458,7 @@ public final class DuScanService {
             body.put("running", running);
             body.put("done", done);
             body.put("cancelled", cancelled);
+            body.put("paused", paused);
             body.put("root", root);
             body.put("currentPath", currentPath == null ? "" : currentPath);
             body.put("currentPhase", currentPhase == null ? "" : currentPhase);

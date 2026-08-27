@@ -86,7 +86,7 @@
                 tid = w.localStorage.getItem('tagId' + port) || '';
             }
         } catch (e) { /* ignore */ }
-            var url = 'sftp.html' + q + sep + 'v=62&tagId=' + encodeURIComponent(tid) + '&folderWin=1';
+            var url = 'sftp.html' + q + sep + 'v=64&tagId=' + encodeURIComponent(tid) + '&folderWin=1';
         try {
             var sid = $pane.data('session-id') || $pane.attr('data-session-id') || '';
             if (sid) {

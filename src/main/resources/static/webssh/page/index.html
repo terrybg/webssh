@@ -1313,6 +1313,247 @@
             padding-top: 8px;
             margin-top: 4px;
         }
+        /* Desktop background operations panel (Windows-style) */
+        #desktopOperationsFab {
+            position: absolute;
+            right: 14px;
+            bottom: 58px;
+            z-index: 1700;
+            pointer-events: auto;
+        }
+        #tabPanes:not(.has-desktop-dock) #desktopOperationsFab {
+            bottom: 14px;
+        }
+        #desktopOperationsToggle {
+            position: relative;
+            width: 44px;
+            height: 44px;
+            border: 1px solid rgba(255,255,255,.12);
+            border-radius: 10px;
+            background: rgba(32, 32, 32, 0.88);
+            color: #eee;
+            cursor: pointer;
+            box-shadow: 0 4px 16px rgba(0,0,0,.35);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        #desktopOperationsToggle:hover {
+            background: rgba(48, 48, 48, 0.95);
+        }
+        .desktop-ops-fab-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            color: #e8e8e8;
+        }
+        #desktopOperationsBadge,
+        .desktop-ops-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 9px;
+            background: #6c757d;
+            color: #fff;
+            font-size: 11px;
+            line-height: 18px;
+            text-align: center;
+        }
+        #desktopOperationsBadge.is-active {
+            background: #0d6efd;
+        }
+        #desktopOperationsPanel {
+            position: absolute;
+            right: 14px;
+            bottom: 110px;
+            z-index: 1700;
+            width: min(380px, calc(100vw - 28px));
+            max-height: min(420px, calc(100vh - 140px));
+            display: none;
+            flex-direction: column;
+            border: 1px solid rgba(255,255,255,.12);
+            border-radius: 10px;
+            background: rgba(28, 28, 28, 0.94);
+            color: #eee;
+            box-shadow: 0 8px 32px rgba(0,0,0,.45);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            pointer-events: auto;
+            overflow: hidden;
+        }
+        #tabPanes:not(.has-desktop-dock) #desktopOperationsPanel {
+            bottom: 66px;
+        }
+        #desktopOperationsPanel.show {
+            display: flex;
+        }
+        .desktop-ops-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(255,255,255,.08);
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .desktop-ops-head-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .desktop-ops-clear {
+            border: 1px solid rgba(255,255,255,.18);
+            background: transparent;
+            color: #bbb;
+            font-size: 12px;
+            border-radius: 4px;
+            padding: 2px 8px;
+            cursor: pointer;
+        }
+        .desktop-ops-clear:hover {
+            color: #fff;
+            border-color: rgba(255,255,255,.35);
+        }
+        #desktopOperationsClose {
+            border: none;
+            background: transparent;
+            color: #bbb;
+            font-size: 20px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0 4px;
+        }
+        #desktopOperationsClose:hover {
+            color: #fff;
+        }
+        .desktop-ops-actions {
+            display: inline-flex;
+            gap: 4px;
+            margin-left: 6px;
+        }
+        .desktop-ops-btn {
+            border: 1px solid rgba(255,255,255,.2);
+            background: rgba(255,255,255,.06);
+            color: #ddd;
+            font-size: 11px;
+            border-radius: 4px;
+            padding: 1px 6px;
+            cursor: pointer;
+            line-height: 1.4;
+        }
+        .desktop-ops-btn:hover {
+            background: rgba(255,255,255,.14);
+            color: #fff;
+        }
+        .desktop-ops-bar.paused .desktop-ops-bar-fill {
+            background: #ffc107;
+        }
+        .desktop-ops-item.state-paused .desktop-ops-state {
+            color: #ffc107;
+        }
+        #desktopOperationsList {
+            overflow-y: auto;
+            padding: 8px;
+        }
+        .desktop-ops-empty {
+            padding: 24px 12px;
+            text-align: center;
+            color: #888;
+            font-size: 12px;
+        }
+        .desktop-ops-item {
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: rgba(255,255,255,.04);
+            margin-bottom: 6px;
+            cursor: pointer;
+        }
+        .desktop-ops-item:hover {
+            background: rgba(255,255,255,.08);
+        }
+        .desktop-ops-item:last-child {
+            margin-bottom: 0;
+        }
+        .desktop-ops-item-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        .desktop-ops-kind {
+            font-size: 11px;
+            color: #60cdff;
+            flex: 1;
+        }
+        .desktop-ops-state {
+            font-size: 11px;
+            color: #aaa;
+        }
+        .desktop-ops-cancel {
+            border: none;
+            background: transparent;
+            color: #aaa;
+            font-size: 16px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 0 2px;
+        }
+        .desktop-ops-cancel:hover {
+            color: #ff6b6b;
+        }
+        .desktop-ops-title {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        .desktop-ops-detail,
+        .desktop-ops-host {
+            font-size: 11px;
+            color: #999;
+            word-break: break-all;
+            margin-bottom: 2px;
+        }
+        .desktop-ops-bar {
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(255,255,255,.1);
+            margin-top: 6px;
+            overflow: hidden;
+        }
+        .desktop-ops-bar-fill {
+            height: 100%;
+            background: #0d6efd;
+            border-radius: 2px;
+            transition: width .2s ease;
+        }
+        .desktop-ops-bar.done .desktop-ops-bar-fill {
+            background: #28a745;
+        }
+        .desktop-ops-bar.error .desktop-ops-bar-fill {
+            background: #dc3545;
+        }
+        .desktop-ops-bar-indeterminate {
+            height: 100%;
+            width: 40%;
+            background: linear-gradient(90deg, transparent, #0d6efd, transparent);
+            animation: desktop-ops-indet 1.2s ease-in-out infinite;
+        }
+        @keyframes desktop-ops-indet {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(350%); }
+        }
+        .desktop-ops-item.state-done .desktop-ops-state {
+            color: #6fcf97;
+        }
+        .desktop-ops-item.state-error .desktop-ops-state {
+            color: #ff8787;
+        }
+        .desktop-ops-item.state-interrupted .desktop-ops-state {
+            color: #ffc107;
+        }
     </style>
 </head>
 <body>
@@ -1335,6 +1576,27 @@
             <div id="desktopLayoutPicker" class="desktop-layout-picker" style="display:none"></div>
             <div id="desktopSnapAssist" class="desktop-snap-assist" style="display:none"></div>
             <div id="desktopTaskbar" class="folder-taskbar" style="display:none"></div>
+            <div id="desktopOperationsPanel" class="desktop-ops-panel" aria-hidden="true">
+                <div class="desktop-ops-head">
+                    <span>后台任务</span>
+                    <span class="desktop-ops-head-actions">
+                        <button type="button" id="desktopOperationsClear" class="desktop-ops-clear" title="仅清空已结束任务（进行中不会被清空）" style="display:none">清空</button>
+                        <button type="button" id="desktopOperationsClose" title="关闭">×</button>
+                    </span>
+                </div>
+                <div id="desktopOperationsList"></div>
+            </div>
+            <div id="desktopOperationsFab">
+                <button type="button" id="desktopOperationsToggle" title="任务">
+                    <span class="desktop-ops-fab-icon" aria-hidden="true">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <rect x="3" y="3" width="14" height="14" rx="2.5" stroke="currentColor" stroke-width="1.6"/>
+                            <path d="M6.5 7h7M6.5 10h7M6.5 13h4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                        </svg>
+                    </span>
+                    <span id="desktopOperationsBadge" class="desktop-ops-badge" style="display:none">0</span>
+                </button>
+            </div>
         </div>
     </div>
     <div id="sessionPreviewOverlay" aria-hidden="true">
@@ -1486,6 +1748,7 @@
 </div>
 
 <script src="../js/jquery-3.4.1.min.js"></script>
+<script src="../js/operations.js?v=5" charset="utf-8"></script>
 <script src="../js/vendor/xlsx.full.min.js"></script>
 <script src="../js/common.js?v=3"></script>
 <script src="../js/jquery-ui.js"></script>

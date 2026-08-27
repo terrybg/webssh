@@ -835,30 +835,65 @@
         }
         var sources = rels.map(absOf).join('\n');
         var defaultName = (rels.length === 1 ? basenameOf(rels[0]) : 'archive') + '.zip';
-        showPromptModal('压缩为', defaultName, function (name) {
+            showPromptModal('压缩为', defaultName, function (name) {
             if (!name) {
                 showSftpToast('已取消压缩');
                 return;
             }
-            showSftpToast('正在压缩…', { sticky: true });
-            sftpApi('compress', {
-                sources: sources,
-                destDir: curDir(),
-                archiveName: name
-            }).then(function (res) {
-                clearSftpToast();
-                if (!res || res.status !== 200) {
-                    showSftpToast((res && res.message) || '压缩失败', { error: true });
-                    return;
-                }
-                var saved = res.result ? String(res.result) : name;
-                var base = saved.substring(saved.lastIndexOf('/') + 1);
-                showSftpToast('压缩完成：' + base);
-                reload({ selectNames: [base] });
-            }, function (xhr) {
-                clearSftpToast();
-                showSftpToast((xhr.responseJSON && xhr.responseJSON.message) || '压缩失败', { error: true });
+            var compressOpId = 'compress-' + Date.now();
+            showTaskOverlay({
+                title: '正在压缩',
+                operationKind: 'compress',
+                operationId: compressOpId,
+                cwd: curDir(),
+                label1: '输出',
+                line1: name,
+                label2: '目录',
+                line2: curDir(),
+                current: '准备中…',
+                meta: '打包中…',
+                metaVerb: '已处理',
+                doneTitle: '压缩完成',
+                failTitle: '压缩失败'
             });
+            var savedName = name;
+            postNdjson(
+                baseUrl + '/compress?tagId=' + encodeURIComponent(currentTagId()),
+                'sources=' + encodeURIComponent(sources)
+                    + '&destDir=' + encodeURIComponent(curDir())
+                    + '&archiveName=' + encodeURIComponent(name),
+                {
+                    onEvent: function (ev) {
+                        bindJobIdFromEvent(ev);
+                        if (ev.phase === 'start') {
+                            $('#extractCurrent').text('正在打包…');
+                        } else if (ev.phase === 'done') {
+                            var saved = ev.result ? String(ev.result) : name;
+                            savedName = saved.substring(saved.lastIndexOf('/') + 1);
+                            finishTaskOverlay(true, '压缩完成：' + savedName);
+                        } else if (ev.phase === 'error') {
+                            finishTaskOverlay(false, ev.message || '压缩失败');
+                        }
+                    },
+                    onComplete: function (xhr) {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            if (!$('#extractOverlay').hasClass('done') && !$('#extractOverlay').hasClass('has-error')) {
+                                finishTaskOverlay(true, '压缩完成：' + savedName);
+                            }
+                            if ($('#extractOverlay').hasClass('done')) {
+                                showSftpToast('压缩完成：' + savedName);
+                                setTimeout(hideExtractOverlay, 600);
+                                reload({ selectNames: [savedName] });
+                            } else {
+                                showSftpToast($('#extractCurrent').text() || '压缩失败', { error: true });
+                            }
+                        } else if (!$('#extractOverlay').hasClass('has-error')) {
+                            finishTaskOverlay(false, '压缩失败（HTTP ' + xhr.status + '）');
+                            showSftpToast('压缩失败', { error: true });
+                        }
+                    }
+                }
+            );
         });
     }
 
@@ -894,7 +929,8 @@
     function showTaskOverlay(opts) {
         opts = opts || {};
         var $o = $('#extractOverlay');
-        $o.removeClass('done has-error').addClass('show').attr('aria-hidden', 'false');
+        // Progress lives in desktop task panel; keep overlay DOM for data only (no popup).
+        $o.removeClass('done has-error show').attr('aria-hidden', 'true');
         $('#extractTitle').removeClass('error').text(opts.title || '处理中');
         $('#extractLabel1').text(opts.label1 || '');
         $('#extractArchive').text(opts.line1 || '');
@@ -905,6 +941,24 @@
         $o.data('metaVerb', opts.metaVerb || '已处理');
         $o.data('doneTitle', opts.doneTitle || '完成');
         $o.data('failTitle', opts.failTitle || '失败');
+        $o.data('opCwd', opts.cwd || opts.line2 || '');
+        if (opts.operationKind && typeof WebsshOperation !== 'undefined') {
+            var opId = opts.operationId || (opts.operationKind + '-' + Date.now());
+            $o.data('operationId', opId);
+            $o.data('operationKind', opts.operationKind);
+            WebsshOperation.start({
+                id: opId,
+                kind: opts.operationKind,
+                title: opts.title || '处理中',
+                detail: opts.line1 || opts.line2 || '',
+                cwd: opts.cwd || opts.line2 || '',
+                indeterminate: true,
+                cancelable: true,
+                reconnectable: true
+            });
+        } else {
+            $o.removeData('operationId').removeData('operationKind');
+        }
     }
 
     function updateTaskOverlay(entry, count) {
@@ -913,6 +967,38 @@
         }
         var verb = $('#extractOverlay').data('metaVerb') || '已处理';
         $('#extractMeta').text(verb + ' ' + (count || 0) + ' 项');
+        var opId = $('#extractOverlay').data('operationId');
+        if (opId && typeof WebsshOperation !== 'undefined') {
+            WebsshOperation.update({
+                id: opId,
+                detail: (entry || '') + ' · ' + verb + ' ' + (count || 0) + ' 项'
+            });
+        }
+    }
+
+    function bindJobIdFromEvent(ev) {
+        if (!ev) {
+            return;
+        }
+        var jobId = ev.jobId;
+        if (!jobId && ev.phase === 'job') {
+            jobId = ev.jobId;
+        }
+        if (!jobId) {
+            return;
+        }
+        var $o = $('#extractOverlay');
+        var opId = $o.data('operationId');
+        $o.data('jobId', jobId);
+        if (opId && typeof WebsshOperation !== 'undefined') {
+            WebsshOperation.update({
+                id: opId,
+                jobId: jobId,
+                reconnectable: true,
+                cancelable: true,
+                cwd: ev.cwd || $o.data('opCwd') || undefined
+            });
+        }
     }
 
     function finishTaskOverlay(ok, message) {
@@ -928,6 +1014,15 @@
             $('#extractTitle').addClass('error').text($o.data('failTitle') || '失败');
             $('#extractCurrent').text(message || '操作失败');
         }
+        var opId = $o.data('operationId');
+        if (opId && typeof WebsshOperation !== 'undefined') {
+            WebsshOperation.finish({
+                id: opId,
+                ok: ok,
+                progress: ok ? 100 : undefined,
+                detail: message || $('#extractCurrent').text()
+            });
+        }
     }
 
     function hideExtractOverlay() {
@@ -937,6 +1032,8 @@
     function showExtractOverlay(archive, dest) {
         showTaskOverlay({
             title: '正在解压',
+            operationKind: 'extract',
+            cwd: dest,
             label1: '压缩包',
             line1: archive,
             label2: '解压到',
@@ -1016,6 +1113,8 @@
             : (list.slice(0, 3).join(', ') + (list.length > 3 ? (' …共 ' + list.length + ' 项') : ''));
         showTaskOverlay({
             title: '正在删除',
+            operationKind: 'delete',
+            cwd: list.length ? list[0].replace(/\/[^/]+$/, '') || '/' : curDir(),
             label1: '目标',
             line1: label,
             label2: '方式',
@@ -1033,11 +1132,15 @@
             'sources=' + encodeURIComponent(list.join('\n')),
             {
                 onEvent: function (ev) {
-                    if (ev.phase === 'start') {
+                    bindJobIdFromEvent(ev);
+                    if (ev.phase === 'job') {
+                        bindJobIdFromEvent(ev);
+                    } else if (ev.phase === 'start') {
                         if (ev.label) {
                             $('#extractArchive').text(ev.label);
                         }
                         $('#extractCurrent').text('开始删除…');
+                        bindJobIdFromEvent(ev);
                     } else if (ev.phase === 'file') {
                         count = ev.count || (count + 1);
                         updateTaskOverlay(ev.path || '', count);
@@ -1118,6 +1221,7 @@
                 'path=' + encodeURIComponent(archivePath) + '&destDir=' + encodeURIComponent(dest),
                 {
                     onEvent: function (ev) {
+                        bindJobIdFromEvent(ev);
                         if (ev.phase === 'start') {
                             if (ev.dest) {
                                 finalDest = ev.dest;
@@ -1491,6 +1595,20 @@
             var batchTotal = 0;
             var fileCount = absPaths.length;
             var currentName = '';
+            var copyOpId = 'copy-' + Date.now();
+            if (typeof WebsshOperation !== 'undefined') {
+                WebsshOperation.start({
+                    id: copyOpId,
+                    kind: 'copy',
+                    title: '跨服务器复制（' + fileCount + ' 项）',
+                    detail: destDir,
+                    cwd: destDir,
+                    indeterminate: false,
+                    progress: 0,
+                    cancelable: true,
+                    reconnectable: true
+                });
+            }
 
             function updateUi(fileLoaded, fileTotal, batchLoaded, batchTot, name) {
                 if (typeof formatByteSize !== 'function' || typeof setProgressBar !== 'function') {
@@ -1516,6 +1634,14 @@
                 );
                 setProgressBar($('#progressBar'), filePct);
                 setProgressBar($('#progressBarTotal'), overallPct);
+                if (typeof WebsshOperation !== 'undefined') {
+                    WebsshOperation.update({
+                        id: copyOpId,
+                        progress: overallPct,
+                        detail: (name || currentName || '…') + ' · '
+                            + formatByteSize(bl) + ' / ' + formatByteSize(bt)
+                    });
+                }
             }
 
             function consumeNdjson() {
@@ -1550,7 +1676,25 @@
                         if (ev.fileCount != null) {
                             fileCount = ev.fileCount;
                         }
+                        if (ev.jobId && typeof WebsshOperation !== 'undefined') {
+                            WebsshOperation.update({
+                                id: copyOpId,
+                                jobId: ev.jobId,
+                                reconnectable: true,
+                                cancelable: true
+                            });
+                        }
                         updateUi(0, 0, 0, batchTotal, '');
+                    } else if (ev.phase === 'job') {
+                        if (ev.jobId && typeof WebsshOperation !== 'undefined') {
+                            WebsshOperation.update({
+                                id: copyOpId,
+                                jobId: ev.jobId,
+                                reconnectable: true,
+                                cancelable: true,
+                                cwd: ev.cwd || destDir
+                            });
+                        }
                     } else if (ev.phase === 'file') {
                         currentName = ev.name || '';
                         updateUi(0, ev.fileTotal || 0, ev.batchLoaded || 0,
@@ -1583,7 +1727,7 @@
                 setProgressBar($('#progressBar'), 0);
                 setProgressBar($('#progressBarTotal'), 0);
             }
-            $('#load').modal({ backdrop: 'static', keyboard: false });
+            // Progress shown in desktop task panel (no modal popup)
 
             xhr.open('POST', baseUrl + '/crossCopy');
             xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
@@ -1628,9 +1772,14 @@
                     setProgressBar($('#progressBarTotal'), 100);
                 }
                 $('#uploadMessage').text('复制完成！');
-                setTimeout(function () {
-                    $('#load').modal('hide');
-                }, 400);
+                if (typeof WebsshOperation !== 'undefined') {
+                    WebsshOperation.finish({
+                        id: copyOpId,
+                        ok: !!(res && res.status === 200),
+                        progress: 100,
+                        detail: '复制完成'
+                    });
+                }
                 if (!res || res.status !== 200) {
                     alert((res && res.message) || '跨服务器复制失败');
                     return;
@@ -1643,7 +1792,13 @@
                     reload();
                 }
             }, function (err) {
-                $('#load').modal('hide');
+                if (typeof WebsshOperation !== 'undefined') {
+                    WebsshOperation.finish({
+                        id: copyOpId,
+                        ok: false,
+                        detail: (err && err.message) || '跨服务器复制失败'
+                    });
+                }
                 alert((err && err.message) || '跨服务器复制失败');
             });
         }
@@ -2181,6 +2336,11 @@
         compressSelected: compressSelected,
         extractSelected: extractSelected
     };
+
+    w.showTaskOverlay = showTaskOverlay;
+    w.updateTaskOverlay = updateTaskOverlay;
+    w.finishTaskOverlay = finishTaskOverlay;
+    w.hideExtractOverlay = hideExtractOverlay;
 
     w.refreshSftpTree = function () {
         paintTreeDom();

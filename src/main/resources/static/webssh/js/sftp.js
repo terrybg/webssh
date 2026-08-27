@@ -16,9 +16,11 @@ var searchItems = [];
 var isSearchMode = false;
 var scanEnabled = false;
 var scanCache = { sizes: {}, isDir: {}, children: {} };
+var scanRoot = '';
 var scanSeq = 0;
 var scanPollTimer = null;
 var scanRunning = false;
+var scanPaused = false;
 var searchToken = 0;
 var searchTimer = null;
 var sortKey = 'name';
@@ -235,6 +237,133 @@ function syncScanButton() {
     } else {
         $label.text('磁盘空间扫描');
     }
+    var $rescan = $('#btnRescanSize');
+    if ($rescan.length) {
+        if (scanEnabled && !scanRunning) {
+            $rescan.removeAttr('hidden');
+        } else {
+            $rescan.attr('hidden', 'hidden');
+        }
+    }
+}
+
+function clearScanCache() {
+    scanCache = { sizes: {}, isDir: {}, children: {} };
+    scanSeq = 0;
+    if (pollScanStatus) {
+        pollScanStatus._lastIssue = null;
+    }
+}
+
+function restartSizeScan(path) {
+    path = path || $('#currentPath').val() || '/';
+    if (!scanEnabled) {
+        scanEnabled = true;
+        syncScanButton();
+        syncDiskPanel();
+    }
+    stopScanPoll();
+    scanRunning = false;
+    clearScanCache();
+    scanRoot = path;
+    startRecursiveScan(path, true);
+}
+
+function scanOperationId() {
+    return 'scan-' + String(currentTagId() || 'default');
+}
+
+function reportScanOp(action, extra) {
+    if (typeof WebsshOperation === 'undefined') {
+        return;
+    }
+    var base = {
+        id: scanOperationId(),
+        kind: 'scan',
+        title: '扫描目录大小',
+        cancelable: true,
+        reconnectable: true,
+        indeterminate: true,
+        cwd: scanRoot || (extra && extra.detail) || ($('#currentPath').val() || '/')
+    };
+    if (action === 'start') {
+        WebsshOperation.start(Object.assign(base, extra || {}));
+    } else if (action === 'update') {
+        WebsshOperation.update(Object.assign({ id: scanOperationId() }, extra || {}));
+    } else if (action === 'finish') {
+        WebsshOperation.finish(Object.assign({ id: scanOperationId(), ok: true, progress: 100 }, extra || {}));
+    } else if (action === 'fail') {
+        WebsshOperation.finish(Object.assign({ id: scanOperationId(), ok: false }, extra || {}));
+    } else if (action === 'remove') {
+        WebsshOperation.remove(scanOperationId());
+    }
+}
+
+function handleOperationFocus(data) {
+    data = data || {};
+    var path = data.cwd || '';
+    function goThen(cb) {
+        if (path) {
+            clearSearchUi(false);
+            renderFileList(String(path), function () {
+                if (typeof cb === 'function') {
+                    cb();
+                }
+            });
+        } else if (typeof cb === 'function') {
+            cb();
+        }
+    }
+    // Only disk-scan tasks restore scan UI, and only while still active.
+    if (data.kind === 'scan' || data.restoreScan) {
+        goThen(function () {
+            tryResumeScanOperation();
+        });
+        return;
+    }
+    goThen(null);
+}
+
+function tryResumeScanOperation() {
+    var tag = currentTagId();
+    if (!tag) {
+        return;
+    }
+    $.ajax({
+        url: baseUrl + '/du/status',
+        data: { tagId: tag, since: 0 },
+        method: 'GET',
+        timeout: 15000,
+        success: function (response) {
+            if (!response || response.status !== 200 || !response.result) {
+                return;
+            }
+            var info = response.result;
+            // Only auto-enter scan mode when THIS server still has an active scan.
+            // Finished/cancelled jobs must not turn on scan UI for every new file window.
+            if (!info.running && !info.paused) {
+                return;
+            }
+            scanEnabled = true;
+            scanPaused = !!info.paused;
+            scanRoot = info.root || $('#currentPath').val() || '/';
+            scanRunning = !!info.running && !scanPaused;
+            ingestScanEntries(info.entries || []);
+            syncScanButton();
+            syncDiskPanel();
+            applyScanToItems($('#currentPath').val() || '/');
+            paintFileView();
+            if (typeof window.refreshSftpTree === 'function') {
+                window.refreshSftpTree();
+            }
+            reportScanOp('start', {
+                detail: scanRoot,
+                state: scanPaused ? 'paused' : 'running'
+            });
+            updateScanProgress(info);
+            pollScanStatus();
+        }
+    });
 }
 
 function updateScanProgress(info) {
@@ -270,6 +399,7 @@ function updateScanProgress(info) {
         parts.push('已扫 ' + n + ' 个目录');
     }
     $('#scanProgressPath').text(parts.length ? parts.join('  ·  ') : '…');
+    reportScanOp('update', { detail: parts.join('  ·  ') || scanRoot || '' });
 }
 
 function stopScanPoll() {
@@ -297,8 +427,10 @@ function pollScanStatus() {
             ingestScanEntries(info.entries);
             if (info.cancelled) {
                 scanRunning = false;
+                scanPaused = false;
             } else {
-                scanRunning = !!info.running;
+                scanPaused = !!info.paused;
+                scanRunning = !!info.running && !scanPaused;
             }
             if (info.error && !info.running && typeof showSftpToast === 'function') {
                 showSftpToast(info.error);
@@ -318,12 +450,22 @@ function pollScanStatus() {
             }
             syncScanButton();
             updateScanProgress(info);
+            if (scanPaused) {
+                reportScanOp('update', { state: 'paused', detail: '已暂停 · ' + (info.currentPath || scanRoot || '') });
+                scanPollTimer = setTimeout(pollScanStatus, 1200);
+                return;
+            }
             if (info.more || info.running) {
                 scanPollTimer = setTimeout(pollScanStatus, info.more ? 120 : 400);
             } else {
                 scanRunning = false;
                 syncScanButton();
                 updateScanProgress(info);
+                if (info.error) {
+                    reportScanOp('fail', { detail: info.error });
+                } else {
+                    reportScanOp('finish', { detail: scanRoot || info.root || '' });
+                }
             }
         },
         error: function () {
@@ -335,15 +477,21 @@ function pollScanStatus() {
     });
 }
 
-function startRecursiveScan(path) {
+function startRecursiveScan(path, force) {
     path = path || $('#currentPath').val() || '/';
+    scanRoot = path;
     scanRunning = true;
     syncScanButton();
+    reportScanOp('start', { detail: path });
     updateScanProgress({ currentPath: path, dirsDone: 0 });
+    var payload = { path: path, tagId: currentTagId() };
+    if (force) {
+        payload.force = 'true';
+    }
     $.ajax({
         url: baseUrl + '/du/start',
         method: 'POST',
-        data: { path: path, tagId: currentTagId() },
+        data: payload,
         timeout: 15000,
         success: function (response) {
             if (!response || response.status !== 200) {
@@ -353,6 +501,7 @@ function startRecursiveScan(path) {
                 if (typeof showSftpToast === 'function') {
                     showSftpToast((response && response.message) ? response.message : '扫描失败');
                 }
+                reportScanOp('fail', { detail: (response && response.message) ? response.message : '扫描失败' });
                 return;
             }
             var info = response.result || {};
@@ -390,6 +539,7 @@ function stopSizeScan() {
     if (typeof showSftpToast === 'function') {
         showSftpToast('已停止扫描');
     }
+    reportScanOp('fail', { detail: '已停止扫描' });
 }
 
 function refreshDiskUsage() {
@@ -507,6 +657,7 @@ function toggleSizeScan() {
         if (typeof window.refreshSftpTree === 'function') {
             window.refreshSftpTree();
         }
+        reportScanOp('fail', { detail: '已关闭扫描' });
         return;
     }
     scanEnabled = true;
@@ -517,11 +668,16 @@ function toggleSizeScan() {
     if (typeof window.refreshSftpTree === 'function') {
         window.refreshSftpTree();
     }
+    var path = $('#currentPath').val() || '/';
     var hasData = Object.keys(scanCache.sizes).length > 0;
-    if (hasData) {
+    if (hasData && scanRoot === path) {
         return;
     }
-    startRecursiveScan($('#currentPath').val() || '/');
+    if (hasData) {
+        restartSizeScan(path);
+        return;
+    }
+    startRecursiveScan(path);
 }
 
 function fileTypeLabel(item) {
@@ -1406,6 +1562,9 @@ $(function () {
     $('#btnScanSize').on('click', function () {
         toggleSizeScan();
     });
+    $('#btnRescanSize').on('click', function () {
+        restartSizeScan($('#currentPath').val() || '/');
+    });
     $('#btnOpenTerminal').on('click', function () {
         openTerminalAtCurrentPath();
     });
@@ -1449,7 +1608,34 @@ $(function () {
                 }
             });
         }
+        if (data.type === 'webssh-operation-cancel') {
+            if (data.kind === 'scan' && data.tagId === currentTagId()) {
+                stopSizeScan();
+            }
+        }
+        if (data.type === 'webssh-operation-pause') {
+            if (data.kind === 'scan' && data.tagId === currentTagId()) {
+                scanPaused = true;
+                $.post(baseUrl + '/du/pause', { tagId: currentTagId() });
+                reportScanOp('update', { state: 'paused', detail: '已暂停' });
+            }
+        }
+        if (data.type === 'webssh-operation-resume') {
+            if (data.kind === 'scan' && data.tagId === currentTagId()) {
+                scanPaused = false;
+                $.post(baseUrl + '/du/resume', { tagId: currentTagId() });
+                reportScanOp('update', { state: 'running' });
+                if (scanEnabled) {
+                    pollScanStatus();
+                }
+            }
+        }
+        if (data.type === 'webssh-operation-focus') {
+            handleOperationFocus(data);
+        }
     });
+
+    tryResumeScanOperation();
 
     var contextFileName = null;
     var contextMenuKind = null;
@@ -2320,6 +2506,20 @@ function uploadFilesToPath(fileList, path, opts) {
         batchTotal += (f.size || 0);
     });
     var batchDone = 0;
+    var uploadOpId = 'upload-' + Date.now();
+    if (typeof WebsshOperation !== 'undefined') {
+        WebsshOperation.start({
+            id: uploadOpId,
+            kind: 'upload',
+            title: '上传 ' + files.length + ' 个文件',
+            detail: path,
+            cwd: path,
+            indeterminate: false,
+            progress: 0,
+            cancelable: false,
+            reconnectable: false
+        });
+    }
 
     function updateUi(fileIndex, fileName, phase, fileLoaded, fileTotal) {
         var n = files.length;
@@ -2356,6 +2556,13 @@ function uploadFilesToPath(fileList, path, opts) {
         } else {
             $bar.removeClass('bg-info');
         }
+        if (typeof WebsshOperation !== 'undefined') {
+            WebsshOperation.update({
+                id: uploadOpId,
+                progress: overallPct,
+                detail: phaseLabel + ' ' + fileName + ' · ' + formatByteSize(overallLoaded) + ' / ' + formatByteSize(batchTotal)
+            });
+        }
     }
 
     $('#load').modal({ keyboard: false });
@@ -2372,6 +2579,14 @@ function uploadFilesToPath(fileList, path, opts) {
 
     function finish(ok) {
         var hasUpload = uploadedNames.length > 0;
+        if (typeof WebsshOperation !== 'undefined') {
+            WebsshOperation.finish({
+                id: uploadOpId,
+                ok: ok && hasUpload,
+                progress: ok && hasUpload ? 100 : Math.round(batchTotal > 0 ? (batchDone / batchTotal) * 100 : 0),
+                detail: ok ? '上传完成' : '已放弃上传'
+            });
+        }
         if (!hasUpload) {
             $('#uploadMessage').text('已放弃上传');
             setTimeout(function () {

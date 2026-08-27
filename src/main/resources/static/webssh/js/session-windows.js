@@ -136,7 +136,7 @@
         }
         var sep = q.indexOf('?') >= 0 ? '&' : '?';
         if (kind === 'sftp') {
-            var url = 'sftp.html' + q + sep + 'folderWin=1&v=62';
+            var url = 'sftp.html' + q + sep + 'folderWin=1&v=64';
             if (tid) {
                 url += '&tagId=' + encodeURIComponent(tid);
             }
